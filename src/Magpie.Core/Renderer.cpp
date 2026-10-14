@@ -1,8 +1,12 @@
 #include "pch.h"
+#include "NvidiaVfxFrameGenerator.h"
+#include "EffectParameterLocalization.h"
+#include "NvidiaForegroundCompatibility.h"
 #include "DlssnrAutoHdr.h"
 #include "DLSSNRParameters.h"
 #include "RTXVideoParameters.h"
 #include "FrameTrace.h"
+#include "VRRPerformance.h"
 #include "FramePacingOptions.h"
 #include "FramePacingWait.h"
 #include "CommonSharedConstants.h"
@@ -15,6 +19,7 @@
 #include "EffectHelper.h"
 #include "EffectDrawer.h"
 #include "HdrComponentRuntime.h"
+#include "OverlayColor.h"
 #include "GroupAHdrRoutes.h"
 #include "GroupBHdrRoutes.h"
 #include "EffectProtocolCatalogC.h"
@@ -43,6 +48,9 @@
 #include "NvidiaOpticalFlowProvider.h"
 #include "AmdOpticalFlowProvider.h"
 #include "XeSSFGPresenter.h"
+#include "FSR3FGPresenter.h"
+#include "FSR3FGPolicy.h"
+#include "FrontendMotionTexture.h"
 #ifdef MP_USE_COMPSWAPCHAIN
 #include "CompSwapchainPresenter.h"
 #else
@@ -84,7 +92,7 @@ static HRESULT ReleasePresentationTextures(
 static FrameGuidanceRequirements CollectFrameGuidanceRequirements(
 	const std::vector<std::unique_ptr<NativeEffectBackend>>& backends,
 	const DLSSFrameGenerator* frameGenerator,
-	MotionVectorRequest xessRequest = {}
+	MotionVectorRequest proxyRequest = {}
 ) noexcept {
 	FrameGuidanceRequirements result;
 	for (const auto& backend : backends) {
@@ -93,9 +101,9 @@ static FrameGuidanceRequirements CollectFrameGuidanceRequirements(
 	if (frameGenerator) {
 		result.Merge(frameGenerator->GetFrameGuidanceRequirements());
 	}
-	if (xessRequest.method != OpticalFlowMethod::None) {
+	if (proxyRequest.method != OpticalFlowMethod::None) {
 		result.zero = true;
-		result.Add(xessRequest);
+		result.Add(proxyRequest);
 	}
 	return result.Resolved();
 }
@@ -120,8 +128,13 @@ static bool IsXeSSFrameGenerationEffect(std::string_view name) noexcept {
 		kind == FrameGenerationEffectKind::XeSSMultiFrame;
 }
 
+static bool IsProxyFrameGenerationEffect(std::string_view name) noexcept {
+	return IsXeSSFrameGenerationEffect(name) ||
+		ClassifyFrameGenerationEffect(name) == FrameGenerationEffectKind::FSR3;
+}
+
 static bool IsFrameGenerationEffect(std::string_view name) noexcept {
-	return IsDLSSFrameGenerationEffect(name) || IsXeSSFrameGenerationEffect(name);
+	return ClassifyFrameGenerationEffect(name) != FrameGenerationEffectKind::None;
 }
 
 static HdrFormatRoutes GetHdrRoutesForEffect(
@@ -159,10 +172,15 @@ static HdrFormatRoutes GetHdrRoutesForEffect(
 		return GetGroupBHdrRoutes(group);
 	}
 	if (group == "RTXVideo") {
-		return RTXVideoFamily(std::string_view(effect.name)) == 1
+		if (effect.name == "RTXVideo\\RTXVideo_HDR") return EffectProtocolC::RTXVideoHdr();
+		const int family = RTXVideoFamily(std::string_view(effect.name));
+		if (family < 0) return {};
+		return family == 1
 			? EffectProtocolC::RTXVideoVsr()
 			: EffectProtocolC::RTXVideoDenoiser();
 	}
+	if (effect.name == "NvidiaVFX\\Upscale") return EffectProtocolC::NvidiaVfxUpscale();
+	if (effect.name == NVIDIA_VFX_VFG_ID) return EffectProtocolC::FrameGenerationMarker("NvidiaVFX");
 	if (group == "DLSSFG" || group == "XeSSFG" || group == "FSR3FG") {
 		return EffectProtocolC::FrameGenerationMarker(group);
 	}
@@ -263,11 +281,28 @@ static double GetDisplayRefreshRate(HWND window) noexcept {
 }
 
 Renderer::Renderer() noexcept :
-	_sessionLifetime(std::make_shared<ScalingSessionLifetime>(ScalingWindow::RunId())) {}
+	_sessionLifetime(std::make_shared<ScalingSessionLifetime>(ScalingWindow::RunId())) {
+	_dlssNrRunId = ScalingWindow::RunId();
+	const auto& options = ScalingWindow::Get().Options();
+	std::vector<bool> enabled;
+	for (const auto& effect : options.effects) enabled.push_back(effect.name == "DLSSNR\\DLSSNR_AI_Filter");
+	_dlssNrSession = options.dlssNrSession;
+	_dlssNrStatusChanged = options.dlssNrStatusChanged;
+	_dlssNrSession->Begin(_dlssNrRunId, enabled);
+	_dlssNrStatuses = options.dlssNrSession->Read().effects;
+	if (options.dlssNrStatusChanged) options.dlssNrStatusChanged(_dlssNrRunId, UINT32_MAX, {});
+}
 
 void Renderer::BeginShutdown() noexcept {
 	_sessionLifetime->RequestStop();
-	_reflex.Stop();
+	if (_dlssNrSession->End(_dlssNrRunId) && _dlssNrStatusChanged)
+		_dlssNrStatusChanged(_dlssNrRunId, UINT32_MAX, {});
+	{
+		std::scoped_lock lock(_effectParameterMailboxMutex);
+		_effectParameterMailbox.clear();
+	}
+	if (_sceneScreenshotRequest && _sceneScreenshotRequest->state.load() == SceneScreenshotState::Pending)
+		_FailScreenshotRequest(_sceneScreenshotRequest, "Scaling session stopped before screenshot presentation", ERROR_CANCELLED);
 	// The backend can be waiting for a synchronous DLSSFG presentation while
 	// the frontend thread is destroying this Renderer. Stop issuing new
 	// synchronous sends before waiting for the backend thread to exit.
@@ -277,6 +312,10 @@ void Renderer::BeginShutdown() noexcept {
 
 Renderer::~Renderer() noexcept {
 	BeginShutdown();
+	// ScalingWindow retains us until the old output has completed destruction.
+	// Stop takes a configuration lock and calls the driver, so it is deliberately
+	// excluded from the pure cancellation entry used inside window callbacks.
+	_reflex.Stop();
 
 	_hKeyboardHook.reset();
 
@@ -294,9 +333,14 @@ Renderer::~Renderer() noexcept {
 			}
 		}
 
+		Logger::Get().Info(fmt::format("Backend join enter: run={} thread={}", ScalingWindow::RunId(), GetThreadId(hThread)));
+		const auto joinStarted = GetTickCount64();
 		_backendThread.join();
+		Logger::Get().Info(fmt::format("Backend join exit: run={} elapsedMs={}", ScalingWindow::RunId(), GetTickCount64() - joinStarted));
 	}
-	_ReleaseNgxConsumers();
+	// An initialization failure before a worker exists can still own consumers.
+	// Normally the backend scope already released them on their creating thread.
+	if (!_ReleaseNgxConsumers()) Logger::Get().Warn("Renderer fallback consumer cleanup completed after a failed drain");
 	if (_frameTraceStarted) FrameTrace::Stop();
 }
 
@@ -351,9 +395,11 @@ void Renderer::_EnsureGpuPriority(bool force) noexcept {
 
 ScalingError Renderer::Initialize(HWND hwndAttach, OverlayOptions& overlayOptions) noexcept {
 	_frameTraceStarted = FrameTrace::Start();
-	_xessMotionRequest = {};
+	_proxyMotionRequest = {};
 	_isXeSSFrameGenerationActive = false;
 	_xessFrameGenerationKind = FrameGenerationEffectKind::None;
+	_isFSR3FrameGenerationActive = false;
+	_presenterFailureReported = false;
 
 	const std::vector<EffectOption>& effects =
 		ScalingWindow::Get().Options().effects;
@@ -367,46 +413,73 @@ ScalingError Renderer::Initialize(HWND hwndAttach, OverlayOptions& overlayOption
 	}
 
 	_hasFrameGeneration = frameGeneration.HasFrameGeneration();
-	_frameSyncUsesSharedSlot = frameGeneration.first != FrameGenerationEffectKind::DLSS;
+	_isFSR3FrameGenerationActive = frameGeneration.first == FrameGenerationEffectKind::FSR3;
+	_configuredFrameGenerationMultiplier = 1;
+	_frameSyncUsesSharedSlot = frameGeneration.first != FrameGenerationEffectKind::DLSS &&
+		frameGeneration.first != FrameGenerationEffectKind::NvidiaVfx;
 	std::optional<XeSSFGVariant> xessVariant;
 	uint32_t xessFrameGenerationMultiplier = 2;
 	for (const EffectOption& effect : effects) {
 		const FrameGenerationEffectKind kind =
 			ClassifyFrameGenerationEffect(effect.name);
 		if (kind != FrameGenerationEffectKind::None) {
-			_configuredFrameGenerationMultiplier = kind == FrameGenerationEffectKind::XeSSX2 ? 2u :
-				static_cast<uint32_t>(ReadIntegralEffectParameter(effect, "multiplier", 2, 4,
+			_configuredFrameGenerationMultiplier = (kind == FrameGenerationEffectKind::XeSSX2 || kind == FrameGenerationEffectKind::FSR3) ? 2u :
+				static_cast<uint32_t>(ReadIntegralEffectParameter(effect, "multiplier", 2,
+					kind == FrameGenerationEffectKind::NvidiaVfx ? 8 : 4,
 					2));
 		}
 		if (kind != FrameGenerationEffectKind::XeSSX2 &&
-			kind != FrameGenerationEffectKind::XeSSMultiFrame) {
+			kind != FrameGenerationEffectKind::XeSSMultiFrame && kind != FrameGenerationEffectKind::FSR3) {
 			continue;
 		}
 
-		xessVariant = kind == FrameGenerationEffectKind::XeSSX2 ?
-			XeSSFGVariant::X2 : XeSSFGVariant::MultiFrame;
-		_xessFrameGenerationKind = kind;
-		xessFrameGenerationMultiplier = *xessVariant == XeSSFGVariant::X2 ? 2u :
-			static_cast<uint32_t>(ReadIntegralEffectParameter(
-				effect, "multiplier", 2, 4, 2));
+		if (kind != FrameGenerationEffectKind::FSR3) {
+			xessVariant = kind == FrameGenerationEffectKind::XeSSX2 ?
+				XeSSFGVariant::X2 : XeSSFGVariant::MultiFrame;
+			_xessFrameGenerationKind = kind;
+			xessFrameGenerationMultiplier = *xessVariant == XeSSFGVariant::X2 ? 2u :
+				static_cast<uint32_t>(ReadIntegralEffectParameter(
+					effect, "multiplier", 2, 4, 2));
+		}
 		const int method = ReadIntegralEffectParameter(
-			effect, "opticalFlowMethod", 0,
+			effect, "opticalFlowMethod", kind == FrameGenerationEffectKind::FSR3 ? 1 : 0,
 			2, 1);
 		if (method == static_cast<int>(OpticalFlowMethod::Amd)) {
 			const int quality = ReadIntegralEffectParameter(
 				effect, "amdOpticalFlowMode", 0, 1, 1);
-			_xessMotionRequest = MotionVectorRequest::Amd(
+			_proxyMotionRequest = MotionVectorRequest::Amd(
 				static_cast<AmdOpticalFlowMode>(quality));
 		} else if (method == static_cast<int>(OpticalFlowMethod::Nvidia)) {
 			const int quality = ReadIntegralEffectParameter(
 				effect, "nvidiaOpticalFlowQuality", 1, NVIDIA_OPTICAL_FLOW_MAX_QUALITY, 2);
-			_xessMotionRequest = MotionVectorRequest::Nvidia(
+			_proxyMotionRequest = MotionVectorRequest::Nvidia(
 				static_cast<NvidiaOpticalFlowQuality>(quality));
 		}
 	}
 	_isXeSSFrameGenerationActive = xessVariant.has_value();
+	if (_isFSR3FrameGenerationActive) {
+		const auto& options = ScalingWindow::Get().Options();
+		if (options.IsHdrCompatibilityEnabled() || std::ranges::any_of(effects, [](const auto& effect) {
+			return effect.name == "Color\\SDR_to_HDR" || effect.name == "Color\\HDR_to_SDR" ||
+				effect.name == "RTXVideo\\RTXVideo_HDR" || effect.name == "NvidiaVFX\\TrueHDR";
+		})) {
+			_backendInitContext = "FSR 3 FG currently supports SDR only. Remove HDR components and disable HDR compatibility.";
+			Logger::Get().Error(_backendInitContext);
+			return ScalingError::FSR3FGHdrUnsupported;
+		}
+		const auto incompatible = std::ranges::find_if(effects, [](const auto& effect) {
+			return !SupportsFSR3FGExternalMotion(effect.name);
+		});
+		if (incompatible != effects.end()) {
+			_backendInitContext = incompatible->name;
+			Logger::Get().Error("FSR3 FG incompatible rectangular effect chain: " + _backendInitContext);
+			return ScalingError::FSR3FGEffectChainUnsupported;
+		}
+	}
+
 
 	Logger::DiagnosticCapture frontendDiagnostic;
+	NvidiaForegroundCompatibility::Phase(ForegroundQueryPhase::Device);
 	if (!_frontendResources.Initialize(true)) {
 		Logger::Get().Error("初始化前端资源失败");
 		_backendInitContext = "Create output device\n" + frontendDiagnostic.Details();
@@ -416,19 +489,38 @@ ScalingError Renderer::Initialize(HWND hwndAttach, OverlayOptions& overlayOption
 
 	const DXGI_ADAPTER_DESC1 adapterDesc =
 		LogAdapter(_frontendResources.GetGraphicsAdapter());
+	ForegroundPresentationPath presentationPath = _isFSR3FrameGenerationActive ? ForegroundPresentationPath::FSR3Proxy : xessVariant ? ForegroundPresentationPath::XeSSProxy :
+		(frameGeneration.first == FrameGenerationEffectKind::DLSS || frameGeneration.first == FrameGenerationEffectKind::NvidiaVfx) ? ForegroundPresentationPath::DLSSFrontendDXGI :
+		ForegroundPresentationPath::OrdinaryDXGI;
+	if (!_HasProxyFrameGenerator() && ScalingWindow::Get().Options().IsDirectFlipDisabled())
+		presentationPath = ForegroundPresentationPath::Composition;
+#ifdef MP_USE_COMPSWAPCHAIN
+	if (!_HasProxyFrameGenerator()) presentationPath = ForegroundPresentationPath::Composition;
+#endif
+	NvidiaForegroundCompatibility::DeviceInitialized(adapterDesc.VendorId, adapterDesc.AdapterLuid.LowPart,
+		adapterDesc.AdapterLuid.HighPart, presentationPath, _configuredFrameGenerationMultiplier);
+	NvidiaForegroundCompatibility::Phase(ForegroundQueryPhase::SwapChain);
 
 	_EnsureGpuPriority(true);
 	_UpdateOverlayRefreshRate();
 
-	if (xessVariant) {
+	if (_isFSR3FrameGenerationActive) {
+		auto fsrPresenter = std::make_unique<FSR3FGPresenter>();
+		if (!fsrPresenter->Initialize(hwndAttach, _frontendResources)) {
+			_backendInitContext = "FSR 3 frame generation\n" + frontendDiagnostic.Details();
+			_backendInitSystemError = frontendDiagnostic.SystemError();
+			return ScalingError::PresentationInitFailed;
+		}
+		_presenter = std::move(fsrPresenter);
+	} else if (xessVariant) {
 		Logger::Get().Info(fmt::format(
 			"XeSSFG request: variant={}, requestedMultiplier={}x, "
 			"adapterVendor={:#x}, adapterDevice={:#x}, opticalFlowMethod={}, "
 			"opticalFlowQuality={}",
 			*xessVariant == XeSSFGVariant::X2 ? "x2" : "MFG",
 			xessFrameGenerationMultiplier, adapterDesc.VendorId,
-			adapterDesc.DeviceId, static_cast<uint32_t>(_xessMotionRequest.method),
-			static_cast<uint32_t>(_xessMotionRequest.quality)));
+			adapterDesc.DeviceId, static_cast<uint32_t>(_proxyMotionRequest.method),
+			static_cast<uint32_t>(_proxyMotionRequest.quality)));
 		// Both providers supply the same current-to-previous pixel-space motion
 		// contract. Provider/quality capabilities are checked by Frame Guidance;
 		// the number of interpolated frames does not change the input contract.
@@ -436,7 +528,7 @@ ScalingError Renderer::Initialize(HWND hwndAttach, OverlayOptions& overlayOption
 		auto xessPresenter = std::make_unique<XeSSFGPresenter>(
 			*xessVariant,
 			xessFrameGenerationMultiplier,
-			_xessMotionRequest.method != OpticalFlowMethod::None);
+			_proxyMotionRequest.method != OpticalFlowMethod::None);
 		if (!xessPresenter->Initialize(hwndAttach, _frontendResources)) {
 			Logger::Get().Error("初始化 XeSSFGPresenter 失败");
 			_backendInitContext = "XeSS frame generation\n" + frontendDiagnostic.Details();
@@ -478,9 +570,10 @@ ScalingError Renderer::Initialize(HWND hwndAttach, OverlayOptions& overlayOption
 	_frameSyncBackend = ResolveFrameSyncBackend(
 		{ pacingOptions.isFrontEdgeSyncEnabled, pacingOptions.frontEdgeSyncFrameRate, pacingOptions.frameSyncMode },
 		frameGeneration.first == FrameGenerationEffectKind::DLSS, _isXeSSFrameGenerationActive,
-		frontEdgeSupported, pacingOptions.IsBenchmarkMode());
+		frontEdgeSupported, pacingOptions.IsBenchmarkMode(), _isFSR3FrameGenerationActive);
 	_frameSyncEnabled = _frameSyncBackend != FrameSyncBackend::None;
-	if (_frameSyncEnabled || frameGeneration.first == FrameGenerationEffectKind::DLSS) {
+	if (_frameSyncEnabled || frameGeneration.first == FrameGenerationEffectKind::DLSS ||
+		frameGeneration.first == FrameGenerationEffectKind::NvidiaVfx) {
 		_frameSyncConsumedEvent.reset(CreateEventW(nullptr, FALSE, FALSE, nullptr));
 		if (!_frameSyncConsumedEvent) {
 			Logger::Get().Win32Error("Create frame pacing event failed");
@@ -531,7 +624,7 @@ ScalingError Renderer::Initialize(HWND hwndAttach, OverlayOptions& overlayOption
 		return ScalingError::SharedTextureOpenFailed;
 	}
 
-	_hasFrameGeneration = _dlssFrameGenerator != nullptr || _isXeSSFrameGenerationActive;
+	_hasFrameGeneration = _HasSoftwareFrameGenerator() || _HasProxyFrameGenerator();
 
 	_UpdateDestRect();
 
@@ -585,11 +678,19 @@ void Renderer::OnSourceFocusChanged() noexcept {
 				FrameGuidanceResetReason::CaptureInterrupted);
 		}
 		if (_dlssFrameGenerator) _dlssFrameGenerator->RequestHistoryReset();
+		if (_nvidiaVfxFrameGenerator) _nvidiaVfxFrameGenerator->RequestHistoryReset();
 	});
 }
 
 bool Renderer::MessageHandler(UINT msg, WPARAM wParam, LPARAM lParam) noexcept {
-	// WndProc only records ImGui input and marks the Overlay dirty. A true return
+	if (msg == WM_DISPLAYCHANGE && _presenter) _presenter->OutputEnvironmentChanged(true);
+	if ((msg == WM_DISPLAYCHANGE || msg == WM_SETTINGCHANGE) &&
+		ScalingWindow::Get().Options().IsHdrCompatibilityEnabled()) {
+		_overlayWhiteMonitor = nullptr;
+		++_overlayActionRevision;
+	}
+	// WndProc records ImGui input, marks the overlay dirty and invalidates cached
+	// display qualification; it does not enumerate outputs here. A true return
 	// value tells the outer message pump to end this batch after a queued
 	// button/wheel edge so down and up cannot be consumed by the same UI frame.
 	return _overlayDrawer.MessageHandler(msg, wParam, lParam);
@@ -638,6 +739,8 @@ winrt::fire_and_forget Renderer::TakeScreenshot(
 }
 
 bool Renderer::_OpenFrontendSharedTextures() noexcept {
+	if (_sceneScreenshotRequest && _sceneScreenshotRequest->state.load() == SceneScreenshotState::Pending)
+		_FailScreenshotRequest(_sceneScreenshotRequest, "Presentation resources rebuilt before screenshot", ERROR_CANCELLED);
 	// Backend rendering may already be running. Hold all publication slots
 	// while opening (or disabling) the optional reference branch.
 	std::scoped_lock slotLocks(_sharedTextureAccessMutexes[0], _sharedTextureAccessMutexes[1],
@@ -654,9 +757,13 @@ bool Renderer::_OpenFrontendSharedTextures() noexcept {
 	_frontendMotionTexture = nullptr;
 	_frontendMotionFrameId = 0;
 	_frontendMotionValid = false;
+	_frontendMotionAvailability = FrameGuidanceAvailability::Unavailable;
+	_presentationRate.Reset(_presenter->LastContentFrameCount().source);
+	_lastCountedRealFrameId = 0;
 	_frontendMotionReset = true;
 	_frontendBaseValid = false;
 	_frontendPresentedBaseValid = false;
+	_idlePresentationClock.Reset();
 	_frontendFrameMetadata = {};
 	_frontendPresentedFrameMetadata = {};
 	_frontendBaseNeedsPresent = false;
@@ -686,22 +793,22 @@ bool Renderer::_OpenFrontendSharedTextures() noexcept {
 			Logger::Get().Error("Get shared presentation texture keyed mutex failed");
 			return false;
 		}
-		if (_xessMotionRequest.method != OpticalFlowMethod::None) {
+		if (_proxyMotionRequest.method != OpticalFlowMethod::None) {
 			if (!_sharedMotionTextureHandles[i]) {
-				Logger::Get().Error("XeSSFG shared motion slot has no NT handle");
+				Logger::Get().Error("Proxy FG shared motion slot has no NT handle");
 				return false;
 			}
 			const HRESULT motionHr = _frontendResources.GetD3DDevice()->OpenSharedResource1(
 				_sharedMotionTextureHandles[i].get(),
 				IID_PPV_ARGS(_frontendSharedMotionTextures[i].put()));
 			if (FAILED(motionHr)) {
-				Logger::Get().ComError("Open XeSSFG shared motion texture failed", motionHr);
+				Logger::Get().ComError("Open Proxy FG shared motion texture failed", motionHr);
 				return false;
 			}
 			_frontendSharedMotionTextureMutexes[i] =
 				_frontendSharedMotionTextures[i].try_as<IDXGIKeyedMutex>();
 			if (!_frontendSharedMotionTextureMutexes[i]) {
-				Logger::Get().Error("Get XeSSFG shared motion keyed mutex failed");
+				Logger::Get().Error("Get Proxy FG shared motion keyed mutex failed");
 				return false;
 			}
 		}
@@ -833,11 +940,14 @@ Renderer::FrontendBaseResult Renderer::_UpdateFrontendBase(uint32_t sharedTextur
 				&baseDesc, nullptr, _frontendPresentedBaseTexture.put());
 		}
 		_frontendPresentedBaseValid = false;
+		_idlePresentationClock.Reset();
 	}
 	if (SUCCEEDED(hr)) {
 		_frontendResources.GetD3DDC()->CopyResource(_frontendBaseTexture.get(), source);
 		_frontendCaptureFrameId = _sharedTextureFrameIds[sharedTextureSlot].load(std::memory_order_acquire);
 		_frontendFrameMetadata = _sharedFrameMetadata[sharedTextureSlot];
+		_frontendMotionAvailability = _sharedMotionAvailability[sharedTextureSlot];
+		_frontendScreenshotFrame = std::move(_sharedScreenshotFrames[sharedTextureSlot]);
 		FrameTrace::SetFrame(_frontendCaptureFrameId);
 		traceBase.FrameId(_frontendCaptureFrameId);
 		if (!_passThroughFrames.Consume(sharedTextureSlot) && _isPassThroughActive) {
@@ -850,25 +960,8 @@ Renderer::FrontendBaseResult Renderer::_UpdateFrontendBase(uint32_t sharedTextur
 		}
 		if (ID3D11Texture2D* motionSource =
 			_frontendSharedMotionTextures[sharedTextureSlot].get()) {
-			D3D11_TEXTURE2D_DESC motionDesc{};
-			motionSource->GetDesc(&motionDesc);
-			bool recreateMotion = !_frontendMotionTexture;
-			if (_frontendMotionTexture) {
-				D3D11_TEXTURE2D_DESC stableDesc{};
-				_frontendMotionTexture->GetDesc(&stableDesc);
-				recreateMotion = stableDesc.Width != motionDesc.Width ||
-					stableDesc.Height != motionDesc.Height ||
-					stableDesc.Format != motionDesc.Format;
-			}
-			if (recreateMotion) {
-				motionDesc.Usage = D3D11_USAGE_DEFAULT;
-				motionDesc.BindFlags = 0;
-				motionDesc.CPUAccessFlags = 0;
-				motionDesc.MiscFlags = 0;
-				_frontendMotionTexture = nullptr;
-				hr = _frontendResources.GetD3DDevice()->CreateTexture2D(
-					&motionDesc, nullptr, _frontendMotionTexture.put());
-			}
+			hr = EnsureFrontendMotionTexture(_frontendResources.GetD3DDevice(),
+				motionSource, _isFSR3FrameGenerationActive, _frontendMotionTexture);
 			if (SUCCEEDED(hr)) {
 				_frontendResources.GetD3DDC()->CopyResource(
 					_frontendMotionTexture.get(), motionSource);
@@ -904,17 +997,22 @@ void Renderer::_CopySceneToTarget(ID3D11Texture2D* scene, ID3D11Texture2D* targe
 	auto context = _frontendResources.GetD3DDC();
 	const RECT& rendererRect = ScalingWindow::Get().RendererRect();
 	static constexpr FLOAT BLACK[4] = { 0.0f, 0.0f, 0.0f, 1.0f };
-	context->ClearRenderTargetView(rtv, BLACK);
 	D3D11_TEXTURE2D_DESC targetDesc{}, sceneDesc{};
 	target->GetDesc(&targetDesc);
 	scene->GetDesc(&sceneDesc);
 	if (targetDesc.Width == sceneDesc.Width && targetDesc.Height == sceneDesc.Height &&
 		drawOffset.x == 0 && drawOffset.y == 0) {
+		// CopyResource overwrites the entire target, including its alpha. Clearing
+		// it first only adds GPU work; partial copies still need the black border.
 		context->CopyResource(target, scene);
+		VRRPerformance::Record(VRRPerformance::Event::FullSceneCopy);
 	} else {
+		context->ClearRenderTargetView(rtv, BLACK);
+		VRRPerformance::Record(VRRPerformance::Event::TargetClear);
 		context->CopySubresourceRegion(target, 0,
 			drawOffset.x + _destRect.left - rendererRect.left,
 			drawOffset.y + _destRect.top - rendererRect.top, 0, scene, 0, nullptr);
+		VRRPerformance::Record(VRRPerformance::Event::RegionSceneCopy);
 	}
 }
 
@@ -923,8 +1021,10 @@ bool Renderer::_FrontendRender(
 	uint32_t sharedTextureSlot,
 	FrontendRenderTimings* timings,
 	bool stableBaseOnly,
-	bool* droppedFrame
+	bool* droppedFrame,
+	bool idleRedraw
 ) noexcept {
+	assert(!idleRedraw || stableBaseOnly);
 	if (droppedFrame) *droppedFrame = false;
 	if (_pendingFrontendFrame) return _SubmitFrontendFrame();
 	_frontendPacingDeadline.reset();
@@ -950,7 +1050,7 @@ bool Renderer::_FrontendRender(
 	} else if (!stableBaseOnly) {
 		_frontEdgeClock.Reset();
 	}
-	if (stableBaseOnly && !paced && !_CanRenderOverlay()) return false;
+	if (stableBaseOnly && !idleRedraw && !paced && !_CanRenderOverlay()) return false;
 	if (_frameSyncEnabled && _isXeSSFrameGenerationActive &&
 		!_presenter->SetBaseFrameRateLimit(_FrameSyncFrameRate())) {
 		if (!_frameSyncLimiterFailed) {
@@ -1003,22 +1103,33 @@ bool Renderer::_FrontendRender(
 		_destRect.bottom - rendererRect.top
 	};
 	const auto& sourceMetadata = stableBaseOnly ? _frontendPresentedFrameMetadata : _frontendFrameMetadata;
-	_presenter->SetSourceTiming(sourceMetadata.frameId,
-		sourceMetadata.captureSequence, sourceMetadata.resourceGeneration,
-		sourceMetadata.timestamp100ns);
-	_presenter->SetFrameGuidance(
-		_frontendMotionValid ? _frontendMotionTexture.get() : nullptr,
-		_frontendMotionFrameId,
-		_frontendMotionReset || !_frontendMotionValid,
-		guidanceDestination);
+	// A live parameter edit can publish new color for the same captured frame.
+	// Present it through the proxy's non-FG path and reset on the next input.
+	idleRedraw |= !stableBaseOnly && _HasProxyFrameGenerator() && sourceMetadata.contentRedraw;
+	if (!stableBaseOnly && !idleRedraw) {
+		_presenter->SetSourceTiming(sourceMetadata.frameId,
+			sourceMetadata.captureSequence, sourceMetadata.resourceGeneration,
+			sourceMetadata.timestamp100ns);
+		_presenter->SetCaptureAdmissionTime(sourceMetadata.captureAdmissionTime100ns);
+		_presenter->SetOutputHistoryRevision(sourceMetadata.outputHistoryRevision);
+		_presenter->SetFrameGuidanceAvailability(_frontendMotionAvailability);
+		_presenter->SetFrameGuidance(
+			_frontendMotionValid ? _frontendMotionTexture.get() : nullptr,
+			_frontendMotionFrameId,
+			_frontendMotionReset || !_frontendMotionValid,
+			guidanceDestination);
+	}
 	FrameTrace::Scope traceBegin(FrameTrace::Event::BeginFrame);
-	const bool reflexContent = !stableBaseOnly && _frontendBaseNeedsPresent;
+	const bool reflexContent = !stableBaseOnly && !idleRedraw && _frontendBaseNeedsPresent;
+	const uint32_t diagnosticReasons = reflexContent ? 0 : _FrontendDiagnosticReasons();
 	_presenter->SetReflexFrame(reflexContent ? _frontendReflexIds.first : 0,
 		reflexContent ? _frontendReflexIds.second : 0, _frontendFrameMetadata.generated);
-	const bool traceBegan = _presenter->BeginFrame(frameTex, frameRtv, drawOffset);
+	const bool traceBegan = idleRedraw ? _presenter->BeginIdleFrame(frameTex, frameRtv, drawOffset) :
+		_presenter->BeginFrame(frameTex, frameRtv, drawOffset);
 	traceBegin.Data(traceBegan);
 	traceBegin.End();
 	if (!traceBegan) {
+		_ReportPresenterFailure();
 		if (timings) {
 			timings->beginFrame = std::chrono::steady_clock::now() - beginFrameStart;
 			timings->capacityBusy = _presenter->WasFrameCapacityBusy();
@@ -1051,12 +1162,14 @@ bool Renderer::_FrontendRender(
 		// capacity and base-texture waits have already completed at this point.
 		// Drain samples only when drawing the overlay. Front Edge Sync retries
 		// above must leave them available for the frame that actually draws it.
-		_overlayDrawer.Draw(_stepTimer.FPS(), _effectsProfiler.GetTimings(), drawOffset);
-		if (!stableBaseOnly && _frontendBaseNeedsPresent) {
+		_DrawOverlay(frameTex.get(), sourceMetadata, drawOffset);
+		VRRPerformance::Record(VRRPerformance::Event::OverlayDraw);
+		if (!stableBaseOnly && !idleRedraw && _frontendBaseNeedsPresent) {
 			_cursorDrawer.ObserveContent({ sourceMetadata.frameId, sourceMetadata.captureSequence,
 				sourceMetadata.resourceGeneration }, sourceMetadata.generated);
 		}
 		_cursorDrawer.Draw(frameTex.get(), drawOffset);
+		VRRPerformance::Record(VRRPerformance::Event::CursorDraw);
 	}
 
 	traceDraw.End();
@@ -1064,20 +1177,35 @@ bool Renderer::_FrontendRender(
 	if (timings) {
 		timings->draw = endFrameStart - drawStart;
 	}
-	const bool contentFrame = !stableBaseOnly && _frontendBaseNeedsPresent;
+	const bool contentFrame = !stableBaseOnly && !idleRedraw && _frontendBaseNeedsPresent;
 	const bool generatedFrame = contentFrame &&
 		_sharedTextureContainsGeneratedFrame[sharedTextureSlot].load(std::memory_order_acquire);
 	_pendingFrontendFrame = PendingFrontendFrame{
 		.stableBaseOnly = stableBaseOnly, .contentFrame = contentFrame,
 		.generatedFrame = generatedFrame, .independentOverlay = uiInIndependentLayer,
-		.waitForGpu = waitForGpu, .paced = paced,
+		.waitForGpu = waitForGpu, .paced = paced, .idleRedraw = idleRedraw,
 		.overlayRevision = overlayActionRevision,
-		.contentKey = _lastAccessMutexKeys[sharedTextureSlot]
+		.contentKey = _lastAccessMutexKeys[sharedTextureSlot], .diagnosticReasons = diagnosticReasons
 	};
 	if (paced) _frontendResources.GetD3DDC()->Flush();
 	const bool submitted = _SubmitFrontendFrame();
 	if (timings) timings->endFrame = std::chrono::steady_clock::now() - endFrameStart;
 	return submitted;
+}
+
+void Renderer::_ReportPresenterFailure() noexcept {
+	if (!_presenter || !_presenter->HasFatalError() || _presenterFailureReported) return;
+	_presenterFailureReported = true;
+	PresenterFailure failure{ "Presentation stopped after a runtime error. See Magpie.log.", 0 };
+	if (const auto* detail = _presenter->GetFailure(); detail && !detail->context.empty()) failure = *detail;
+	// Copy diagnostics before dispatch; the presenter can be destroyed by Stop.
+	ScalingWindow::Dispatcher().TryEnqueue([session = _sessionLifetime, failure = std::move(failure)] {
+		auto& window = ScalingWindow::Get();
+		if (!session->IsCurrent(ScalingWindow::RunId()) || !window) return;
+		if (auto report = window.Options().reportErrorDetails) report(window.SrcTracker().Handle(),
+			ScalingError::PresentationInitFailed, failure.context, failure.code);
+		window.Stop();
+	});
 }
 
 bool Renderer::_SubmitFrontendFrame() noexcept {
@@ -1094,9 +1222,39 @@ bool Renderer::_SubmitFrontendFrame() noexcept {
 	}
 	_frontendPacingDeadline.reset();
 	const auto [stableBaseOnly, contentFrame, generatedFrame, uiInIndependentLayer,
-		waitForGpu, paced, overlayActionRevision, contentKey] = frame;
+		waitForGpu, paced, idleRedraw, overlayActionRevision, contentKey, diagnosticReasons] = frame;
 	const bool submitted = _presenter->EndFrame(waitForGpu);
+	if (!submitted) _ReportPresenterFailure();
 	_pendingFrontendFrame.reset();
+	if (submitted) {
+		if constexpr (NativeBackendTiming::Enabled) {
+			if (_nvidiaVfxFrameGenerator && contentFrame &&
+				(!_presenter->LastPresentedFrameCount() || *_presenter->LastPresentedFrameCount() > 0)) {
+				const auto now = NativeBackendTiming::Now();
+				std::scoped_lock lock(_vfxPresentTimingMutex);
+				++_vfxPresentedOutputs;
+				if (_vfxLastPresentTime != NativeBackendTiming::Clock::time_point{} &&
+					_vfxPresentSequence == _frontendFrameMetadata.captureSequence &&
+					_vfxPresentGeneration == _frontendFrameMetadata.resourceGeneration) {
+					const double interval = std::chrono::duration<double, std::milli>(now - _vfxLastPresentTime).count();
+					++_vfxPresentIntervals; _vfxPresentIntervalTotalMs += interval;
+					_vfxPresentIntervalMaxMs = std::max(_vfxPresentIntervalMaxMs, interval);
+				}
+				_vfxLastPresentTime = now;
+				_vfxPresentSequence = _frontendFrameMetadata.captureSequence;
+				_vfxPresentGeneration = _frontendFrameMetadata.resourceGeneration;
+			}
+		}
+		VRRPerformance::Record(contentFrame ? (generatedFrame ? VRRPerformance::Event::GeneratedSubmit :
+			VRRPerformance::Event::RealSubmit) : VRRPerformance::Event::AuxiliarySubmit);
+		if (!contentFrame) VRRPerformance::AuxiliaryReasons(diagnosticReasons);
+		if (const auto count = _presenter->LastPresentedFrameCount(); count) {
+			VRRPerformance::Record(VRRPerformance::Event::ReportedFrames, *count);
+			VRRPerformance::Record(VRRPerformance::Event::ReportedFrameSamples);
+		}
+	} else {
+		VRRPerformance::Record(VRRPerformance::Event::FailedSubmit);
+	}
 	if (submitted && contentFrame && ActiveFrameSyncBackend() == FrameSyncBackend::FrontEdge && !_hasFrameGeneration &&
 		_presenter->SupportsDeferredPresent() && !ScalingWindow::Get().IsResizingOrMoving()) {
 		_frontEdgeClock.SetInterval(std::chrono::duration_cast<std::chrono::nanoseconds>(
@@ -1107,21 +1265,50 @@ bool Renderer::_SubmitFrontendFrame() noexcept {
 	if (submitted) FrameTrace::Mark(contentFrame ? FrameTrace::Event::ContentSubmit :
 		FrameTrace::Event::OverlaySubmit, generatedFrame,
 		_presenter->LastPresentedFrameCount() ? int64_t(*_presenter->LastPresentedFrameCount()) : -1);
+	if (submitted && _hasFrameGeneration) {
+		_idlePresentationClock.Presented(std::chrono::steady_clock::now(), contentFrame);
+		if (idleRedraw) _presentationRate.RecordIdleSubmission();
+	}
 	if (submitted && contentFrame && _hasFrameGeneration && _frontendCaptureFrameId != 0 &&
 		(generatedFrame || _frontendCaptureFrameId != _lastCountedRealFrameId)) {
-		const auto count = _presenter->LastPresentedFrameCount();
-		_presentationRate.Record(count, !generatedFrame && (!count || *count > 0) ? 1u : 0u);
+		const auto sample = _presenter->LastContentFrameCount();
+		const auto count = sample.total;
+		_presentationRate.Record(count, !generatedFrame && (!count || *count > 0) ? 1u : 0u,
+			PresentationFrameRate::Clock::now(), sample.source);
 		if (!generatedFrame && (!count || *count > 0)) _lastCountedRealFrameId = _frontendCaptureFrameId;
 	}
+	bool overlayColorChanged = false;
 	if (submitted) {
 		if (!stableBaseOnly && _frontendPresentedBaseTexture) {
+			const bool hdrOutput = ScalingWindow::Get().Options().IsHdrCompatibilityEnabled();
+			overlayColorChanged = uiInIndependentLayer &&
+				ResolveOverlayWhiteScale(hdrOutput, DXGI_FORMAT_R16G16B16A16_FLOAT,
+					_frontendFrameMetadata, _overlayMonitorSdrWhiteNits) !=
+				ResolveOverlayWhiteScale(hdrOutput, DXGI_FORMAT_R16G16B16A16_FLOAT,
+					_frontendPresentedFrameMetadata, _overlayMonitorSdrWhiteNits);
 			d3dDC->CopyResource(
 				_frontendPresentedBaseTexture.get(), _frontendBaseTexture.get());
+			VRRPerformance::Record(VRRPerformance::Event::StableCopy);
 			_frontendPresentedBaseValid = true;
-			_frontendPresentedFrameMetadata = _frontendFrameMetadata;
 			_frontendPresentedFrameMetadata = _frontendFrameMetadata;
 			_frontendPresentedFrameMetadata.stage = HdrFrameStage::PresentedOutput;
 			_passThroughFrames.OnPresented();
+			// Only a successfully submitted real scene may complete an input pair.
+			if (_frontendScreenshotFrame && contentFrame &&
+				_frontendScreenshotFrame->Identity().Matches(
+					{ _frontendPresentedFrameMetadata.frameId,
+						_frontendPresentedFrameMetadata.captureSequence,
+						_frontendPresentedFrameMetadata.resourceGeneration },
+					_frontendPresentedFrameMetadata.generated)) {
+				winrt::com_ptr<ID3D11Device5> device;
+				device.copy_from(_frontendResources.GetD3DDevice());
+				winrt::com_ptr<ID3D11DeviceContext4> context;
+				context.copy_from(d3dDC);
+				_SaveSceneScreenshot(_frontendScreenshotFrame->request, std::move(device),
+					std::move(context), ScalingWindow::Dispatcher(), _frontendPresentedBaseTexture,
+					_frontendPresentedFrameMetadata, _frontendScreenshotFrame);
+				_frontendScreenshotFrame.reset();
+			}
 		}
 		if (!stableBaseOnly) _frontendBaseNeedsPresent = false;
 		if (!uiInIndependentLayer) {
@@ -1134,7 +1321,7 @@ bool Renderer::_SubmitFrontendFrame() noexcept {
 		_overlayDrawer.OnPresentFailed();
 		_cursorDrawer.OnPresent(false);
 	}
-	if (submitted && contentFrame && _frameSyncEnabled && _frameSyncUsesSharedSlot) {
+	if (submitted && !stableBaseOnly && _frameSyncEnabled && _frameSyncUsesSharedSlot) {
 		_frameSyncAcknowledgedKey.store(contentKey, std::memory_order_release);
 		SetEvent(_frameSyncConsumedEvent.get());
 	}
@@ -1144,13 +1331,32 @@ bool Renderer::_SubmitFrontendFrame() noexcept {
 			_frontendFrameMetadata.captureSequence, _frontendFrameMetadata.resourceGeneration },
 			_frontendFrameMetadata.generated);
 	}
+	// Keep color work pending even if BeginOverlayFrame cannot provide a target.
+	// The revision is acknowledged only by a successful independent UI commit.
+	if (overlayColorChanged) ++_overlayActionRevision;
 	if (submitted && uiInIndependentLayer &&
-		(_HasPendingOverlayAction() || _isPassThroughActive || _cursorDrawer.NeedRedraw() || _cursorDrawer.IsBackgroundDependent() ||
+		(overlayColorChanged || _HasPendingOverlayAction() || _isPassThroughActive || _cursorDrawer.NeedRedraw() || _cursorDrawer.IsBackgroundDependent() ||
 			_overlayDrawer.NeedRedraw(_stepTimer.FPS()))) {
-		_FrontendOverlayRender(_cursorDrawer.HasOriginalRefreshPending() ||
+		_FrontendOverlayRender(overlayColorChanged || _cursorDrawer.HasOriginalRefreshPending() ||
 			_isPassThroughActive || _cursorDrawer.IsBackgroundDependent());
 	}
 	return submitted;
+}
+
+void Renderer::_DrawOverlay(ID3D11Texture2D* target, const HdrFrameMetadata& frame, POINT drawOffset) noexcept {
+	const auto& window = ScalingWindow::Get();
+	const bool hdrOutput = window.Options().IsHdrCompatibilityEnabled();
+	D3D11_TEXTURE2D_DESC desc{};
+	if (hdrOutput) {
+		target->GetDesc(&desc);
+		const HMONITOR monitor = MonitorFromWindow(window.Handle(), MONITOR_DEFAULTTONEAREST);
+		if (!_overlayWhiteMonitor || _overlayWhiteMonitor != monitor) {
+			_overlayWhiteMonitor = monitor;
+			_overlayMonitorSdrWhiteNits = Win32Helper::GetMonitorSdrWhiteNits(monitor);
+		}
+	}
+	_overlayDrawer.Draw(_stepTimer.FPS(), _effectsProfiler.GetTimings(), drawOffset,
+		ResolveOverlayWhiteScale(hdrOutput, desc.Format, frame, _overlayMonitorSdrWhiteNits));
 }
 
 bool Renderer::_FrontendOverlayRender(bool contentChanged) noexcept {
@@ -1171,7 +1377,9 @@ bool Renderer::_FrontendOverlayRender(bool contentChanged) noexcept {
 	d3dDC->ClearState();
 	static constexpr FLOAT CLEAR_TRANSPARENT[4]{};
 	const uint64_t overlayActionRevision = _overlayActionRevision;
+	const uint32_t diagnosticReasons = _FrontendDiagnosticReasons();
 	d3dDC->ClearRenderTargetView(frameRtv.get(), CLEAR_TRANSPARENT);
+	VRRPerformance::Record(VRRPerformance::Event::TargetClear);
 	ID3D11Texture2D* cursorBackground =
 		_frontendPresentedBaseValid ? _frontendPresentedBaseTexture.get() : nullptr;
 	if (_isPassThroughActive) {
@@ -1183,10 +1391,14 @@ bool Renderer::_FrontendOverlayRender(bool contentChanged) noexcept {
 	ID3D11RenderTargetView* target = frameRtv.get();
 	d3dDC->OMSetRenderTargets(1, &target, nullptr);
 	// XeSS draws its UI in this independent layer, not in _FrontendRender.
-	_overlayDrawer.Draw(_stepTimer.FPS(), _effectsProfiler.GetTimings(), drawOffset);
+	_DrawOverlay(frameTex.get(), _frontendPresentedFrameMetadata, drawOffset);
+	VRRPerformance::Record(VRRPerformance::Event::OverlayDraw);
 	_cursorDrawer.Draw(frameTex.get(), drawOffset,
 		cursorBackground);
+	VRRPerformance::Record(VRRPerformance::Event::CursorDraw);
 	const bool submitted = _presenter->EndOverlayFrame();
+	VRRPerformance::Record(submitted ? VRRPerformance::Event::IndependentOverlaySubmit : VRRPerformance::Event::FailedSubmit);
+	if (submitted) VRRPerformance::AuxiliaryReasons(diagnosticReasons);
 	_cursorDrawer.OnPresent(submitted, true);
 	if (submitted) {
 		_overlayDrawer.OnPresentSucceeded();
@@ -1198,12 +1410,22 @@ bool Renderer::_FrontendOverlayRender(bool contentChanged) noexcept {
 	return submitted;
 }
 
+uint32_t Renderer::_FrontendDiagnosticReasons() noexcept {
+	if (!VRRPerformance::Enabled()) return 0;
+	// Non-exclusive causes, sampled before drawing drains the input queues.
+	return (_cursorDrawer.NeedRedraw() ? 1u : 0u) |
+		(_overlayDrawer.NeedRedraw(_stepTimer.FPS()) ? 2u : 0u) |
+		((_HasPendingOverlayAction() || _overlayDrawer.HasCriticalInput()) ? 4u : 0u) |
+		((_isPassThroughActive || _cursorDrawer.IsBackgroundDependent()) ? 8u : 0u);
+}
+
 bool Renderer::Render(bool force, bool waitForGpu) noexcept {
+	if (_presenter && _presenter->HasFatalError()) { _ReportPresenterFailure(); return false; }
 	if (_pendingFrontendFrame) return _SubmitFrontendFrame();
 	_frontendPacingDeadline.reset();
 	// In synchronous DLSSFG mode regular capture work remains owned by the FIFO.
 	// RenderOverlay uses the stable frontend copy and never consumes a ring slot.
-	if (_dlssFrameGenerator &&
+	if (_HasSoftwareFrameGenerator() &&
 		_synchronousFramePresentationEnabled.load(std::memory_order_acquire)) {
 		// Timed overlays must advance even when a static source produces no
 		// FIFO work. RenderOverlay only redraws the last presented stable image.
@@ -1222,12 +1444,25 @@ bool Renderer::Render(bool force, bool waitForGpu) noexcept {
 	FrameTrace::Mark(FrameTrace::Event::RenderDecision,
 		(force ? 1 : 0) | (hasNewBackendFrame ? 2 : 0) |
 		(_frontendBaseNeedsPresent ? 4 : 0) | (_isPassThroughActive ? 8 : 0));
+	// Comparison/forced UI refresh can mark the stable base as pending. Keep
+	// updating the independent overlay without resubmitting that source ID or
+	// leaving the pending flag stuck after FSR's duplicate-history guard.
+	if (_HasProxyFrameGenerator() && (_frontendBaseNeedsPresent || force) &&
+		!hasNewBackendFrame && _frontendPresentedBaseValid &&
+		_frontendFrameMetadata.frameId == _frontendPresentedFrameMetadata.frameId &&
+		_frontendFrameMetadata.captureSequence == _frontendPresentedFrameMetadata.captureSequence &&
+		_frontendFrameMetadata.resourceGeneration == _frontendPresentedFrameMetadata.resourceGeneration &&
+		_frontendFrameMetadata.outputHistoryRevision == _frontendPresentedFrameMetadata.outputHistoryRevision) {
+		_frontendBaseNeedsPresent = false;
+		return _TryIdleRedraw() || _FrontendOverlayRender();
+	}
+	if (_hasFrameGeneration && !hasNewBackendFrame && !_frontendBaseNeedsPresent && _TryIdleRedraw()) return true;
 	if (!force && !hasNewBackendFrame && !_frontendBaseNeedsPresent) {
 		if (_lastAccessMutexKeys[sharedTextureSlot] == 0) {
 			// 第一帧尚未完成
 			return false;
 		}
-		if (_isXeSSFrameGenerationActive) {
+		if (_HasProxyFrameGenerator()) {
 			return (_HasPendingOverlayAction() || _cursorDrawer.NeedRedraw() ||
 				_overlayDrawer.NeedRedraw(_stepTimer.FPS())) &&
 				_FrontendOverlayRender();
@@ -1239,6 +1474,8 @@ bool Renderer::Render(bool force, bool waitForGpu) noexcept {
 		}
 	}
 
+	if (_HasProxyFrameGenerator() && !hasNewBackendFrame && !_frontendBaseNeedsPresent)
+		return _FrontendOverlayRender();
 	return _FrontendRender(waitForGpu, sharedTextureSlot,
 		nullptr, !hasNewBackendFrame && !_frontendBaseNeedsPresent);
 }
@@ -1246,7 +1483,7 @@ bool Renderer::Render(bool force, bool waitForGpu) noexcept {
 bool Renderer::RenderOverlay() noexcept {
 	// For regular/XeSS rendering, consume available content first. An input
 	// message must not insert a replay of the old image ahead of the new one.
-	if (!_dlssFrameGenerator ||
+	if (!_HasSoftwareFrameGenerator() ||
 		!_synchronousFramePresentationEnabled.load(std::memory_order_acquire)) {
 		return Render();
 	}
@@ -1254,11 +1491,12 @@ bool Renderer::RenderOverlay() noexcept {
 	// presentation opportunity replaying an old frame while FIFO content waits.
 	// The next FIFO frame draws/acknowledges the same queued input. The atomic
 	// count also covers frame notifications not yet dispatched by the UI thread.
-	if (_dlssFrameGenerator &&
+	if (_HasSoftwareFrameGenerator() &&
 		_synchronousFramePresentationEnabled.load(std::memory_order_acquire) &&
 		_pendingDLSSFGFrontendFrames.load(std::memory_order_acquire) != 0) {
 		return false;
 	}
+	if (_TryIdleRedraw()) return true;
 	if (!_HasPendingOverlayAction() && !_overlayDrawer.NeedRedraw(_stepTimer.FPS()) && !_cursorDrawer.NeedRedraw()) {
 		return false;
 	}
@@ -1272,6 +1510,14 @@ bool Renderer::RenderOverlay() noexcept {
 		std::numeric_limits<uint32_t>::max(), nullptr, true);
 }
 
+bool Renderer::_TryIdleRedraw() noexcept {
+	_idlePresentationClock.SetRate(_idleRedrawRate.load(std::memory_order_acquire));
+	const auto remaining = TimeUntilIdleRedraw();
+	if (!remaining || *remaining > std::chrono::nanoseconds::zero()) return false;
+	_idlePresentationClock.Attempted(std::chrono::steady_clock::now());
+	return _FrontendRender(false, std::numeric_limits<uint32_t>::max(), nullptr, true, nullptr, true);
+}
+
 bool Renderer::HasPendingOverlayInput() const noexcept {
 	return _overlayDrawer.HasPendingInput();
 }
@@ -1282,7 +1528,7 @@ bool Renderer::HasUrgentOverlayInput() const noexcept {
 
 bool Renderer::HasPendingContent() const noexcept {
 	if (_pendingFrontendFrame || _frontendPacingDeadline) return true;
-	if (_dlssFrameGenerator &&
+	if (_HasSoftwareFrameGenerator() &&
 		_synchronousFramePresentationEnabled.load(std::memory_order_acquire)) {
 		return _pendingDLSSFGFrontendFrames.load(std::memory_order_acquire) != 0;
 	}
@@ -1332,7 +1578,20 @@ double Renderer::_FrameSyncFrameRate() const noexcept {
 		_presentationRefreshRate.load(std::memory_order_acquire), _configuredFrameGenerationMultiplier);
 }
 
+std::optional<std::chrono::nanoseconds> Renderer::TimeUntilIdleRedraw() const noexcept {
+	if (!_hasFrameGeneration || !_presenter || !_frontendPresentedBaseValid || HasPendingContent() ||
+		_backendContentInFlight.load(std::memory_order_acquire) || !_captureAllowsIdle.load(std::memory_order_acquire) ||
+		_sessionLifetime->IsStopping() || ScalingWindow::Get().IsResizingOrMoving() || _presenter->HasFatalError())
+		return std::nullopt;
+	const auto remaining = _idlePresentationClock.Remaining(std::chrono::steady_clock::now());
+	return remaining ? std::optional(std::chrono::duration_cast<std::chrono::nanoseconds>(*remaining)) : std::nullopt;
+}
+
 void Renderer::WaitForFrontendWork(std::chrono::nanoseconds maximumWait) noexcept {
+	if (const auto idleWait = TimeUntilIdleRedraw(); idleWait && !HasPendingContent()) {
+		WaitForFramePacing(std::min(maximumWait, *idleWait), _frontendPacingTimer);
+		return;
+	}
 	if (_frontendPacingDeadline) {
 		const auto remaining = *_frontendPacingDeadline - std::chrono::steady_clock::now();
 		if (remaining <= std::chrono::nanoseconds::zero()) return;
@@ -1341,7 +1600,7 @@ void Renderer::WaitForFrontendWork(std::chrono::nanoseconds maximumWait) noexcep
 	} else {
 		const DWORD ms = static_cast<DWORD>(std::max<int64_t>(0,
 			(maximumWait.count() + 999'999) / 1'000'000));
-		if (!_presenter->WaitForFrameCapacity(ms)) {
+		if ((_hasFrameGeneration && !HasPendingContent()) || !_presenter->WaitForFrameCapacity(ms)) {
 			MsgWaitForMultipleObjectsEx(0, nullptr, ms, QS_ALLINPUT, MWMO_INPUTAVAILABLE);
 		}
 	}
@@ -1595,6 +1854,7 @@ void Renderer::OnEndResize() noexcept {
 }
 
 void Renderer::OnMove() noexcept {
+	_presenter->OutputEnvironmentChanged();
 	_cursorDrawer.ResetVisual();
 	_UpdateOverlayRefreshRate();
 	_UpdateDestRect();
@@ -1705,17 +1965,10 @@ bool Renderer::_InitFrameSource() noexcept {
 
 	Logger::Get().Info(StrHelper::Concat("当前捕获模式: ", _frameSource->Name()));
 
-	for (const EffectOption& effect : ScalingWindow::Get().Options().effects) {
-		if (!IsFrameGenerationEffect(effect.name)) continue;
-		// Preserve the previous FG behavior for configurations without this option.
-		const bool enabled = ReadIntegralEffectParameter(
-			effect, "duplicateFrameFiltering", 0, 1, 1) != 0;
-		_frameSource->DuplicateFrameDetectionOverride(enabled);
-		Logger::Get().Info(fmt::format(
-			"Frame Generation: exact duplicate-frame filtering {} for captured input",
-			enabled ? "enabled" : "disabled"));
-		break;
-	}
+	Logger::Get().Info(fmt::format(
+		"Capture duplicate detection: common refresh settings, mode={}, 3D={}",
+		static_cast<uint32_t>(ScalingWindow::Get().Options().duplicateFrameDetectionMode),
+		ScalingWindow::Get().Options().Is3DGameMode()));
 
 	Logger::DiagnosticCapture captureDiagnostic;
 	if (!_frameSource->Initialize(_backendResources, _backendDescriptorStore)) {
@@ -1814,6 +2067,13 @@ ID3D11Texture2D* Renderer::_BuildEffects() noexcept {
 	const std::vector<EffectOption>& effects = _runtimeEffectOptions;
 	assert(!effects.empty());
 	const uint32_t effectCount = (uint32_t)effects.size();
+	_vfxExecutionPlan = PlanNvidiaVfxExecution(effects, _runtimeHdrComponents);
+	if (_vfxExecutionPlan.error != NvidiaVfxPlanError::None) {
+		_backendInitError = ScalingError::FrameGenerationInitFailed;
+		_backendInitContext = fmt::format("Nvidia VFX VFG plan error={} at effect #{}. VFG requires SDR input and supports only TrueHDR/Bicubic/Bilinear/CAS/RCAS after its boundary.",
+			int(_vfxExecutionPlan.error), _vfxExecutionPlan.errorIndex + 1);
+		return nullptr;
+	}
 
 	// 并行编译所有效果
 	_effectDescs.resize(effects.size());
@@ -1860,7 +2120,10 @@ ID3D11Texture2D* Renderer::_BuildEffects() noexcept {
 		Logger::Get().Info(fmt::format("编译着色器总计用时 {} 毫秒", duration / 1000.0f));
 	}
 
-	_ReleaseNgxConsumers();
+	if (!_ReleaseNgxConsumers()) {
+		_backendInitError = ScalingError::EffectResourceFailed;
+		return nullptr;
+	}
 	_effectDrawers.resize(effectCount);
 	_nativeEffectBackends.resize(effectCount);
 	_dlssFgConsecutiveFailures = 0;
@@ -1876,6 +2139,14 @@ ID3D11Texture2D* Renderer::_BuildEffects() noexcept {
 	HdrFrame initialHdrFrame = MakePipelineInputFrame(inOutTexture,
 		_frameSource->GetHdrFrameMetadata(), options.IsHdrCaptureEnabled());
 	for (uint32_t i = 0; i < effectCount; ++i) {
+		if (_vfxExecutionPlan.enabled && i == _vfxExecutionPlan.postStart) {
+			_vfxSourceTexture.copy_from(inOutTexture);
+			D3D11_TEXTURE2D_DESC td{}; inOutTexture->GetDesc(&td);
+			_vfxPostInput = DirectXHelper::CreateTexture2D(_backendResources.GetD3DDevice(), td.Format, td.Width, td.Height,
+				D3D11_BIND_SHADER_RESOURCE);
+			if (!_vfxPostInput) return nullptr;
+			inOutTexture = _vfxPostInput.get();
+		}
 		const bool component = ClassifyHdrComponent(effects[i].name) != HdrComponentKind::None;
 		const bool hdrInput = options.IsEffectHdrEnabled(i) && !component;
 		HdrEffectBoundaryContext initialHdrBoundary{};
@@ -1906,6 +2177,11 @@ ID3D11Texture2D* Renderer::_BuildEffects() noexcept {
 			_ngxD3D12Core,
 			_effectDrawers[i].GetTexture(0),
 			_effectDrawers[i].GetOutputTexture(), hdrInput);
+		if (effects[i].name == "DLSSNR\\DLSSNR_AI_Filter") {
+			_dlssNrStatuses[i].environment = nativeBackend.dlssNrEnvironment;
+			if (!nativeBackend.backend) _SetDlssNrStatus(i,
+				nativeBackend.recognized ? DlssNrState::Stopped : DlssNrState::Skipped, nativeBackend.dlssNrFailure);
+		}
 		if (nativeBackend.recognized && !nativeBackend.backend) {
 			_backendInitError = nativeBackend.error == ScalingError::NoError
 				? ScalingError::NativeEffectInitFailed : nativeBackend.error;
@@ -1920,12 +2196,7 @@ ID3D11Texture2D* Renderer::_BuildEffects() noexcept {
 			ConfigureHdrBackendProtocol(effects[i].name, *_nativeEffectBackends[i],
 				initialHdrFrame.metadata, true);
 		}
-		if (effects[i].name == "DLSSNR\\DLSSNR_AI_Filter" && !_nativeEffectBackends[i] &&
-			options.reportErrorDetails) {
-			options.reportErrorDetails(ScalingWindow::Get().SrcTracker().Handle(),
-				ScalingError::DlssNrUnavailable, effects[i].name + "\n" + nativeBackend.diagnostic,
-				nativeBackend.systemError);
-		}
+
 
 		ApplyHdrComponentOutputColor(initialHdrFrame.metadata, _runtimeHdrComponents, i);
 		initialHdrFrame = MakePipelineInputFrame(inOutTexture, initialHdrFrame.metadata,
@@ -1969,9 +2240,18 @@ ID3D11Texture2D* Renderer::_BuildEffects() noexcept {
 			inOutTexture, *dlssFrameGenerationSettings)) {
 		return nullptr;
 	}
+	if (_vfxExecutionPlan.enabled) {
+		if (_vfxExecutionPlan.postStart == effectCount) {
+			// Without TrueHDR, final layout/scaling remains in the SDR pre-stage.
+			_vfxExecutionPlan.postStart = _effectDrawers.size();
+			_vfxSourceTexture.copy_from(inOutTexture);
+		}
+		if (!_InitializeNvidiaVfxFrameGenerator()) return nullptr;
+	}
 
 	_UpdateActiveEffectDescs();
 	_UpdateHdrEffectBoundaryContexts();
+	_UpdateNvidiaVfxDescriptions();
 	_effectFrameStates.assign(_effectDrawers.size(), {});
 
 	// 初始化所有效果共用的动态常量缓冲区
@@ -2029,6 +2309,19 @@ void Renderer::_UpdateHdrEffectBoundaryContexts() noexcept {
 	_pipelineOutputMetadata = inputFrame.metadata;
 }
 
+void Renderer::_SetDlssNrStatus(uint32_t index, DlssNrState state, DlssNrFailure failure) noexcept {
+	if (index >= _dlssNrStatuses.size()) return;
+	auto& status = _dlssNrStatuses[index];
+	const bool restart = NgxRuntimeGuard::IsFaulted();
+	if (state == DlssNrState::Skipped && restart) state = DlssNrState::Stopped;
+	if (status.state == state && status.failure == failure && status.restartRequired == restart) return;
+	status.state = state;
+	status.failure = std::move(failure);
+	status.restartRequired = restart;
+	if (_dlssNrSession->Update(_dlssNrRunId, index, status) && _dlssNrStatusChanged)
+		_dlssNrStatusChanged(_dlssNrRunId, index, status);
+}
+
 void Renderer::_BuildEffectParameterRuntimeInfos() noexcept {
 	_effectParameterRuntimeInfos.clear();
 	_effectParameterRuntimeInfos.resize(_effectDescs.size());
@@ -2050,10 +2343,10 @@ void Renderer::_BuildEffectParameterRuntimeInfos() noexcept {
 				const auto& plan = ScalingWindow::Get().Options().hdrComponents;
 				const bool pairedParameter = parameter.name != "mode" && plan.enabled &&
 					plan.stages[effectIdx].pairIndex != static_cast<size_t>(-1);
-				info.applyMode = pairedParameter ? EffectParameterApplyMode::Unavailable : EffectParameterApplyMode::RestartRequired;
+				info.applyMode = pairedParameter ? EffectParameterApplyMode::Restricted : EffectParameterApplyMode::RestartRequired;
 				info.restartReason = pairedParameter ? EffectParameterRestartReason::None : EffectParameterRestartReason::ResourceRecreation;
 			} else if (!hdrEnabled && isHdrOnlyParameter) {
-				info.applyMode = EffectParameterApplyMode::Unavailable;
+				info.applyMode = EffectParameterApplyMode::Restricted;
 				info.restartReason = EffectParameterRestartReason::None;
 			} else if (isHdrOnlyParameter) {
 				info.applyMode = EffectParameterApplyMode::RestartRequired;
@@ -2065,7 +2358,10 @@ void Renderer::_BuildEffectParameterRuntimeInfos() noexcept {
 				info.restartReason = IsOpticalFlowParameter(parameter.name)
 					? EffectParameterRestartReason::FrameGuidance
 					: EffectParameterRestartReason::FrameGeneration;
-			} else if (IsXeSSFrameGenerationEffect(option.name)) {
+			} else if (option.name == NVIDIA_VFX_VFG_ID) {
+				info.applyMode = parameter.name == "model" ? EffectParameterApplyMode::Live : EffectParameterApplyMode::RestartRequired;
+				info.restartReason = info.applyMode == EffectParameterApplyMode::Live ? EffectParameterRestartReason::None : EffectParameterRestartReason::FrameGeneration;
+			} else if (IsProxyFrameGenerationEffect(option.name)) {
 				info.restartReason = EffectParameterRestartReason::FrameGeneration;
 			} else if (_nativeEffectBackends[effectIdx]) {
 				const NativeEffectBackend& backend = *_nativeEffectBackends[effectIdx];
@@ -2095,11 +2391,13 @@ bool Renderer::QueueEffectParameterUpdate(
 	bool waitForOverlaySave
 ) noexcept {
 	(void)waitForOverlaySave;
-	if (!std::isfinite(value) || !_backendThreadDispatcher ||
+	if (_sessionLifetime->IsStopping() || !std::isfinite(value) || !_backendThreadDispatcher ||
 		effectIdx >= _effectParameterRuntimeInfos.size() ||
 		parameterIdx >= _effectParameterRuntimeInfos[effectIdx].size()) {
 		return false;
 	}
+	const auto nr = ScalingWindow::Get().Options().dlssNrSession->Read();
+	if (effectIdx < nr.effects.size() && nr.effects[effectIdx].Failed()) return false;
 	const EffectParameterRuntimeInfo& info =
 		_effectParameterRuntimeInfos[effectIdx][parameterIdx];
 	if (info.applyMode != EffectParameterApplyMode::Live) {
@@ -2109,6 +2407,7 @@ bool Renderer::QueueEffectParameterUpdate(
 	bool enqueueWake = false;
 	{
 		std::scoped_lock lock(_effectParameterMailboxMutex);
+		if (_sessionLifetime->IsStopping()) return false;
 		_effectParameterMailbox[key] = PendingEffectParameterUpdate{
 			.effectIdx = effectIdx,
 			.parameterIdx = parameterIdx,
@@ -2125,6 +2424,7 @@ bool Renderer::QueueEffectParameterUpdate(
 	}
 
 	if (_backendThreadDispatcher.TryEnqueue([this]() {
+		if (_sessionLifetime->IsStopping()) return;
 		std::unordered_map<uint64_t, PendingEffectParameterUpdate> updates;
 		{
 			std::scoped_lock lock(_effectParameterMailboxMutex);
@@ -2155,7 +2455,7 @@ bool Renderer::QueueEffectParameterUpdate(
 void Renderer::_ApplyPendingEffectParameters() noexcept {
 	std::vector<PendingEffectParameterUpdate> updates;
 	updates.swap(_pendingEffectParameterUpdates);
-	if (updates.empty()) {
+	if (_sessionLifetime->IsStopping() || updates.empty()) {
 		return;
 	}
 
@@ -2169,6 +2469,8 @@ void Renderer::_ApplyPendingEffectParameters() noexcept {
 
 	bool anySucceeded = false;
 	for (uint32_t effectIdx = 0; effectIdx < byEffect.size(); ++effectIdx) {
+		if (_sessionLifetime->IsStopping()) return;
+		const bool nrFailed = effectIdx < _dlssNrStatuses.size() && _dlssNrStatuses[effectIdx].Failed();
 		std::vector<PendingEffectParameterUpdate>& effectUpdates = byEffect[effectIdx];
 		if (effectUpdates.empty()) {
 			continue;
@@ -2177,7 +2479,7 @@ void Renderer::_ApplyPendingEffectParameters() noexcept {
 		EffectOption candidate = _runtimeEffectOptions[effectIdx];
 		std::vector<std::string> changedNames;
 		changedNames.reserve(effectUpdates.size());
-		bool valid = effectIdx < _effectDescs.size() &&
+		bool valid = !nrFailed && effectIdx < _effectDescs.size() &&
 			effectIdx < _effectParameterRuntimeInfos.size();
 		for (PendingEffectParameterUpdate& update : effectUpdates) {
 			if (!valid || update.parameterIdx >= _effectDescs[effectIdx].params.size() ||
@@ -2206,12 +2508,19 @@ void Renderer::_ApplyPendingEffectParameters() noexcept {
 			_runtimeEffectOptions[effectIdx] = std::move(candidate);
 			_UpdateFrameRateLimits();
 			succeeded = true;
+		} else if (valid && candidate.name == NVIDIA_VFX_VFG_ID && _nvidiaVfxFrameGenerator && changedNames.size() == 1 && changedNames.front() == "model") {
+			const float model = candidate.parameters.at("model");
+			succeeded = NvidiaVfxVfgModelValid(model) &&
+				_nvidiaVfxFrameGenerator->ApplyModel(_backendResources, _vfxSourceTexture.get(), uint32_t(model));
+			if (succeeded) {
+				_runtimeEffectOptions[effectIdx] = std::move(candidate);
+				_vfxExecutionPlan.settings = _nvidiaVfxFrameGenerator->Settings();
+			}
 		} else if (valid && _nativeEffectBackends[effectIdx]) {
 			ScalingWindow::Get().Options().parameterSession->Applying(true);
 			succeeded = _nativeEffectBackends[effectIdx]->ApplyParameters(
 				candidate, changedNames);
-			ScalingWindow::Get().Options().parameterSession->Applying(false,
-				!succeeded && RTXVideoFamily(std::string_view(candidate.name)) >= 0);
+			ScalingWindow::Get().Options().parameterSession->Applying(false, !succeeded);
 			if (succeeded) {
 				_runtimeEffectOptions[effectIdx] = std::move(candidate);
 			}
@@ -2229,19 +2538,20 @@ void Renderer::_ApplyPendingEffectParameters() noexcept {
 				"Live effect parameter update rejected: effect#{} ({})",
 				effectIdx, _runtimeEffectOptions[effectIdx].name));
 			const auto& options = ScalingWindow::Get().Options();
-			if (RTXVideoFamily(std::string_view(_runtimeEffectOptions[effectIdx].name)) >= 0) {
+			if (_nativeEffectBackends[effectIdx] || _runtimeEffectOptions[effectIdx].name == NVIDIA_VFX_VFG_ID) {
 				for (const auto& update : effectUpdates) {
 					if (effectIdx >= _effectDescs.size() || update.parameterIdx >= _effectDescs[effectIdx].params.size()) continue;
 					const auto& parameter = _effectDescs[effectIdx].params[update.parameterIdx];
 					const auto& previousOption = _runtimeEffectOptions[effectIdx];
 					const auto old = previousOption.parameters.find(parameter.name);
-					const float previous = old == previousOption.parameters.end() ? float(RTX_VIDEO_DEFAULT_STRENGTH) : old->second;
+					const float fallback = parameter.constant.index() == 0 ? std::get<0>(parameter.constant).defaultValue : float(std::get<1>(parameter.constant).defaultValue);
+					const float previous = old == previousOption.parameters.end() ? fallback : old->second;
 					options.parameterSession->RevertDesired(effectIdx, parameter.name, update.value, previous);
 					if (options.revertEffectParameter) options.revertEffectParameter(
 						effectIdx, previousOption, parameter.name, update.value, previous);
 				}
 			}
-			if (options.reportErrorDetails) {
+			if (options.reportErrorDetails && !nrFailed) {
 				std::string context = _runtimeEffectOptions[effectIdx].name;
 				for (const auto& name : changedNames) context += " / " + name;
 				options.reportErrorDetails(ScalingWindow::Get().SrcTracker().Handle(),
@@ -2263,13 +2573,17 @@ void Renderer::_ApplyPendingEffectParameters() noexcept {
 					return DLSSNRParameterPass(name) <= activePasses;
 				});
 			}
-			if (changesOutput) _effectFrameStates[effectIdx].ParametersChanged();
+			if (changesOutput) {
+				_effectFrameStates[effectIdx].ParametersChanged();
+				++_vfxParameterRevision;
+				if (_nvidiaVfxFrameGenerator && effectIdx < _vfxExecutionPlan.postStart) _nvidiaVfxFrameGenerator->RequestHistoryReset();
+			}
 		}
 	}
 
 	if (anySucceeded) {
 		if (_runtimeHdrComponents.enabled) {
-			_runtimeHdrComponents = BuildHdrComponentPlan(_runtimeEffectOptions);
+			_runtimeHdrComponents = BuildHdrComponentPlan(_runtimeEffectOptions, ScalingWindow::Get().Options().legacyHdrCaptureIntent);
 			_UpdateHdrEffectBoundaryContexts();
 		}
 		ScalingWindow::Get().Options().parameterSession->Applied(_runtimeEffectOptions);
@@ -2297,6 +2611,16 @@ void Renderer::_UpdateActiveEffectDescs() noexcept {
 
 bool Renderer::_ShouldAppendBicubic(ID3D11Texture2D* outTexture) noexcept {
 	const ScalingOptions& options = ScalingWindow::Get().Options();
+	for (auto it = _runtimeEffectOptions.rbegin(); it != _runtimeEffectOptions.rend(); ++it) {
+		if (it->name == NVIDIA_VFX_UPSCALE_ID) {
+			const auto mode = it->parameters.find("upscaleMode");
+			// Its private Bicubic has already fitted the proportional content.
+			// The frontend crops/letterboxes it; a second Fill would stretch it.
+			if (mode == it->parameters.end() || mode->second == 0.f) return false;
+			break;
+		}
+		if (it->HasScale()) break;
+	}
 
 	D3D11_TEXTURE2D_DESC texDesc;
 	outTexture->GetDesc(&texDesc);
@@ -2317,7 +2641,7 @@ bool Renderer::_AppendBicubic(ID3D11Texture2D** inOutTexture) noexcept {
 	const bool hdrEnabled = options.IsHdrCompatibilityEnabled();
 	EffectDesc& bicubicDesc = GetBicubicDesc(hdrEnabled);
 
-	const EffectOption bicubicOption{
+	EffectOption bicubicOption{
 		.name = "Bicubic",
 		.parameters{
 			{"paramB", 0.0f},
@@ -2325,6 +2649,13 @@ bool Renderer::_AppendBicubic(ID3D11Texture2D** inOutTexture) noexcept {
 		},
 		.scalingType = options.IsWindowedMode() ? ScalingType::Fill : ScalingType::Fit
 	};
+	if (std::ranges::any_of(_runtimeEffectOptions, [](const auto& effect) { return effect.name == NVIDIA_VFX_UPSCALE_ID; })) {
+		D3D11_TEXTURE2D_DESC td{}; (*inOutTexture)->GetDesc(&td);
+		const auto target = Win32Helper::GetSizeOfRect(ScalingWindow::Get().RendererRect());
+		const double factor = std::min(double(target.cx) / td.Width, double(target.cy) / td.Height);
+		bicubicOption.scalingType = ScalingType::Absolute;
+		bicubicOption.scale = {float(std::lround(td.Width * factor)), float(std::lround(td.Height * factor))};
+	}
 
 	if (bicubicDesc.name.empty()) {
 		// 参数不会改变，因此可以内联
@@ -2367,6 +2698,21 @@ bool Renderer::_AppendBicubic(ID3D11Texture2D** inOutTexture) noexcept {
 }
 
 ID3D11Texture2D* Renderer::_ResizeEffects() noexcept {
+	if (_nvidiaVfxFrameGenerator || std::ranges::any_of(_runtimeEffectOptions, [](const auto& effect) { return effect.name == NVIDIA_VFX_UPSCALE_ID; })) {
+		if (!_DrainNgxConsumers()) return nullptr;
+		if (!_ReleaseNgxConsumers()) return nullptr;
+		_effectDrawers.clear(); _effectFrameStates.clear();
+		ID3D11Texture2D* result = _BuildEffects();
+		if (result) {
+			_overlayDrawer.UpdateAfterActiveEffectsChanged();
+			if (_effectsProfiler.IsProfiling()) {
+				uint32_t passes = 0;
+				for (auto* desc : _activeEffectDescs) passes += uint32_t(desc->passes.size());
+				_effectsProfiler.SetPassCount(_backendResources.GetD3DDevice(), passes);
+			}
+		}
+		return result;
+	}
 	// Invalidate before resources are touched, even if a later resize fails.
 	for (auto& state : _effectFrameStates) state.Invalidate();
 	const auto priorityCheck = wil::scope_exit([this] { _EnsureGpuPriority(true); });
@@ -2388,7 +2734,7 @@ ID3D11Texture2D* Renderer::_ResizeEffects() noexcept {
 	inOutTexture->GetDesc(&sourceDesc);
 	FrameGuidanceRequirements guidanceRequirements =
 		CollectFrameGuidanceRequirements(
-			_nativeEffectBackends, _dlssFrameGenerator.get(), _xessMotionRequest);
+			_nativeEffectBackends, _dlssFrameGenerator.get(), _proxyMotionRequest);
 	if (_frameGuidanceService.IsInitialized()) {
 		const FrameGuidanceExtent sourceExtent{
 			sourceDesc.Width, sourceDesc.Height
@@ -2426,7 +2772,11 @@ ID3D11Texture2D* Renderer::_ResizeEffects() noexcept {
 					const auto it = effects[i].parameters.find(std::string(name));
 					return it == effects[i].parameters.end() ? fallback : it->second;
 				});
+				auto failure = _nativeEffectBackends[i]->GetDlssNrFailure();
+				failure.stage = DlssNrStage::Resize;
+				_SetDlssNrStatus(i, count > 1 ? DlssNrState::Stopped : DlssNrState::Skipped, std::move(failure));
 				if (count > 1) {
+					_backendInitError = ScalingError::DlssNrStopped;
 					Logger::Get().Error("Resize DLSSNR Multi Pass failed; stopping the complete chain");
 					return nullptr;
 				}
@@ -2441,6 +2791,8 @@ ID3D11Texture2D* Renderer::_ResizeEffects() noexcept {
 			Logger::Get().Error(fmt::format("Resize native effect {} failed", effects[i].name));
 			return nullptr;
 		}
+		if (effects[i].name == "DLSSNR\\DLSSNR_AI_Filter" && _nativeEffectBackends[i])
+			_SetDlssNrStatus(i, DlssNrState::Starting);
 	}
 
 	// 处理追加的 Bicubic
@@ -2500,7 +2852,149 @@ ID3D11Texture2D* Renderer::_ResizeEffects() noexcept {
 	}
 
 	_effectFrameStates.resize(_effectDrawers.size());
+	_UpdateNvidiaVfxDescriptions();
 	return inOutTexture;
+}
+
+std::string Renderer::NvidiaVfxProcessDescription(size_t effect) const {
+	std::scoped_lock lock(_vfxDescriptionMutex);
+	return effect < _vfxDescriptions.size() ? _vfxDescriptions[effect] : std::string{};
+}
+
+void Renderer::_UpdateNvidiaVfxDescriptions() {
+	std::vector<std::string> descriptions(_runtimeEffectOptions.size());
+	for (size_t i = 0; i < descriptions.size(); ++i) {
+		const auto& option = _runtimeEffectOptions[i];
+		if (option.name == NVIDIA_VFX_VFG_ID) {
+			descriptions[i] = EffectParameterLocalization::Resource(L"NvidiaVfx_Vfg_Process", "SDR pre-effects -> VFG -> each real/generated frame -> TrueHDR (when selected) -> presentation");
+			continue;
+		}
+		if (option.name != NVIDIA_VFX_UPSCALE_ID) continue;
+		D3D11_TEXTURE2D_DESC in{}, out{};
+		_effectDrawers[i].GetTexture(0)->GetDesc(&in); _effectDrawers[i].GetOutputTexture()->GetDesc(&out);
+		const auto it = option.parameters.find("upscaleMode");
+		const auto plan = PlanNvidiaVfxUpscale({in.Width,in.Height}, {out.Width,out.Height}, it == option.parameters.end() ? 0 : int(it->second));
+		if (!plan.valid) continue;
+		const auto ratio = NVIDIA_VFX_UPSCALE_RATIOS[plan.ratioIndex];
+		descriptions[i] = fmt::format(fmt::runtime(EffectParameterLocalization::Resource(L"NvidiaVfx_Upscale_Process", "{}x{} -> Nvidia VFX {}/{}x: {}x{}")),
+			in.Width,in.Height,ratio.numerator,ratio.denominator,plan.native.width,plan.native.height);
+		if (plan.adaptation != NvidiaVfxAdaptation::None) descriptions[i] += fmt::format(fmt::runtime(
+			EffectParameterLocalization::Resource(plan.adaptation == NvidiaVfxAdaptation::Upsample ? L"NvidiaVfx_Upscale_Up" : L"NvidiaVfx_Upscale_Down",
+				" -> Bicubic: {}x{}")),out.Width,out.Height);
+		if (it != option.parameters.end() && it->second != 0.f && _effectDrawers.size() > _runtimeEffectOptions.size() &&
+			std::none_of(_runtimeEffectOptions.begin() + i + 1, _runtimeEffectOptions.end(), [](const auto& effect) { return effect.HasScale(); })) {
+			D3D11_TEXTURE2D_DESC final{}; _effectDrawers.back().GetExternalOutputTexture()->GetDesc(&final);
+			if (final.Width != out.Width || final.Height != out.Height) descriptions[i] += fmt::format(fmt::runtime(
+				EffectParameterLocalization::Resource(final.Width > out.Width || final.Height > out.Height ? L"NvidiaVfx_Upscale_Up" : L"NvidiaVfx_Upscale_Down", " -> Bicubic: {}x{}")), final.Width,final.Height);
+		}
+	}
+	std::scoped_lock lock(_vfxDescriptionMutex); _vfxDescriptions = std::move(descriptions);
+}
+
+uint32_t Renderer::_SoftwareFrameMultiplier() const noexcept {
+	return _nvidiaVfxFrameGenerator ? _nvidiaVfxFrameGenerator->Multiplier() :
+		_dlssFrameGenerator ? _dlssFrameGenerator->Multiplier() : 1u;
+}
+
+bool Renderer::_InitializeNvidiaVfxFrameGenerator() noexcept {
+	auto candidate = std::make_unique<NvidiaVfxFrameGenerator>();
+	Logger::DiagnosticCapture diagnostic;
+	if (!candidate->Initialize(_backendResources, _vfxSourceTexture.get(), _vfxExecutionPlan.settings)) {
+		_backendInitError = ScalingError::FrameGenerationInitFailed;
+		_backendInitContext = "Nvidia VFX VFG / " + diagnostic.Details();
+		_backendInitSystemError = diagnostic.SystemError(); return false;
+	}
+	_nvidiaVfxFrameGenerator = std::move(candidate);
+	return true;
+}
+
+bool Renderer::_DrawNvidiaVfxPostEffects(ID3D11Texture2D* input, uint32_t index, uint32_t multiplier,
+	const NvidiaVfxCudaFrame* cudaFrame) noexcept {
+	const auto started = std::chrono::steady_clock::now();
+	auto* dc = _backendResources.GetD3DDC();
+	int postGpuTicket = _vfxPostGpuTimings.Begin(_backendResources.GetD3DDevice(), dc);
+	auto finishGpuTiming = wil::scope_exit([&] { _vfxPostGpuTimings.End(dc, postGpuTicket); });
+	_vfxOutputIndex = index; _vfxOutputMultiplier = multiplier;
+	ID3D11Texture2D* result = input;
+	if (_vfxExecutionPlan.postStart < _effectDrawers.size()) {
+		if (!_vfxPostInput) return false;
+		if (!cudaFrame) {
+			dc->ClearState(); dc->CopyResource(_vfxPostInput.get(), input);
+			result = _vfxPostInput.get();
+		}
+		FrameGuidanceView noGuidance{};
+		for (size_t i = _vfxExecutionPlan.postStart; i < _effectDrawers.size(); ++i) {
+			auto& drawer = _effectDrawers[i];
+			drawer.SetHdrInputSource(result);
+			if (i < _nativeEffectBackends.size() && _nativeEffectBackends[i]) {
+				const bool borrowedCuda = cudaFrame && i == _vfxExecutionPlan.postStart;
+				if (!borrowedCuda && !drawer.PrepareHdrInput()) return false;
+				const NativeEffectDrawContext context{
+					.input = drawer.GetTexture(0), .output = drawer.GetOutputTexture(),
+					.inputMetadata = drawer.GetHdrBoundary().inputFrame.metadata,
+					.outputMetadata = drawer.GetHdrBoundary().inputFrame.metadata,
+					.frameId = _capturedFrameId, .previousCaptureFrameId = _previousCapturedFrameId,
+					.inputRevision = (_capturedFrameId << 3) + index,
+					.inputHistoryRevision = _vfxParameterRevision,
+					.isNewCaptureFrame = index == multiplier,
+					.frameGuidance = noGuidance, .zeroFrameGuidance = noGuidance
+				};
+				const bool drawn = borrowedCuda ? _nativeEffectBackends[i]->DrawNvidiaVfxCudaInput(context, *cudaFrame) :
+					_nativeEffectBackends[i]->Draw(context);
+				if (!drawn || !drawer.CompleteHdrOutput()) return false;
+			} else if (!drawer.Draw(_vfxPostProfiler)) return false;
+			result = drawer.GetExternalOutputTexture();
+		}
+	}
+	_vfxPostGpuTimings.End(dc, postGpuTicket); postGpuTicket = -1;
+	_vfxPostTotalMs += std::chrono::duration<double,std::milli>(std::chrono::steady_clock::now() - started).count();
+	++_vfxPostSamples;
+	const auto publicationStarted = NativeBackendTiming::Now();
+	const bool success = _PublishBackendTexture(result, true, index < multiplier, _captureSequence,
+		_frameSource->ResourceGeneration(), _reflex.NextPresentId());
+	if constexpr (NativeBackendTiming::Enabled) _vfxPublicationCpuMs += NativeBackendTiming::ElapsedMilliseconds(publicationStarted);
+	FrameTrace::Mark(FrameTrace::Event::NativeEffect, index,
+		std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now() - started).count());
+	return success;
+}
+
+void Renderer::_LogNvidiaVfxMeasurements() noexcept {
+	if constexpr (!NativeBackendTiming::Enabled) return;
+	const auto frame = _nvidiaVfxFrameGenerator->TakeMeasurements();
+	const auto logRuntime = [](std::string_view name, const NvidiaVfxRuntimeMeasurements& measurements) {
+		const auto logStage = [&](std::string_view stage, const NvidiaVfxStageMeasurements& value) {
+			Logger::Get().Info(fmt::format("Nvidia VFX timing: effect={} stage={} cpuCalls={} cpuTotalMs={:.3f} gpuSamples={} gpuSpanTotalMs={:.3f} gpuSkipped={}; CPU and GPU spans overlap, not additive",
+				name, stage, value.cpuCalls, value.cpuMs, value.gpuSamples, value.gpuSpanMs, value.gpuSkipped));
+		};
+		logStage("import", measurements.importImage); logStage("inference", measurements.inference); logStage("export", measurements.exportImage);
+		Logger::Get().Info(fmt::format("Nvidia VFX synchronization: effect={} calls={} cpuWaitTotalMs={:.3f}",
+			name, measurements.synchronizeCalls, measurements.synchronizeCpuMs));
+	};
+	logRuntime("VFG", frame.runtime);
+	for (size_t i = 0; i < _nativeEffectBackends.size(); ++i) {
+		if (_nativeEffectBackends[i] && i < _runtimeEffectOptions.size()) {
+			const auto measurements = _nativeEffectBackends[i]->TakeNvidiaVfxMeasurements();
+			if (measurements.importImage.cpuCalls || measurements.inference.cpuCalls || measurements.exportImage.cpuCalls)
+				logRuntime(_runtimeEffectOptions[i].name, measurements);
+		}
+	}
+	const auto postGpu = _vfxPostGpuTimings.Take(_backendResources.GetD3DDC());
+	const auto publicationGpu = _vfxPublicationGpuTimings.Take(_backendResources.GetD3DDC());
+	const uint64_t ringWaitNs = _vfxRingWaitNanoseconds.load(std::memory_order_relaxed);
+	const double ringWaitMs = double(ringWaitNs - _vfxLastReportedRingWaitNs) / 1000000.;
+	_vfxLastReportedRingWaitNs = ringWaitNs;
+	Logger::Get().Info(fmt::format("Nvidia VFX comparison: calls={} srvCreations={} cpuTotalMs={:.3f} readbackWaitCpuMs={:.3f} gpuSamples={} gpuSpanTotalMs={:.3f} gpuSkipped={} generatedCallbacks={} realCallbacks={} bypassedPairs={}",
+		frame.comparisons, frame.srvCreations, frame.comparisonCpuMs, frame.readbackWaitCpuMs,
+		frame.comparisonGpu.samples, frame.comparisonGpu.spanMs, frame.comparisonGpu.skipped,
+		frame.generatedOutputs, frame.realOutputs, frame.bypassedPairs));
+	Logger::Get().Info(fmt::format("Nvidia VFX post/publication: postGpuSamples={} postGpuSpanTotalMs={:.3f} postGpuSkipped={} publicationCpuTotalMs={:.3f} ringWaitCpuMs={:.3f} mutexWaitCpuMs={:.3f} publicationGpuSamples={} publicationCopyGpuSpanTotalMs={:.3f} publicationGpuSkipped={}",
+		postGpu.samples, postGpu.spanMs, postGpu.skipped, _vfxPublicationCpuMs, ringWaitMs, _vfxMutexWaitCpuMs,
+		publicationGpu.samples, publicationGpu.spanMs, publicationGpu.skipped));
+	_vfxPublicationCpuMs = _vfxMutexWaitCpuMs = 0;
+	std::scoped_lock lock(_vfxPresentTimingMutex);
+	Logger::Get().Info(fmt::format("Nvidia VFX accepted presents: outputs={} intervalSamples={} intervalAvgMs={:.3f} intervalMaxMs={:.3f}; application submission, not scanout latency",
+		_vfxPresentedOutputs, _vfxPresentIntervals, _vfxPresentIntervals ? _vfxPresentIntervalTotalMs / _vfxPresentIntervals : 0., _vfxPresentIntervalMaxMs));
+	_vfxPresentedOutputs = _vfxPresentIntervals = 0; _vfxPresentIntervalTotalMs = _vfxPresentIntervalMaxMs = 0;
 }
 
 bool Renderer::_InitializeDLSSFrameGenerator(
@@ -2613,6 +3107,7 @@ void Renderer::_DisableDLSSFrameGenerationForSession() noexcept {
 
 bool Renderer::_DrainNgxConsumers() noexcept {
 	bool succeeded = true;
+	if (_nvidiaVfxFrameGenerator && !_nvidiaVfxFrameGenerator->Drain()) succeeded = false;
 	if (_dlssFrameGenerator && !_dlssFrameGenerator->Drain()) {
 		Logger::Get().Warn("Drain DLSSFG queue failed");
 		succeeded = false;
@@ -2626,10 +3121,22 @@ bool Renderer::_DrainNgxConsumers() noexcept {
 	return succeeded;
 }
 
-void Renderer::_ReleaseNgxConsumers() noexcept {
-	_DrainNgxConsumers();
+bool Renderer::_ReleaseNgxConsumers() noexcept {
+	const bool hasConsumers = _dlssFrameGenerator || _nvidiaVfxFrameGenerator ||
+		std::ranges::any_of(_nativeEffectBackends, [](const auto& backend) { return bool(backend); });
+	if (!hasConsumers) { _nativeEffectBackends.clear(); return true; }
+	Logger::Get().Info(fmt::format("Native consumer drain enter: run={} thread={}", ScalingWindow::RunId(), GetCurrentThreadId()));
+	const auto started = GetTickCount64();
+	const bool drained = _DrainNgxConsumers();
+	Logger::Get().Info(fmt::format("Native consumer drain exit: run={} succeeded={} elapsedMs={}",
+		ScalingWindow::RunId(), drained, GetTickCount64() - started));
+	if (!drained) Logger::Get().Warn("Native consumer drain failed; retiring failed consumers instead of starting a replacement");
 	_dlssFrameGenerator.reset();
+	_nvidiaVfxFrameGenerator.reset();
+	_vfxSourceTexture = nullptr; _vfxPostInput = nullptr;
 	_nativeEffectBackends.clear();
+	Logger::Get().Info(fmt::format("Native consumer release complete: run={} thread={}", ScalingWindow::RunId(), GetCurrentThreadId()));
+	return drained;
 }
 
 void Renderer::_UpdateDestRect() noexcept {
@@ -2720,8 +3227,8 @@ HANDLE Renderer::_CreateSharedTexture(ID3D11Texture2D* effectsOutput) noexcept {
 				color.sdrWhiteNits, _dlssFgHdrNormalizationScale));
 		}
 	}
-	_sharedTextureSlotCount = _dlssFrameGenerator ?
-		std::clamp(_dlssFrameGenerator->Multiplier(), 2u, MAX_SHARED_TEXTURE_SLOTS) : 1u;
+	_sharedTextureSlotCount = _HasSoftwareFrameGenerator() ?
+		std::clamp(_SoftwareFrameMultiplier(), 2u, MAX_SHARED_TEXTURE_SLOTS) : 1u;
 	_sharedTextureGeneration.fetch_add(1, std::memory_order_release);
 	_pendingDLSSFGFrontendFrames.store(0, std::memory_order_release);
 	_nextBackendSharedTextureSlot = 0;
@@ -2775,7 +3282,7 @@ HANDLE Renderer::_CreateSharedTexture(ID3D11Texture2D* effectsOutput) noexcept {
 			return NULL;
 		}
 
-		if (_xessMotionRequest.method != OpticalFlowMethod::None) {
+		if (_proxyMotionRequest.method != OpticalFlowMethod::None) {
 			D3D11_TEXTURE2D_DESC motionDesc{};
 			motionDesc.Width = desc.Width;
 			motionDesc.Height = desc.Height;
@@ -2790,7 +3297,7 @@ HANDLE Renderer::_CreateSharedTexture(ID3D11Texture2D* effectsOutput) noexcept {
 			HRESULT motionHr = _backendResources.GetD3DDevice()->CreateTexture2D(
 				&motionDesc, nullptr, _backendSharedMotionTextures[i].put());
 			if (FAILED(motionHr)) {
-				Logger::Get().ComError("Create XeSSFG shared motion texture failed", motionHr);
+				Logger::Get().ComError("Create Proxy FG shared motion texture failed", motionHr);
 				return NULL;
 			}
 			_backendSharedMotionTextureMutexes[i] =
@@ -2798,14 +3305,14 @@ HANDLE Renderer::_CreateSharedTexture(ID3D11Texture2D* effectsOutput) noexcept {
 			winrt::com_ptr<IDXGIResource1> motionDxgiResource =
 				_backendSharedMotionTextures[i].try_as<IDXGIResource1>();
 			if (!_backendSharedMotionTextureMutexes[i] || !motionDxgiResource) {
-				Logger::Get().Error("Create XeSSFG shared motion synchronization failed");
+				Logger::Get().Error("Create Proxy FG shared motion synchronization failed");
 				return NULL;
 			}
 			HANDLE motionHandle = nullptr;
 			motionHr = motionDxgiResource->CreateSharedHandle(
 				nullptr, GENERIC_ALL, nullptr, &motionHandle);
 			if (FAILED(motionHr) || !motionHandle) {
-				Logger::Get().ComError("Create XeSSFG motion NT handle failed", motionHr);
+				Logger::Get().ComError("Create Proxy FG motion NT handle failed", motionHr);
 				return NULL;
 			}
 			_sharedMotionTextureHandles[i].reset(motionHandle);
@@ -2855,13 +3362,17 @@ void Renderer::_BackendThreadProc() noexcept {
 #endif
 
 	winrt::init_apartment(winrt::apartment_type::single_threaded);
+	const auto cleanupBackend = wil::scope_exit([this] {
+		_pendingEffectParameterUpdates.clear();
+		if (!_ReleaseNgxConsumers()) Logger::Get().Warn("Backend retired after a failed native consumer drain");
+		_frameSource.reset();
+	});
 
 	if (const HANDLE sharedHandle = _InitBackend()) {
 		_EnsureGpuPriority(true);
 		_sharedTextureHandle.store(sharedHandle, std::memory_order_release);
 		_sharedTextureHandle.notify_one();
 	} else {
-		_frameSource.reset();
 		// 通知前端初始化失败
 		_sharedTextureHandle.store(INVALID_HANDLE_VALUE, std::memory_order_release);
 		_sharedTextureHandle.notify_one();
@@ -2905,12 +3416,10 @@ void Renderer::_BackendThreadProc() noexcept {
 				}
 				window.Stop();
 			});
-			_frameSource.reset();
 			return;
 		}
 		if (_sessionLifetime->IsStopping()) {
 			if (GetMessage(&msg, NULL, 0, 0) <= 0) {
-				_frameSource.reset();
 				return;
 			}
 			DispatchMessage(&msg);
@@ -2931,7 +3440,16 @@ void Renderer::_BackendThreadProc() noexcept {
 			const auto waitStart = std::chrono::steady_clock::now();
 			FrameTrace::Scope tracePressure(FrameTrace::Event::InputBackpressure);
 			HANDLE consumed = _frameSyncConsumedEvent.get();
-			MsgWaitForMultipleObjectsEx(1, &consumed, 50, QS_ALLINPUT, MWMO_INPUTAVAILABLE);
+			if (MsgWaitForMultipleObjectsEx(consumed ? 1 : 0, consumed ? &consumed : nullptr,
+				50, QS_ALLINPUT, MWMO_INPUTAVAILABLE) == WAIT_FAILED) {
+				Logger::Get().Win32Error("Wait for frame consumption failed");
+				_sessionLifetime->RequestStop();
+				ScalingWindow::Dispatcher().TryEnqueue([session = _sessionLifetime] {
+					auto& window = ScalingWindow::Get();
+					if (session->IsCurrent(ScalingWindow::RunId()) && window) window.Stop();
+				});
+				continue;
+			}
 			_captureCadenceQueueWait += std::chrono::steady_clock::now() - waitStart;
 		} else if (_pendingFrameGenerationInput) {
 			_fgInputClock.SetInterval(std::chrono::duration_cast<std::chrono::nanoseconds>(
@@ -2943,10 +3461,19 @@ void Renderer::_BackendThreadProc() noexcept {
 			_sharedTextureMutexKeys[0].load(std::memory_order_acquire)) {
 			waitedForContent = true;
 			HANDLE consumed = _frameSyncConsumedEvent.get();
-			MsgWaitForMultipleObjectsEx(1, &consumed, 50, QS_ALLINPUT, MWMO_INPUTAVAILABLE);
+			if (MsgWaitForMultipleObjectsEx(consumed ? 1 : 0, consumed ? &consumed : nullptr,
+				50, QS_ALLINPUT, MWMO_INPUTAVAILABLE) == WAIT_FAILED) {
+				Logger::Get().Win32Error("Wait for frame consumption failed");
+				_sessionLifetime->RequestStop();
+				ScalingWindow::Dispatcher().TryEnqueue([session = _sessionLifetime] {
+					auto& window = ScalingWindow::Get();
+					if (session->IsCurrent(ScalingWindow::RunId()) && window) window.Stop();
+				});
+				continue;
+			}
 		} else {
 			stepTimerStatus = _stepTimer.WaitForNextFrame(
-				waitForNewFrame && stepTimerStatus != StepTimerStatus::WaitForFPSLimiter,
+				waitForNewFrame && !_forceNextRender && stepTimerStatus != StepTimerStatus::WaitForFPSLimiter,
 				fpsUpdated, _frameSource->FrameArrivedEvent());
 		}
 
@@ -2955,7 +3482,6 @@ void Renderer::_BackendThreadProc() noexcept {
 		while (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE)) {
 			if (msg.message == WM_QUIT) {
 				// 不能在前端线程释放
-				_frameSource.reset();
 				return;
 			}
 
@@ -2971,6 +3497,7 @@ void Renderer::_BackendThreadProc() noexcept {
 			auto input = std::move(_pendingFrameGenerationInput);
 			_fgInputClock.Submitted(now);
 			_CompleteBackendFrame(input.get(), true, _captureSequence);
+			_backendContentInFlight.store(false, std::memory_order_release);
 			if (!_dlssFrameGenerator || !_synchronousFramePresentationEnabled.load(std::memory_order_acquire)) {
 				PostMessage(ScalingWindow::Get().Handle(), CommonSharedConstants::WM_FRONTEND_RENDER, 0, 0);
 			}
@@ -2982,6 +3509,10 @@ void Renderer::_BackendThreadProc() noexcept {
 		// Refresh StepTimer's frame-start timestamp before accepting new input.
 		if (waitedForContent) continue;
 		if (!_pendingEffectParameterUpdates.empty()) {
+			// Complete the previous revision before applying a new per-output snapshot.
+			if (_nvidiaVfxFrameGenerator && _pendingDLSSFGFrontendFrames.load(std::memory_order_acquire) != 0) {
+				MsgWaitForMultipleObjectsEx(0, nullptr, 10, QS_ALLINPUT, MWMO_INPUTAVAILABLE); continue;
+			}
 			_ApplyPendingEffectParameters();
 		}
 
@@ -3004,6 +3535,8 @@ void Renderer::_BackendThreadProc() noexcept {
 		if (_sessionLifetime->IsStopping()) continue;
 		_stepTimer.CaptureStarting();
 		const FrameSourceState frameSourceState = _frameSource->Update();
+		_captureAllowsIdle.store(frameSourceState != FrameSourceState::Error &&
+			!_frameSource->IsCaptureInterrupted(), std::memory_order_release);
 		// A rejected GPU comparison is a completed attempt. Polls without GPU
 		// work retain their slept candidate, and staged FG retains its base ID.
 		const auto discardReflexRender = wil::scope_exit([this] {
@@ -3047,14 +3580,16 @@ void Renderer::_BackendThreadProc() noexcept {
 			FrameTrace::Mark(FrameTrace::Event::RenderReason,
 				frameSourceState == FrameSourceState::NewFrame ? 0 : _forceNextRender ? 2 : 1);
 			_forceNextRender = false;
+			_backendContentInFlight.store(true, std::memory_order_release);
 			_backendMayDeferFG = true;
 			_BackendRender(
 				_effectDrawers.back().GetExternalOutputTexture(),
 				frameSourceState == FrameSourceState::NewFrame);
 			_backendMayDeferFG = false;
+			if (!_pendingFrameGenerationInput) _backendContentInFlight.store(false, std::memory_order_release);
 			// DLSSFG uses synchronous, individually paced presentation so generated
 			// frames cannot be coalesced into the following real frame.
-			if (!_dlssFrameGenerator ||
+			if (!_HasSoftwareFrameGenerator() ||
 				!_synchronousFramePresentationEnabled.load(std::memory_order_acquire)) {
 				PostMessage(ScalingWindow::Get().Handle(),
 					CommonSharedConstants::WM_FRONTEND_RENDER, 0, 0);
@@ -3082,7 +3617,6 @@ void Renderer::_BackendThreadProc() noexcept {
 				DispatchMessage(&msg);
 			}
 
-			_frameSource.reset();
 			return;
 		}
 	}
@@ -3134,7 +3668,7 @@ void Renderer::_UpdateFrameRateLimits() noexcept {
 		_runtimeEffectOptions,
 		[](const EffectOption& effect) { return IsFrameGenerationEffect(effect.name); });
 	_existingBaseFrameRateLimit.store(maxFrameRate.value_or(0.0f), std::memory_order_release);
-	const float minFrameRate = useFrameGeneration ? 0.0f :
+	const float minFrameRate =
 		(options.IsBenchmarkMode() ? std::numeric_limits<float>::max() :
 			std::min(options.minFrameRate, _frameSyncEnabled
 				? float(_FrameSyncFrameRate()) : maxFrameRate.value_or(options.minFrameRate)));
@@ -3151,16 +3685,33 @@ void Renderer::_UpdateFrameRateLimits() noexcept {
 	}
 	// Exactly one owner for the base FPS. Capacity/resource waits remain active.
 	const bool consumerPacing = (_appliedFrameSyncBackend == FrameSyncBackend::FrontEdge &&
-		(_frameSyncUsesSharedSlot || _dlssFrameGenerator || _effectDrawers.empty())) ||
+		(_frameSyncUsesSharedSlot || _HasSoftwareFrameGenerator() || _effectDrawers.empty())) ||
 		_appliedFrameSyncBackend == FrameSyncBackend::XeLL || _appliedFrameSyncBackend == FrameSyncBackend::Reflex;
 	const std::optional<float> fallbackLimit = _frameSyncEnabled ?
 		std::optional<float>(float(_FrameSyncFrameRate())) : maxFrameRate;
-	_stepTimer.Initialize(minFrameRate, consumerPacing ? std::nullopt : fallbackLimit,
+	// FG idle replay belongs to presentation, not capture/effects. Do not force
+	// old captures through motion estimation or temporal generation.
+	_idleRedrawRate.store(useFrameGeneration ? std::min(double(minFrameRate),
+		_presentationRefreshRate.load(std::memory_order_acquire)) : 0, std::memory_order_release);
+	_stepTimer.Initialize(useFrameGeneration ? 0.0f : minFrameRate, consumerPacing ? std::nullopt : fallbackLimit,
 		_appliedFrameSyncBackend == FrameSyncBackend::Async || _appliedFrameSyncBackend == FrameSyncBackend::Reflex);
 
 	_baseFrameRateLimit = _frameSyncEnabled ? _FrameSyncFrameRate() : maxFrameRate.value_or(0.0f);
-	if (_dlssFrameGenerator) _synchronousPresentInterval =
-		_captureCadence.Interval(_dlssFrameGenerator->Multiplier(), _baseFrameRateLimit);
+	const bool fixedContent = options.frameRefresh.contentMode != ContentFrameRateMode::Source && !options.IsBenchmarkMode();
+	const auto nominalTarget = ResolvePresentationFrameRate(
+		options.frameRefresh.contentMode == ContentFrameRateMode::Auto ? 0 : options.frameRefresh.contentRate,
+		0, _presentationRefreshRate.load(std::memory_order_acquire), _configuredFrameGenerationMultiplier);
+	const bool constrained = fixedContent && _baseFrameRateLimit > 0 && _baseFrameRateLimit + 0.0001 < nominalTarget;
+	if (options.contentTargetChanged && (!_reportedContentTarget || *_reportedContentTarget != _baseFrameRateLimit ||
+		_reportedFixedContent != fixedContent || _reportedContentConstraint != constrained)) {
+		_reportedContentTarget = _baseFrameRateLimit;
+		_reportedFixedContent = fixedContent;
+		_reportedContentConstraint = constrained;
+		try { options.contentTargetChanged(ScalingWindow::Get().SrcTracker().Handle(), fixedContent, _baseFrameRateLimit, constrained); }
+		catch (...) { Logger::Get().Warn("Unable to notify the frontend of the content target"); }
+	}
+	if (_HasSoftwareFrameGenerator()) _synchronousPresentInterval =
+		_captureCadence.Interval(_SoftwareFrameMultiplier(), _baseFrameRateLimit);
 }
 
 HANDLE Renderer::_InitBackend() noexcept {
@@ -3238,7 +3789,7 @@ HANDLE Renderer::_InitBackend() noexcept {
 
 	FrameGuidanceRequirements guidanceRequirements =
 		CollectFrameGuidanceRequirements(
-			_nativeEffectBackends, _dlssFrameGenerator.get(), _xessMotionRequest);
+			_nativeEffectBackends, _dlssFrameGenerator.get(), _proxyMotionRequest);
 	_motionConsumers.clear();
 	if (ScalingWindow::Get().Options().IsHdrCaptureEnabled() && guidanceRequirements.HasMotion()) {
 		Logger::Get().Info("HDR mode: optical-flow providers receive the canonical frame and perform provider-local format adaptation");
@@ -3247,7 +3798,7 @@ HANDLE Renderer::_InitBackend() noexcept {
 		const auto& effect = _runtimeEffectOptions[i];
 		const MotionVectorRequest request = IsDLSSFrameGenerationEffect(effect.name) && _dlssFrameGenerator ?
 			_dlssFrameGenerator->GetFrameGuidanceRequirements().FirstMotion() :
-			IsXeSSFrameGenerationEffect(effect.name) ? _xessMotionRequest :
+			IsProxyFrameGenerationEffect(effect.name) ? _proxyMotionRequest :
 			i < _nativeEffectBackends.size() && _nativeEffectBackends[i] ?
 			_nativeEffectBackends[i]->GetFrameGuidanceRequirements().FirstMotion() : MotionVectorRequest{};
 		if (request.method != OpticalFlowMethod::None)
@@ -3374,6 +3925,7 @@ void Renderer::_BackendRender(
 					_frameGuidanceService.ResetHistory(FrameGuidanceResetReason::CaptureInterrupted);
 				}
 				if (_dlssFrameGenerator) _dlssFrameGenerator->RequestHistoryReset();
+		if (_nvidiaVfxFrameGenerator) _nvidiaVfxFrameGenerator->RequestHistoryReset();
 			}
 			Logger::Get().Info(fmt::format(
 				"Capture sequence accepted: sequence={} frameId={} timestamp100ns={} historyResetRequested={}",
@@ -3391,19 +3943,21 @@ void Renderer::_BackendRender(
 			// and reset temporal consumers in the branch above.
 			Logger::Get().Info("Capture cadence gap observed; preserving temporal history until capture sequence changes");
 		}
-		if (_dlssFrameGenerator) _synchronousPresentInterval =
-			_captureCadence.Interval(_dlssFrameGenerator->Multiplier(), _baseFrameRateLimit);
+		if (_HasSoftwareFrameGenerator()) _synchronousPresentInterval =
+			_captureCadence.Interval(_SoftwareFrameMultiplier(), _baseFrameRateLimit);
 		_lastCapturedFrameTime = captureTime;
 		// A cancelled Reflex candidate may leave a gap. Keep NGX's
 		// BackbufferFrameID, guidance and Reflex on the same monotonic base ID.
 		_previousCapturedFrameId = _capturedFrameId;
 		_capturedFrameId = std::max(_capturedFrameId + 1, _reflex.CaptureFrameId());
+		_vfxPreviousTimestamp100ns = _acceptedCaptureTimestamp100ns;
 		_acceptedCaptureTimestamp100ns = _frameSource->CaptureTimestamp100ns();
 		FrameTrace::SetFrame(_capturedFrameId);
 		FrameTrace::Mark(FrameTrace::Event::CaptureAccepted, _frameSource->CaptureTimestamp100ns(), sequence);
+		VRRPerformance::Record(VRRPerformance::Event::CaptureAccepted);
 		const FrameGuidanceRequirements guidanceRequirements =
 			CollectFrameGuidanceRequirements(
-				_nativeEffectBackends, _dlssFrameGenerator.get(), _xessMotionRequest);
+				_nativeEffectBackends, _dlssFrameGenerator.get(), _proxyMotionRequest);
 		if (_frameGuidanceService.IsInitialized()) {
 			FrameTrace::Scope traceGuidance(FrameTrace::Event::Guidance);
 			_frameGuidanceService.BeginFrame(
@@ -3435,13 +3989,15 @@ void Renderer::_BackendRender(
 	d3dDC->ClearState();
 
 	_effectsProfiler.OnBeginEffects(d3dDC);
+	_SnapshotScreenshotInput();
 	if (isNewCaptureFrame) {
 		_UpdateHdrEffectBoundaryContexts();
 	}
 
 	uint64_t inputRevision = _capturedFrameId;
 	uint64_t inputHistoryRevision = 0;
-	for (uint32_t i = 0; i < _effectDrawers.size(); ++i) {
+	const size_t preEnd = _nvidiaVfxFrameGenerator ? _vfxExecutionPlan.postStart : _effectDrawers.size();
+	for (uint32_t i = 0; i < preEnd; ++i) {
 		const EffectDrawer& effectDrawer = _effectDrawers[i];
 		const EffectDesc& desc = *_activeEffectDescs[i];
 		auto resourceKey = [](ID3D11Texture2D* texture) noexcept {
@@ -3468,6 +4024,7 @@ void Renderer::_BackendRender(
 		const bool renderClock = !native && (desc.flags & EffectFlags::UseDynamic) && !captureClock;
 		if (!frameState.NeedsDraw(key, renderClock)) {
 			FrameTrace::Mark(FrameTrace::Event::EffectReuse, i, inputRevision);
+			VRRPerformance::Record(VRRPerformance::Event::EffectReuse);
 			// Keep the profiler's pass slots aligned without executing image work.
 			for (size_t p = 0; p < desc.passes.size(); ++p) _effectsProfiler.OnEndPass(d3dDC);
 			inputRevision = frameState.OutputRevision();
@@ -3482,6 +4039,7 @@ void Renderer::_BackendRender(
 			inputHistoryRevision = frameState.OutputHistoryRevision();
 		});
 		FrameTrace::Mark(FrameTrace::Event::EffectExecute, i, historyReset);
+		VRRPerformance::Record(VRRPerformance::Event::EffectExecute);
 		if (captureClock && (historyReset || frameState.ParametersDiffer(key)) &&
 			!effectDrawer.ResetCaptureHistory(desc)) {
 			_FailColorPipeline(desc.name, ScalingError::EffectResourceFailed);
@@ -3551,7 +4109,19 @@ void Renderer::_BackendRender(
 				.zeroFrameGuidance = guidance.zero
 			};
 			FrameTrace::Scope traceNative(FrameTrace::Event::NativeEffect, i);
+			const bool nrFailureAlreadyReported = nr && i < _dlssNrStatuses.size() && _dlssNrStatuses[i].Failed();
 			const bool nativeDrawSucceeded = _nativeEffectBackends[i]->Draw(drawContext);
+			if (nr) {
+				const bool processing = nativeDrawSucceeded && _nativeEffectBackends[i]->IsDlssNrProcessing();
+				const int count = DLSSNRPassCount([&](std::string_view name, float fallback) {
+					const auto& values = _runtimeEffectOptions[i].parameters;
+					const auto it = values.find(std::string(name));
+					return it == values.end() ? fallback : it->second;
+				});
+				_SetDlssNrStatus(i, processing ? DlssNrState::Running :
+					count > 1 ? DlssNrState::Stopped : DlssNrState::Skipped,
+					processing ? DlssNrFailure{} : _nativeEffectBackends[i]->GetDlssNrFailure());
+			}
 			if (ScalingWindow::Get().Options().IsHdrCompatibilityEnabled() && isNewCaptureFrame && _capturedFrameId <= 2) {
 				_LogHdrTextureStats(drawContext.input, fmt::format("effect-{}-input", i));
 				_LogHdrTextureStats(drawContext.output, fmt::format("effect-{}-backend-output", i));
@@ -3568,7 +4138,7 @@ void Renderer::_BackendRender(
 				});
 				if (count > 1) {
 					_FailColorPipeline(_runtimeEffectOptions[i].name + "\nMulti Pass evaluation failed",
-						NgxRuntimeGuard::IsFaulted() ? ScalingError::NgxRestartRequired : ScalingError::DlssNrUnavailable);
+						ScalingError::DlssNrStopped);
 					return;
 				}
 			}
@@ -3578,7 +4148,7 @@ void Renderer::_BackendRender(
 				if (effectDrawer.GetOutputTexture()) {
 					effectDrawer.GetOutputTexture()->GetDesc(&outputDesc);
 				}
-				Logger::Get().Error(fmt::format(
+				if (!nrFailureAlreadyReported) Logger::Get().Error(fmt::format(
 					"Native effect Draw failed: effect={} route={} profile={} "
 					"inputFormat={} outputFormat={} fallback=marker-pass",
 					_runtimeEffectOptions[i].name,
@@ -3614,14 +4184,23 @@ void Renderer::_BackendRender(
 		}
 	}
 
+	if (_nvidiaVfxFrameGenerator) {
+		_vfxUpstreamHistoryRevision = inputHistoryRevision;
+		for (size_t i = preEnd; i < _effectDrawers.size(); ++i)
+			for (size_t p = 0; p < _activeEffectDescs[i]->passes.size(); ++p) _effectsProfiler.OnEndPass(d3dDC);
+		effectsOutput = _vfxSourceTexture.get();
+	}
 	_effectsProfiler.OnEndEffects(d3dDC);
 	// Keep the pacing/queue optimization, while avoiding duplicate real-frame
 	// submissions during a capture gap. FG must advance from a new canonical
 	// capture or its own generated frame, never from a repeated stale input.
-	if (!isNewCaptureFrame && (_dlssFrameGenerator || _isXeSSFrameGenerationActive)) {
+	_backendOutputHistoryRevision = inputHistoryRevision;
+	if (!isNewCaptureFrame && (_HasSoftwareFrameGenerator() || _HasProxyFrameGenerator()) &&
+		(!_HasProxyFrameGenerator() || _backendOutputHistoryRevision == _lastPublishedOutputHistoryRevision)) {
 		d3dDC->Flush();
 		return;
 	}
+	_backendOutputRedraw = !isNewCaptureFrame;
 
 	if (ActiveFrameSyncBackend() == FrameSyncBackend::FrontEdge && _dlssFrameGenerator && isNewCaptureFrame &&
 		_backendMayDeferFG && _synchronousFramePresentationEnabled.load(std::memory_order_acquire)) {
@@ -3695,8 +4274,35 @@ void Renderer::_CompleteBackendFrame(
 	_reflex.EndCaptureRender();
 	const auto finishReflexCapture = wil::scope_exit([this] { _reflex.CompleteCapture(); });
 	if (_frameSyncEnabled) _baseFrameRateLimit = _FrameSyncFrameRate();
-	if (_dlssFrameGenerator) _synchronousPresentInterval =
-		_captureCadence.Interval(_dlssFrameGenerator->Multiplier(), _baseFrameRateLimit);
+	if (_HasSoftwareFrameGenerator()) _synchronousPresentInterval =
+		_captureCadence.Interval(_SoftwareFrameMultiplier(), _baseFrameRateLimit);
+	if (_nvidiaVfxFrameGenerator) {
+		const auto pairStarted = std::chrono::steady_clock::now();
+		NvidiaVfxFrameGenerator::PublishCuda cudaPublish;
+		const size_t firstPost = _vfxExecutionPlan.postStart;
+		if (firstPost < _nativeEffectBackends.size() && _nativeEffectBackends[firstPost] &&
+			_nativeEffectBackends[firstPost]->SupportsNvidiaVfxCudaInput(_vfxSourceTexture.get())) {
+			cudaPublish = [this](const NvidiaVfxCudaFrame& frame, uint32_t index, uint32_t multiplier) {
+				return _DrawNvidiaVfxPostEffects(_vfxSourceTexture.get(), index, multiplier, &frame);
+			};
+		}
+		const bool success = _nvidiaVfxFrameGenerator->Draw(effectsOutput,
+			{_capturedFrameId, captureSequence, _frameSource->ResourceGeneration(), _vfxUpstreamHistoryRevision},
+			isNewCaptureFrame, [this](ID3D11Texture2D* frame, uint32_t index, uint32_t multiplier) {
+				return _DrawNvidiaVfxPostEffects(frame, index, multiplier);
+			}, cudaPublish);
+		if (!success && !_sessionLifetime->IsStopping()) _FailColorPipeline("Nvidia VFX VFG -> TrueHDR", ScalingError::EffectResourceFailed);
+		const double elapsed = std::chrono::duration<double,std::milli>(std::chrono::steady_clock::now() - pairStarted).count();
+		if (isNewCaptureFrame) { _vfxPairTotalMs += elapsed; _vfxPairMaxMs = std::max(_vfxPairMaxMs, elapsed); }
+		if (isNewCaptureFrame && ++_vfxPairSamples == 120) {
+			Logger::Get().Info(fmt::format("Nvidia VFX VFG output budget: multiplier={} pairAvgMs={:.3f} pairMaxMs={:.3f} postOutputs={} postAvgMs={:.3f} intervalMs={:.3f} ringCapacity={}; pair includes SDK, post-processing and publication/backpressure",
+				_SoftwareFrameMultiplier(), _vfxPairTotalMs / _vfxPairSamples, _vfxPairMaxMs, _vfxPostSamples,
+				_vfxPostSamples ? _vfxPostTotalMs / _vfxPostSamples : 0., _synchronousPresentInterval.count() / 1000000., _sharedTextureSlotCount));
+			_LogNvidiaVfxMeasurements();
+			_vfxPairSamples = _vfxPostSamples = 0; _vfxPairTotalMs = _vfxPairMaxMs = _vfxPostTotalMs = 0;
+		}
+		_effectsProfiler.QueryTimings(d3dDC); return;
+	}
 	if (_dlssFrameGenerator && isNewCaptureFrame) {
 		D3D11_TEXTURE2D_DESC sourceDesc{};
 		_frameSource->GetPipelineTexture()->GetDesc(&sourceDesc);
@@ -3755,6 +4361,7 @@ void Renderer::_CompleteBackendFrame(
 		return;
 	}
 
+	_lastPublishedOutputHistoryRevision = _backendOutputHistoryRevision;
 	// 查询效果的渲染时间
 	_effectsProfiler.QueryTimings(d3dDC);
 }
@@ -3789,7 +4396,7 @@ bool Renderer::_PublishBackendTexture(
 	}
 	ID3D11DeviceContext4* d3dDC = _backendResources.GetD3DDC();
 	ID3D11Texture2D* publicationTexture = texture;
-	HdrFrameMetadata publicationMetadata = ScalingWindow::Get().Options().hdrComponents.enabled
+	HdrFrameMetadata publicationMetadata = (ScalingWindow::Get().Options().hdrComponents.enabled || _nvidiaVfxFrameGenerator)
 		? _pipelineOutputMetadata : HdrFrameMetadata{};
 	if (ScalingWindow::Get().Options().IsHdrCompatibilityEnabled()) {
 		publicationMetadata = _pipelineOutputMetadata;
@@ -3825,7 +4432,25 @@ bool Renderer::_PublishBackendTexture(
 	publicationMetadata.captureSequence = captureSequence;
 	publicationMetadata.resourceGeneration = currentGeneration;
 	publicationMetadata.timestamp100ns = _frameSource ? _frameSource->CaptureTimestamp100ns() : 0;
+	// Use the already recorded acceptance time, not the publication/Present
+	// time. Copy it with this frame across the shared slot, preserving native
+	// capture timestamps and every existing DLSS/XeSS timing decision.
+	publicationMetadata.captureAdmissionTime100ns = _isFSR3FrameGenerationActive && !generatedFrame ?
+		std::chrono::duration_cast<std::chrono::duration<int64_t, std::ratio<1, 10000000>>>(
+			_lastCapturedFrameTime.time_since_epoch()).count() : 0;
 	publicationMetadata.generated = generatedFrame;
+	publicationMetadata.outputHistoryRevision = _backendOutputHistoryRevision;
+	publicationMetadata.contentRedraw = _HasProxyFrameGenerator() && _backendOutputRedraw;
+	if (_nvidiaVfxFrameGenerator) {
+		publicationMetadata.stage = generatedFrame ? HdrFrameStage::GeneratedOutput : HdrFrameStage::PublishedOutput;
+		publicationMetadata.parameterRevision = _vfxParameterRevision;
+		publicationMetadata.previousFrameId = _previousCapturedFrameId;
+		publicationMetadata.frameIndex = _vfxOutputIndex;
+		publicationMetadata.frameMultiplier = _vfxOutputMultiplier;
+		if (generatedFrame && _vfxPreviousTimestamp100ns > 0 && publicationMetadata.timestamp100ns > _vfxPreviousTimestamp100ns)
+			publicationMetadata.timestamp100ns = _vfxPreviousTimestamp100ns +
+				(publicationMetadata.timestamp100ns - _vfxPreviousTimestamp100ns) * _vfxOutputIndex / _vfxOutputMultiplier;
+	}
 	const bool queuedPresentation = synchronous &&
 		_synchronousFramePresentationEnabled.load(std::memory_order_acquire);
 	const uint32_t sharedTextureSlot =
@@ -3854,9 +4479,10 @@ bool Renderer::_PublishBackendTexture(
 		}
 		const auto ringWait = std::chrono::steady_clock::now() - ringWaitStart;
 		_captureCadenceQueueWait += ringWait;
-		_dlssFgRingWaitNanoseconds.fetch_add(
-			(uint64_t)std::chrono::duration_cast<std::chrono::nanoseconds>(ringWait).count(),
-			std::memory_order_relaxed);
+		const uint64_t ringWaitNs = (uint64_t)std::chrono::duration_cast<std::chrono::nanoseconds>(ringWait).count();
+		_dlssFgRingWaitNanoseconds.fetch_add(ringWaitNs, std::memory_order_relaxed);
+		if constexpr (NativeBackendTiming::Enabled)
+			_vfxRingWaitNanoseconds.fetch_add(ringWaitNs, std::memory_order_relaxed);
 		_dlssFgRingWaitSamples.fetch_add(1, std::memory_order_relaxed);
 	}
 	auto releaseReservedSlot = [&]() noexcept {
@@ -3870,20 +4496,23 @@ bool Renderer::_PublishBackendTexture(
 	FrameGuidanceFrameId xessMotionFrameId = _capturedFrameId;
 	bool xessMotionValid = false;
 	bool xessMotionReset = true;
-	if (!generatedFrame && _xessMotionRequest.method != OpticalFlowMethod::None) {
+	FrameGuidanceAvailability motionAvailability = FrameGuidanceAvailability::Unavailable;
+	if (!generatedFrame && _proxyMotionRequest.method != OpticalFlowMethod::None) {
 		D3D11_TEXTURE2D_DESC textureDesc{};
 		texture->GetDesc(&textureDesc);
 		const FrameGuidanceExtent extent{ textureDesc.Width, textureDesc.Height };
 		const FrameGuidanceConsumerViews guidance =
 			_frameGuidanceService.GetConsumerViews(
-				_capturedFrameId, extent, _xessMotionRequest);
+				_capturedFrameId, extent, _proxyMotionRequest);
+		motionAvailability = guidance.motionAvailability;
 		if (guidance.produced.IsValidFor(_capturedFrameId, extent) &&
 			!guidance.produced.motion.metadata.isZero) {
 			xessMotion = guidance.produced.motion.texture;
 			xessMotionReset = guidance.produced.requiresHistoryReset;
 			const FrameGuidanceSyncPoint sync = guidance.produced.motion.metadata.sync;
 			if (sync.fence && sync.value && FAILED(d3dDC->Wait(sync.fence, sync.value))) {
-				Logger::Get().Warn("XeSSFG motion synchronization failed; using Zero Motion");
+				Logger::Get().Warn("Proxy FG motion synchronization failed");
+				motionAvailability = FrameGuidanceAvailability::SynchronizationFailed;
 				xessMotion = nullptr;
 				xessMotionReset = true;
 			}
@@ -3906,6 +4535,7 @@ bool Renderer::_PublishBackendTexture(
 			_passThroughFrames.BackendMutex(sharedTextureSlot),
 			_backendSharedMotionTextureMutexes[sharedTextureSlot].get() };
 		size_t failedIndex = mutexes.size();
+		const auto mutexWaitStarted = NativeBackendTiming::Now();
 		hr = AcquirePresentationTextures(mutexes, currentKey, 250, &failedIndex);
 		if (FAILED(hr) && failedIndex == 1) {
 			if (_passThroughFrames.DisableSharing()) {
@@ -3918,7 +4548,12 @@ bool Renderer::_PublishBackendTexture(
 			mutexes[1] = nullptr;
 			hr = AcquirePresentationTextures(mutexes, currentKey, 250);
 		}
+		if constexpr (NativeBackendTiming::Enabled) if (_nvidiaVfxFrameGenerator)
+			_vfxMutexWaitCpuMs += NativeBackendTiming::ElapsedMilliseconds(mutexWaitStarted);
 		if (SUCCEEDED(hr)) {
+			const int publicationGpuTicket = _nvidiaVfxFrameGenerator ?
+				_vfxPublicationGpuTimings.Begin(_backendResources.GetD3DDevice(), d3dDC) : -1;
+			auto publicationGpuTiming = wil::scope_exit([&] { _vfxPublicationGpuTimings.End(d3dDC, publicationGpuTicket); });
 			HdrFrameMetadata frameMetadata = publicationMetadata;
 			frameMetadata.frameId = _capturedFrameId;
 			frameMetadata.captureSequence = captureSequence;
@@ -3938,6 +4573,7 @@ bool Renderer::_PublishBackendTexture(
 			if (mutexes[2] && xessMotionValid) {
 				d3dDC->CopyResource(_backendSharedMotionTextures[sharedTextureSlot].get(), xessMotion);
 			}
+			_sharedMotionAvailability[sharedTextureSlot] = motionAvailability;
 			_sharedMotionFrameIds[sharedTextureSlot].store(xessMotionFrameId, std::memory_order_release);
 			_sharedMotionValid[sharedTextureSlot].store(xessMotionValid, std::memory_order_release);
 			_sharedMotionReset[sharedTextureSlot].store(xessMotionReset || !xessMotionValid,
@@ -3951,6 +4587,11 @@ bool Renderer::_PublishBackendTexture(
 			_sharedTextureTimestamps[sharedTextureSlot].store(
 				_frameSource->CaptureTimestamp100ns(), std::memory_order_release);
 			_sharedFrameMetadata[sharedTextureSlot] = publicationMetadata;
+			_sharedScreenshotFrames[sharedTextureSlot] =
+				_backendScreenshotFrame && _backendScreenshotFrame->Identity().Matches(
+					{ publicationMetadata.frameId, publicationMetadata.captureSequence,
+						publicationMetadata.resourceGeneration }, generatedFrame)
+				? _backendScreenshotFrame : nullptr;
 			_sharedReflexIds[sharedTextureSlot] = { _reflex.CaptureFrameId(), reflexPresentId };
 			hr = ReleasePresentationTextures(mutexes, key);
 			if (SUCCEEDED(hr)) _sharedTextureMutexKeys[sharedTextureSlot].store(key, std::memory_order_release);
@@ -4066,6 +4707,7 @@ bool Renderer::_PublishBackendTexture(
 		}
 	}
 
+	VRRPerformance::Record(generatedFrame ? VRRPerformance::Event::GeneratedPublication : VRRPerformance::Event::RealPublication);
 	return true;
 }
 
@@ -4095,7 +4737,6 @@ winrt::IAsyncOperation<bool> Renderer::_TakeScreenshotImpl(
 	uint32_t outputIdx
 ) noexcept {
 	const bool displayed = effectIdx == std::numeric_limits<uint32_t>::max();
-	const bool original = displayed && _isPassThroughActive;
 	// Snapshot session data before the first suspension. No ScalingWindow
 	// state is read during encoding or notification on a background thread.
 	const auto& options = ScalingWindow::Get().Options();
@@ -4104,7 +4745,7 @@ winrt::IAsyncOperation<bool> Renderer::_TakeScreenshotImpl(
 	const auto toast = options.showToast;
 	const HWND target = ScalingWindow::Get().SrcTracker().Handle();
 	const auto successMsg = ScalingWindow::Get().GetLocalizedString(L"Message_ScreenshotSaved");
-	const std::string effectName = displayed ? (original ? "Original image" : "Displayed effects")
+	const std::string effectName = displayed ? "Final effects"
 		: _activeEffectDescs[effectIdx]->name;
 	const auto dispatcher = displayed ? ScalingWindow::Dispatcher() : _backendThreadDispatcher;
 	auto fail = [&](ScalingError error, std::string_view stage, uint32_t code = 0) {
@@ -4118,22 +4759,31 @@ winrt::IAsyncOperation<bool> Renderer::_TakeScreenshotImpl(
 	// 从倒数第三个通道开始需要检查输出是否被后面的通道覆盖。
 	bool isOverwritten = false;
 	ID3D11Texture2D* sourceTex;
-	EffectIntermediateTextureFormat format;
+	ColorDescription exportColor{};
+	bool exportHdr = false;
+	bool exportCanonicalOutput = false;
+	auto setOutputColor = [&] {
+		exportCanonicalOutput = true;
+		const auto resolved = ResolveHdrExportColor(_effectDrawers[effectIdx].GetHdrBoundary().inputFrame.metadata.color,
+			_runtimeHdrComponents, effectIdx, options.IsHdrCompatibilityEnabled());
+		exportHdr = resolved.hdr;
+		exportColor = resolved.color;
+	};
 	// 效果输出保存为 png，中间结果保存为 dds
 	const wchar_t* imgFormat;
 
 	if (displayed) {
-		sourceTex = original ? _passThroughFrames.FrontendTexture(true)
-			: (_frontendPresentedBaseValid ? _frontendPresentedBaseTexture.get() : nullptr);
+		sourceTex = _frontendPresentedBaseValid ? _frontendPresentedBaseTexture.get() : nullptr;
 		if (!sourceTex) {
 			fail(ScalingError::ScreenshotReadbackFailed, "No presented scene available");
 			co_return false;
 		}
-		format = EffectIntermediateTextureFormat::R8G8B8A8_UNORM;
+		exportColor = _frontendPresentedFrameMetadata.color;
+		exportHdr = exportColor.transfer == HdrTransferFunction::Linear || exportColor.transfer == HdrTransferFunction::PQ;
 		imgFormat = L"png";
 	} else if (passIdx == std::numeric_limits<uint32_t>::max()) {
 		sourceTex = _effectDrawers[effectIdx].GetOutputTexture();
-		format = _activeEffectDescs[effectIdx]->textures[1].format;
+		setOutputColor();
 		imgFormat = L"png";
 	} else {
 		const std::vector<EffectPassDesc>& passes = _activeEffectDescs[effectIdx]->passes;
@@ -4145,8 +4795,11 @@ winrt::IAsyncOperation<bool> Renderer::_TakeScreenshotImpl(
 		const uint32_t targetOutput =
 			outputIdx == std::numeric_limits<uint32_t>::max() ? outputs[0] : outputs[outputIdx];
 
-		sourceTex = _effectDrawers[effectIdx].GetTexture(targetOutput);
-		format = _activeEffectDescs[effectIdx]->textures[targetOutput].format;
+		// OUTPUT has a canonical scene counterpart; intermediate DDS surfaces
+		// retain the backend's raw format and values instead.
+		sourceTex = targetOutput == 1 ? _effectDrawers[effectIdx].GetOutputTexture()
+			: _effectDrawers[effectIdx].GetTexture(targetOutput);
+		if (targetOutput == 1) setOutputColor();
 		imgFormat = targetOutput == 1 ? L"png" : L"dds";
 
 		if (passIdx + 3 <= passCount) {
@@ -4181,6 +4834,11 @@ winrt::IAsyncOperation<bool> Renderer::_TakeScreenshotImpl(
 		}
 
 		_effectDrawers[effectIdx].DrawForExport(*_activeEffectDescs[effectIdx], passIdx);
+		if (exportCanonicalOutput && exportHdr &&
+			!_effectDrawers[effectIdx].CompleteHdrOutput()) {
+			fail(ScalingError::ScreenshotReadbackFailed, "Complete canonical HDR export output");
+			co_return false;
+		}
 		for (size_t i = effectIdx; i < _effectFrameStates.size(); ++i) _effectFrameStates[i].Invalidate();
 		_forceNextRender = true;
 	}
@@ -4266,8 +4924,7 @@ winrt::IAsyncOperation<bool> Renderer::_TakeScreenshotImpl(
 
 	// Serialize disk naming and writing, not rendering. This also avoids
 	// holding a reference to a destroyed Renderer while scanning the folder.
-	static std::mutex screenshotSaveMutex;
-	std::lock_guard saveLock(screenshotSaveMutex);
+	std::lock_guard saveLock(ScreenshotHelper::SaveMutex());
 	if (!Win32Helper::CreateDir(screenshotsDir.c_str(), true)) {
 		fail(ScalingError::ScreenshotDirectoryFailed, "CreateDir", GetLastError());
 		co_return false;
@@ -4280,8 +4937,8 @@ winrt::IAsyncOperation<bool> Renderer::_TakeScreenshotImpl(
 	const std::wstring fileName = fmt::format(L"Magpie_{:03}.{}", screenshotNum, imgFormat);
 	const auto fullPath = screenshotsDir / fileName;
 	TextureSaveError saveError;
-	if (!TextureHelper::SaveTexture(fullPath.c_str(), desc.Width, desc.Height,
-		format, pixelData, mapped.RowPitch, &saveError)) {
+	if (!TextureHelper::SaveTextureExclusive(fullPath.c_str(), desc.Width, desc.Height,
+		desc.Format, pixelData, mapped.RowPitch, &saveError, exportHdr ? &exportColor : nullptr)) {
 		if (report) report(target, saveError.fileWriteFailed ? ScalingError::ScreenshotWriteFailed
 			: (std::wstring_view(imgFormat) == L"dds" ? ScalingError::ScreenshotIntermediateEncodeFailed
 				: ScalingError::ScreenshotEncodeFailed),
@@ -4301,8 +4958,9 @@ LRESULT CALLBACK Renderer::_LowLevelKeyboardHook(int nCode, WPARAM wParam, LPARA
 	}
 
 	KBDLLHOOKSTRUCT* info = (KBDLLHOOKSTRUCT*)lParam;
-	if (Renderer* renderer = ScalingWindow::Get().TryGetRenderer(); renderer &&
-		renderer->_overlayDrawer.HandleParameterPreviewEscape(wParam, *info)) return 1;
+	Renderer* renderer = ScalingWindow::Get().TryGetRenderer();
+	if (!renderer || renderer->IsStopping()) return CallNextHookEx(NULL, nCode, wParam, lParam);
+	if (renderer->_overlayDrawer.HandleParameterPreviewEscape(wParam, *info)) return 1;
 	if (wParam != WM_KEYDOWN && wParam != WM_SYSKEYDOWN)
 		return CallNextHookEx(NULL, nCode, wParam, lParam);
 	if (info->vkCode == VK_LWIN || info->vkCode == VK_RWIN ||
@@ -4313,11 +4971,13 @@ LRESULT CALLBACK Renderer::_LowLevelKeyboardHook(int nCode, WPARAM wParam, LPARA
 	}
 	if (info->vkCode == VK_SNAPSHOT) {
 		// 为了缩短钩子处理时间，异步执行所有逻辑
-		ScalingWindow::Dispatcher().TryEnqueue([]() -> winrt::fire_and_forget {
+		ScalingWindow::Dispatcher().TryEnqueue([session = renderer->_sessionLifetime]() -> winrt::fire_and_forget {
+			auto& window = ScalingWindow::Get();
+			if (!session->IsCurrent(ScalingWindow::RunId()) || !window || !window.TryGetRenderer()) co_return;
 			// 暂时隐藏光标
-			Renderer& renderer = ScalingWindow::Get().Renderer();
-			renderer._cursorDrawer.IsCursorVisible(false);
-			renderer.Render();
+			Renderer& currentRenderer = window.Renderer();
+			currentRenderer._cursorDrawer.IsCursorVisible(false);
+			currentRenderer.Render();
 
 			const uint32_t runId = ScalingWindow::RunId();
 
@@ -4325,11 +4985,11 @@ LRESULT CALLBACK Renderer::_LowLevelKeyboardHook(int nCode, WPARAM wParam, LPARA
 			co_await 200ms;
 			co_await dispatcher;
 
-			if (ScalingWindow::RunId() == runId &&
-				!renderer._cursorDrawer.IsCursorVisible()
+			if (session->IsCurrent(ScalingWindow::RunId()) && ScalingWindow::RunId() == runId &&
+				!currentRenderer._cursorDrawer.IsCursorVisible()
 			) {
-				renderer._cursorDrawer.IsCursorVisible(true);
-				renderer.Render();
+				currentRenderer._cursorDrawer.IsCursorVisible(true);
+				currentRenderer.Render();
 			}
 		});
 	}

@@ -15,6 +15,9 @@
 #include "FrameGuidancePerformance.h"
 #include "NativeBackendTiming.h"
 #include "OpticalFlowSettings.h"
+#include "StrHelper.h"
+#include <winver.h>
+#pragma comment(lib, "version.lib")
 
 namespace Magpie {
 
@@ -537,6 +540,8 @@ T GetExport(HMODULE module, const char* name) noexcept {
 }
 
 struct DLSSNRFilter::Impl {
+	DlssNrFailure failure;
+	std::string libraryInfo;
 	static constexpr uint32_t COMMAND_SLOT_COUNT = 4;
 	static constexpr uint32_t TIMESTAMP_STRIDE = 8; // chain plus three pass pairs
 	struct ShaderSet {
@@ -1085,6 +1090,7 @@ static bool CreateSharedTexture(
 
 	HRESULT hr = impl.device11->CreateTexture2D(&desc, nullptr, texture11.put());
 	if (FAILED(hr)) {
+		impl.failure = DlssNrApiFailure(DlssNrStage::Initialize, DlssNrCodeKind::HResult, static_cast<uint32_t>(hr), "Create DLSSNR shared D3D11 texture failed");
 		Logger::Get().ComError("Create DLSSNR shared D3D11 texture failed", hr);
 		return false;
 	}
@@ -1092,18 +1098,21 @@ static bool CreateSharedTexture(
 	winrt::com_ptr<IDXGIResource1> dxgiResource;
 	hr = texture11->QueryInterface(IID_PPV_ARGS(dxgiResource.put()));
 	if (FAILED(hr)) {
+		impl.failure = DlssNrApiFailure(DlssNrStage::Initialize, DlssNrCodeKind::HResult, static_cast<uint32_t>(hr), "Query DLSSNR shared IDXGIResource1 failed");
 		Logger::Get().ComError("Query DLSSNR shared IDXGIResource1 failed", hr);
 		return false;
 	}
 	HANDLE rawHandle = nullptr;
 	hr = dxgiResource->CreateSharedHandle(nullptr, GENERIC_ALL, nullptr, &rawHandle);
 	if (FAILED(hr)) {
+		impl.failure = DlssNrApiFailure(DlssNrStage::Initialize, DlssNrCodeKind::HResult, static_cast<uint32_t>(hr), "Create DLSSNR texture shared handle failed");
 		Logger::Get().ComError("Create DLSSNR texture shared handle failed", hr);
 		return false;
 	}
 	wil::unique_handle handle(rawHandle);
 	hr = impl.device12->OpenSharedHandle(handle.get(), IID_PPV_ARGS(texture12.put()));
 	if (FAILED(hr)) {
+		impl.failure = DlssNrApiFailure(DlssNrStage::Initialize, DlssNrCodeKind::HResult, static_cast<uint32_t>(hr), "Open DLSSNR texture in D3D12 failed");
 		Logger::Get().ComError("Open DLSSNR texture in D3D12 failed", hr);
 		return false;
 	}
@@ -1176,6 +1185,7 @@ static bool CreateCompositeOutput(
 			impl.compositeOutput11.get(), nullptr, impl.compositeOutputUav11.put());
 	}
 	if (FAILED(hr)) {
+		impl.failure = DlssNrApiFailure(DlssNrStage::Initialize, DlssNrCodeKind::HResult, static_cast<uint32_t>(hr), "Create DLSSNR residual composite output failed");
 		Logger::Get().ComError("Create DLSSNR residual composite output failed", hr);
 		return false;
 	}
@@ -1203,8 +1213,8 @@ static bool CreateResolutionScalingResources(
 			impl.sharedInput11.get(), nullptr, impl.sharedInputUav11.put());
 	}
 	if (FAILED(hr)) {
-		Logger::Get().ComError(
-			"Create DLSSNR resolution scaling color views failed", hr);
+		impl.failure = DlssNrApiFailure(DlssNrStage::Initialize, DlssNrCodeKind::HResult, static_cast<uint32_t>(hr), "Create DLSSNR resolution scaling color views failed");
+		Logger::Get().ComError("Create DLSSNR resolution scaling color views failed", hr);
 		return false;
 	}
 	if (!CreateCompositeOutput(impl, input, output, outputDesc)) return false;
@@ -1228,8 +1238,8 @@ static bool CreateResolutionScalingResources(
 				impl.resampleIntermediateUav11.put());
 		}
 		if (FAILED(hr)) {
-			Logger::Get().ComError(
-				"Create DLSSNR horizontal residual views failed", hr);
+			impl.failure = DlssNrApiFailure(DlssNrStage::Initialize, DlssNrCodeKind::HResult, static_cast<uint32_t>(hr), "Create DLSSNR horizontal residual views failed");
+			Logger::Get().ComError("Create DLSSNR horizontal residual views failed", hr);
 			return false;
 		}
 	}
@@ -1250,6 +1260,7 @@ static bool CreateResolutionScalingResources(
 			impl.controlledResidual11.get(), nullptr, impl.controlledResidualUav11.put());
 	}
 	if (FAILED(hr)) {
+		impl.failure = DlssNrApiFailure(DlssNrStage::Initialize, DlssNrCodeKind::HResult, static_cast<uint32_t>(hr), "Create DLSSNR controlled residual views failed");
 		Logger::Get().ComError("Create DLSSNR controlled residual views failed", hr);
 		return false;
 	}
@@ -1283,8 +1294,8 @@ static bool CreateResolutionScalingResources(
 				impl.reducedConfidenceUav11.put());
 		}
 		if (FAILED(hr)) {
-			Logger::Get().ComError(
-				"Create DLSSNR reduced Frame Guidance UAVs failed", hr);
+			impl.failure = DlssNrApiFailure(DlssNrStage::Initialize, DlssNrCodeKind::HResult, static_cast<uint32_t>(hr), "Create DLSSNR reduced Frame Guidance UAVs failed");
+			Logger::Get().ComError("Create DLSSNR reduced Frame Guidance UAVs failed", hr);
 			return false;
 		}
 	}
@@ -1305,8 +1316,8 @@ static bool CreateResolutionScalingResources(
 	if (SUCCEEDED(hr)) hr = impl.device11->CreateBuffer(
 		&constantsDesc, nullptr, impl.residualConstants11.put());
 	if (FAILED(hr)) {
-		Logger::Get().ComError(
-			"Create DLSSNR resample constants failed", hr);
+		impl.failure = DlssNrApiFailure(DlssNrStage::Initialize, DlssNrCodeKind::HResult, static_cast<uint32_t>(hr), "Create DLSSNR resample constants failed");
+		Logger::Get().ComError("Create DLSSNR resample constants failed", hr);
 		return false;
 	}
 
@@ -1396,20 +1407,52 @@ static bool SetCreateParametersSafely(
 	}, false, sehCode);
 }
 
+static std::string DescribeLoadedSnippet(HMODULE module) {
+	std::wstring buffer(32768, L'\0');
+	const DWORD length = GetModuleFileNameW(module, buffer.data(), static_cast<DWORD>(buffer.size()));
+	if (!length || length >= buffer.size()) return "Loaded DLSSNR path/version: unavailable";
+	buffer.resize(length);
+	std::string result = "Loaded DLSSNR: " + StrHelper::UTF16ToUTF8(buffer);
+	DWORD unused = 0;
+	const DWORD size = GetFileVersionInfoSizeW(buffer.c_str(), &unused);
+	std::vector<uint8_t> data(size);
+	VS_FIXEDFILEINFO* version = nullptr;
+	UINT bytes = 0;
+	if (size && GetFileVersionInfoW(buffer.c_str(), 0, size, data.data()) &&
+		VerQueryValueW(data.data(), L"\\", reinterpret_cast<void**>(&version), &bytes) &&
+		bytes >= sizeof(VS_FIXEDFILEINFO) && version->dwSignature == 0xFEEF04BD)
+		result += fmt::format(" / FileVersion: {}.{}.{}.{}", HIWORD(version->dwFileVersionMS),
+			LOWORD(version->dwFileVersionMS), HIWORD(version->dwFileVersionLS), LOWORD(version->dwFileVersionLS));
+	else result += " / FileVersion: unavailable";
+	return result;
+}
+
 static bool InitializeSignedSnippetSession(
 	DLSSNRFilter::Impl& impl,
 	const std::filesystem::path& applicationDirectory
 ) noexcept {
 	const std::filesystem::path dllPath =
 		applicationDirectory / L"nvngx_dlssnr.dll";
+	const DWORD attributes = GetFileAttributesW(dllPath.c_str());
+	const DWORD pathError = attributes == INVALID_FILE_ATTRIBUTES ? GetLastError() : ERROR_SUCCESS;
+	if (attributes == INVALID_FILE_ATTRIBUTES && (pathError == ERROR_FILE_NOT_FOUND || pathError == ERROR_PATH_NOT_FOUND)) {
+		impl.failure = { DlssNrStage::LoadLibrary, DlssNrReason::LibraryMissing, DlssNrCodeKind::Win32, pathError, "GetFileAttributesW(nvngx_dlssnr.dll)" };
+		Logger::Get().Error("DLSSNR library does not exist at the application path");
+		return false;
+	}
 	impl.snippetModule = LoadLibraryExW(
 		dllPath.c_str(), nullptr,
 		LOAD_LIBRARY_SEARCH_DLL_LOAD_DIR | LOAD_LIBRARY_SEARCH_DEFAULT_DIRS);
 	if (!impl.snippetModule) {
-		Logger::Get().Win32Error("Load signed nvngx_dlssnr.dll failed");
+		const DWORD code = GetLastError();
+		impl.failure = DlssNrApiFailure(DlssNrStage::LoadLibrary, DlssNrCodeKind::Win32, code, "LoadLibraryExW(nvngx_dlssnr.dll)");
+		if (impl.failure.reason == DlssNrReason::Unknown) impl.failure.reason = DlssNrReason::LibraryLoadFailed;
+		Logger::Get().Error(fmt::format("Load signed nvngx_dlssnr.dll failed: Win32={}", code));
 		return false;
 	}
 
+	impl.libraryInfo = DescribeLoadedSnippet(impl.snippetModule);
+	Logger::Get().Info(impl.libraryInfo);
 	impl.snippetInitExt = GetExport<DLSSNRFilter::Impl::SnippetInitExtFn>(
 		impl.snippetModule, "NVSDK_NGX_D3D12_Init_Ext");
 	impl.snippetCreateFeature = GetExport<DLSSNRFilter::Impl::CreateFeatureFn>(
@@ -1423,15 +1466,19 @@ static bool InitializeSignedSnippetSession(
 	if (!impl.snippetInitExt || !impl.snippetCreateFeature ||
 		!impl.snippetEvaluateFeature || !impl.snippetReleaseFeature ||
 		!impl.snippetShutdown) {
+		impl.failure = { DlssNrStage::LoadLibrary, DlssNrReason::MissingExports, DlssNrCodeKind::None, 0, "Resolve required NGX exports" };
 		Logger::Get().Error("DLSSNR signed snippet exports are incomplete");
 		return false;
 	}
+	impl.failure = { DlssNrStage::InitializeLibrary, DlssNrReason::Unknown, DlssNrCodeKind::None, 0, "Install snippet caller compatibility" };
 	if (!InstallSnippetCallerCompatibility(impl)) return false;
 
 	DWORD sehCode = 0;
 	const NVSDK_NGX_Result result = CallSnippetInitSafely(
 		impl.snippetInitExt, applicationDirectory.c_str(),
 		impl.device12.get(), &sehCode);
+	impl.failure = DlssNrApiFailure(DlssNrStage::InitializeLibrary, sehCode ? DlssNrCodeKind::Seh : DlssNrCodeKind::Ngx,
+		sehCode ? sehCode : static_cast<uint32_t>(result), "NVSDK_NGX_D3D12_Init_Ext");
 	if (sehCode) {
 		Logger::Get().Error(fmt::format(
 			"DLSSNR signed snippet Init_Ext raised SEH {:#x}", sehCode));
@@ -1462,9 +1509,14 @@ static bool InitializeSignedSnippet(
 	if (!session) {
 		session = std::make_shared<DLSSNRFilter::Impl>();
 		session->device12 = impl.device12;
-		if (!InitializeSignedSnippetSession(*session, applicationDirectory)) return false;
+		if (!InitializeSignedSnippetSession(*session, applicationDirectory)) {
+			impl.failure = session->failure;
+			impl.libraryInfo = session->libraryInfo;
+			return false;
+		}
 		sharedSession = session;
 	}
+	impl.libraryInfo = session->libraryInfo;
 	impl.snippetCreateFeature = session->snippetCreateFeature;
 	impl.snippetEvaluateFeature = session->snippetEvaluateFeature;
 	impl.snippetReleaseFeature = session->snippetReleaseFeature;
@@ -1810,11 +1862,12 @@ DLSSNRFilter::GetFrameGuidanceRequirements() const noexcept {
 EffectParameterApplyMode DLSSNRFilter::GetParameterApplyMode(
 	std::string_view parameterName
 ) const noexcept {
+	if (!_impl || _impl->disabled) return EffectParameterApplyMode::Unavailable;
 	if (parameterName == "residualShowAdvanced")
 		return EffectParameterApplyMode::Live;
 	if (_settings.experimentalHdr.enabled &&
 		(parameterName == "enableInputResolutionScaling" || parameterName == "inputResolutionPercent" ||
-		 IsDLSSNRResidualParameter(parameterName))) return EffectParameterApplyMode::Unavailable;
+		 IsDLSSNRResidualParameter(parameterName))) return EffectParameterApplyMode::Restricted;
 	if (parameterName == "style" || parameterName == "intensity" ||
 		parameterName == "localToneStrength" ||
 		parameterName == "localStructureStrength" ||
@@ -1903,6 +1956,8 @@ bool DLSSNRFilter::Initialize(
 bool DLSSNRFilter::InitializeChain(DeviceResources& resources, NgxD3D12Core& ngxCore,
 	ID3D11Texture2D* input, ID3D11Texture2D* output,
 	std::span<const DLSSNRSettings> passes) noexcept {
+	_libraryInfo.clear();
+	_failure = { DlssNrStage::Initialize, DlssNrReason::Unknown, DlssNrCodeKind::None, 0, "Validate DLSSNR inputs" };
 	if (passes.empty() || passes.size() > 3 || !input || !output) return false;
 	const DLSSNRSettings settings = passes.front();
 	for (const auto& pass : passes) {
@@ -1950,6 +2005,8 @@ bool DLSSNRFilter::InitializeChain(DeviceResources& resources, NgxD3D12Core& ngx
 	_impl.reset();
 	FrameGuidancePerformance::ResetDlssnrGpuTiming();
 	auto impl = std::make_unique<Impl>();
+	impl->failure = _failure;
+	const auto captureFailure = wil::scope_exit([&] { if (impl) { _failure = impl->failure; _libraryInfo = impl->libraryInfo; } });
 	impl->device11 = resources.GetD3DDevice();
 	impl->context11 = resources.GetD3DDC();
 	impl->coreOwner = &ngxCore;
@@ -1996,11 +2053,22 @@ bool DLSSNRFilter::InitializeChain(DeviceResources& resources, NgxD3D12Core& ngx
 		inputDesc.Height;
 	impl->convertInputToRgba = inputDesc.Format == DXGI_FORMAT_B8G8R8A8_UNORM;
 
+	auto coreFailure = [&](DlssNrStage stage) {
+		const auto& failure = ngxCore.LastFailure();
+		const auto kind = failure.kind == NgxCallFailure::Kind::Seh ? DlssNrCodeKind::Seh :
+			failure.kind == NgxCallFailure::Kind::Ngx ? DlssNrCodeKind::Ngx :
+			failure.kind == NgxCallFailure::Kind::HResult ? DlssNrCodeKind::HResult :
+			failure.kind == NgxCallFailure::Kind::Win32 ? DlssNrCodeKind::Win32 : DlssNrCodeKind::None;
+		return DlssNrApiFailure(stage, kind, failure.code, failure.operation);
+	};
+	impl->failure.operation = "Acquire NGX D3D12 Core";
 	if (!ngxCore.Acquire(resources, "DLSSNR")) {
+		impl->failure = coreFailure(DlssNrStage::Initialize);
 		return false;
 	}
 	impl->coreRegistered = true;
 	impl->device12.copy_from(ngxCore.Device());
+	impl->failure.operation = "Create DLSSNR graphics resources";
 	HRESULT hr = S_OK;
 	D3D12_COMMAND_QUEUE_DESC queueDesc{};
 	queueDesc.Type = D3D12_COMMAND_LIST_TYPE_DIRECT;
@@ -2015,6 +2083,7 @@ bool DLSSNRFilter::InitializeChain(DeviceResources& resources, NgxD3D12Core& ngx
 			IID_PPV_ARGS(impl->commandList12.put()));
 	}
 	if (FAILED(hr)) {
+		impl->failure = DlssNrApiFailure(DlssNrStage::Initialize, DlssNrCodeKind::HResult, static_cast<uint32_t>(hr), "Create DLSSNR D3D12 command objects failed");
 		Logger::Get().ComError("Create DLSSNR D3D12 command objects failed", hr);
 		return false;
 	}
@@ -2045,6 +2114,7 @@ bool DLSSNRFilter::InitializeChain(DeviceResources& resources, NgxD3D12Core& ngx
 		if (SUCCEEDED(hr) && !CreateComputeShader(*impl, COLOR_CONVERT_HLSL,
 			"ConvertToRgba", "DLSSNRColorConvert", impl->colorConvertShader11)) hr = E_FAIL;
 		if (FAILED(hr)) {
+			impl->failure = DlssNrApiFailure(DlssNrStage::Initialize, DlssNrCodeKind::HResult, static_cast<uint32_t>(hr), "Create DLSSNR BGRA conversion resources failed");
 			Logger::Get().ComError("Create DLSSNR BGRA conversion resources failed", hr);
 			return false;
 		}
@@ -2053,12 +2123,14 @@ bool DLSSNRFilter::InitializeChain(DeviceResources& resources, NgxD3D12Core& ngx
 	hr = impl->device11->CreateFence(
 		0, D3D11_FENCE_FLAG_SHARED, IID_PPV_ARGS(impl->fence11.put()));
 	if (FAILED(hr)) {
+		impl->failure = DlssNrApiFailure(DlssNrStage::Initialize, DlssNrCodeKind::HResult, static_cast<uint32_t>(hr), "Create DLSSNR shared fence failed");
 		Logger::Get().ComError("Create DLSSNR shared fence failed", hr);
 		return false;
 	}
 	HANDLE rawFence = nullptr;
 	hr = impl->fence11->CreateSharedHandle(nullptr, GENERIC_ALL, nullptr, &rawFence);
 	if (FAILED(hr)) {
+		impl->failure = DlssNrApiFailure(DlssNrStage::Initialize, DlssNrCodeKind::HResult, static_cast<uint32_t>(hr), "Create DLSSNR fence shared handle failed");
 		Logger::Get().ComError("Create DLSSNR fence shared handle failed", hr);
 		return false;
 	}
@@ -2066,11 +2138,13 @@ bool DLSSNRFilter::InitializeChain(DeviceResources& resources, NgxD3D12Core& ngx
 	hr = impl->device12->OpenSharedHandle(
 		fenceHandle.get(), IID_PPV_ARGS(impl->fence12.put()));
 	if (FAILED(hr)) {
+		impl->failure = DlssNrApiFailure(DlssNrStage::Initialize, DlssNrCodeKind::HResult, static_cast<uint32_t>(hr), "Open DLSSNR shared fence in D3D12 failed");
 		Logger::Get().ComError("Open DLSSNR shared fence in D3D12 failed", hr);
 		return false;
 	}
 	hr = impl->fenceEvent.create();
 	if (FAILED(hr)) {
+		impl->failure = DlssNrApiFailure(DlssNrStage::Initialize, DlssNrCodeKind::HResult, static_cast<uint32_t>(hr), "Create reusable DLSSNR fence event failed");
 		Logger::Get().ComError("Create reusable DLSSNR fence event failed", hr);
 		return false;
 	}
@@ -2118,14 +2192,18 @@ bool DLSSNRFilter::InitializeChain(DeviceResources& resources, NgxD3D12Core& ngx
 	NVSDK_NGX_Result result = NVSDK_NGX_Result_Success;
 
 	if constexpr (!ENABLE_CORE_FEATURE18_DIAGNOSTIC) {
+		impl->failure = { DlssNrStage::InitializeLibrary, DlssNrReason::Unknown, DlssNrCodeKind::None, 0, "Acquire signed snippet session" };
 		if (!InitializeSignedSnippet(*impl, applicationDirectory)) return false;
 	}
 
+	impl->failure = { DlssNrStage::CreateFeature, DlssNrReason::Unknown, DlssNrCodeKind::None, 0, "Allocate NGX parameters" };
 	if (!ngxCore.AllocateParameters(&impl->parameters, "DLSSNR")) {
+		impl->failure = coreFailure(DlssNrStage::CreateFeature);
 		return false;
 	}
 	sehCode = 0;
 	if (!SetCreateParametersSafely(*impl, &sehCode)) {
+		impl->failure = DlssNrApiFailure(DlssNrStage::CreateFeature, DlssNrCodeKind::Seh, sehCode, "SetCreateParameters");
 		Logger::Get().Error(fmt::format(
 			"DLSSNR creation parameter setup raised SEH {:#x}", sehCode));
 		return false;
@@ -2144,9 +2222,11 @@ bool DLSSNRFilter::InitializeChain(DeviceResources& resources, NgxD3D12Core& ngx
 			"DLSSNR {} CreateFeature raised SEH {:#x}",
 			ENABLE_CORE_FEATURE18_DIAGNOSTIC ? "Core diagnostic" : "signed snippet",
 			sehCode));
+		impl->failure = DlssNrApiFailure(DlssNrStage::CreateFeature, DlssNrCodeKind::Seh, sehCode, "CreateFeature(18), pass 1");
 		return false;
 	}
 	if (!NGXSucceeded(result) || !impl->feature) {
+		impl->failure = DlssNrApiFailure(DlssNrStage::CreateFeature, DlssNrCodeKind::Ngx, static_cast<uint32_t>(result), "CreateFeature(18), pass 1");
 		Logger::Get().Error(fmt::format(
 			"DLSSNR {} Feature 18 creation failed ({:#x})",
 			ENABLE_CORE_FEATURE18_DIAGNOSTIC ? "Core diagnostic" : "signed snippet",
@@ -2171,11 +2251,20 @@ bool DLSSNRFilter::InitializeChain(DeviceResources& resources, NgxD3D12Core& ngx
 			child->sharedOutput11, child->sharedOutput12)) return false;
 		if (impl->useResolutionScaling && i + 1 == passes.size() && FAILED(impl->device11->CreateShaderResourceView(
 			child->sharedOutput11.get(), nullptr, child->sharedOutputSrv11.put()))) return false;
-		if (!ngxCore.AllocateParameters(&child->parameters, "DLSSNR") ||
-			!SetCreateParametersSafely(*child, &sehCode)) return false;
+		if (!ngxCore.AllocateParameters(&child->parameters, "DLSSNR")) {
+			impl->failure = coreFailure(DlssNrStage::CreateFeature);
+			return false;
+		}
+		sehCode = 0;
+		if (!SetCreateParametersSafely(*child, &sehCode)) {
+			impl->failure = DlssNrApiFailure(DlssNrStage::CreateFeature, DlssNrCodeKind::Seh, sehCode, "SetCreateParameters, later pass");
+			return false;
+		}
 		result = CallCreateFeatureSafely(createFeature, impl->commandList12.get(), FEATURE_DLSSNR,
 			child->parameters, &child->feature, &sehCode);
 		if (sehCode || !NGXSucceeded(result) || !child->feature) {
+			impl->failure = DlssNrApiFailure(DlssNrStage::CreateFeature, sehCode ? DlssNrCodeKind::Seh : DlssNrCodeKind::Ngx,
+				sehCode ? sehCode : static_cast<uint32_t>(result), fmt::format("CreateFeature(18), pass {}", i + 1));
 			Logger::Get().Error(fmt::format("DLSSNR pass {} creation failed ({:#x}), SEH={:#x}",
 				i + 1, static_cast<uint32_t>(result), sehCode));
 			return false;
@@ -2185,6 +2274,7 @@ bool DLSSNRFilter::InitializeChain(DeviceResources& resources, NgxD3D12Core& ngx
 
 	hr = impl->commandList12->Close();
 	if (FAILED(hr)) {
+		impl->failure = DlssNrApiFailure(DlssNrStage::Initialize, DlssNrCodeKind::HResult, static_cast<uint32_t>(hr), "Close DLSSNR initialization command list failed");
 		Logger::Get().ComError("Close DLSSNR initialization command list failed", hr);
 		return false;
 	}
@@ -2205,6 +2295,7 @@ bool DLSSNRFilter::InitializeChain(DeviceResources& resources, NgxD3D12Core& ngx
 		}
 		if (SUCCEEDED(hr)) hr = slot.commandList->Close();
 		if (FAILED(hr)) {
+			impl->failure = DlssNrApiFailure(DlssNrStage::Initialize, DlssNrCodeKind::HResult, static_cast<uint32_t>(hr), "Create DLSSNR command ring failed");
 			Logger::Get().ComError("Create DLSSNR command ring failed", hr);
 			return false;
 		}
@@ -2241,6 +2332,8 @@ bool DLSSNRFilter::InitializeChain(DeviceResources& resources, NgxD3D12Core& ngx
 		static_cast<uint32_t>(_settings.motionRequest.quality),
 		_settings.useAutoMask, _settings.uiCorrection,
 		impl->experimentalHdrPath, impl->experimentalHdrScale));
+	_failure = {};
+	_libraryInfo = impl->libraryInfo;
 	_impl = std::move(impl);
 	return true;
 }
@@ -2299,7 +2392,10 @@ static void TransitionColor(ID3D12GraphicsCommandList* list, ID3D12Resource* res
 }
 
 bool DLSSNRFilter::Draw(const NativeEffectDrawContext& context) noexcept {
-	if (!_impl || !_impl->feature || !_impl->parameters) return false;
+	if (!_impl || !_impl->feature || !_impl->parameters) {
+		if (_failure.operation.empty()) _failure = { DlssNrStage::Evaluate, DlssNrReason::Unknown, DlssNrCodeKind::None, 0, "DLSSNR feature or parameters unavailable" };
+		return false;
+	}
 	Impl& impl = *_impl;
 	const size_t count = _passSettings.size();
 	auto passAt = [&](size_t i) -> Impl& { return i ? *impl.laterPasses[i - 1] : impl; };
@@ -2312,6 +2408,7 @@ bool DLSSNRFilter::Draw(const NativeEffectDrawContext& context) noexcept {
 		return true;
 	};
 	auto fail = [&](std::string_view stage) noexcept {
+		if (_failure.operation.empty()) _failure = { DlssNrStage::Evaluate, DlssNrReason::Unknown, DlssNrCodeKind::None, 0, std::string(stage) };
 		impl.disabled = true;
 		impl.cache.valid = false;
 		LogDlssnrStatus(fmt::format("DLSSNR chain failed: frame={} stage={} rejecting complete output",
@@ -2420,6 +2517,7 @@ bool DLSSNRFilter::Draw(const NativeEffectDrawContext& context) noexcept {
 		const bool reset = evaluateGuidance->requiresHistoryReset && pass.lastGuidanceResetFrameId != context.frameId;
 		DWORD seh = 0;
 		if (!SetEvaluateParametersSafely(pass, _passSettings[i], *evaluateGuidance, reset, &seh)) {
+			_failure = DlssNrApiFailure(DlssNrStage::Evaluate, DlssNrCodeKind::Seh, seh, "SetEvaluateParameters");
 			list->Close();
 			return fail("parameters-seh");
 		}
@@ -2442,7 +2540,11 @@ bool DLSSNRFilter::Draw(const NativeEffectDrawContext& context) noexcept {
 			D3D12_RESOURCE_STATE_COMMON);
 		TransitionColor(list, pass.sharedOutput12.get(), D3D12_RESOURCE_STATE_UNORDERED_ACCESS,
 			evaluated && i + 1 < count ? D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE : D3D12_RESOURCE_STATE_COMMON);
-		if (!evaluated) { success = false; break; }
+		if (!evaluated) {
+			_failure = DlssNrApiFailure(DlssNrStage::Evaluate, seh ? DlssNrCodeKind::Seh : DlssNrCodeKind::Ngx,
+				seh ? seh : static_cast<uint32_t>(result), fmt::format("EvaluateFeature(18), pass {}", i + 1));
+			success = false; break;
+		}
 		if (reset) pass.lastGuidanceResetFrameId = context.frameId;
 		pass.resetHistory = false;
 	}
@@ -2510,11 +2612,13 @@ DLSSNRFilter::GetFrameGuidanceRequirements() const noexcept { return {}; }
 bool DLSSNRFilter::Initialize(
 	DeviceResources&, NgxD3D12Core&, ID3D11Texture2D*, ID3D11Texture2D*,
 	const DLSSNRSettings&) noexcept {
+	_failure = { DlssNrStage::Initialize, DlssNrReason::BuildDisabled, DlssNrCodeKind::None, 0, "MP_ENABLE_DLSSNR" };
 	Logger::Get().Error("DLSSNR support is disabled at build time");
 	return false;
 }
 bool DLSSNRFilter::InitializeChain(DeviceResources&, NgxD3D12Core&,
 	ID3D11Texture2D*, ID3D11Texture2D*, std::span<const DLSSNRSettings>) noexcept {
+	_failure = { DlssNrStage::Initialize, DlssNrReason::BuildDisabled, DlssNrCodeKind::None, 0, "MP_ENABLE_DLSSNR" };
 	Logger::Get().Error("DLSSNR support is disabled at build time");
 	return false;
 }

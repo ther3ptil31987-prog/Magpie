@@ -15,6 +15,8 @@
   <ItemGroup>
     <ClInclude Include="$(MSBuildThisFileDirectory)CommonDefines.h" />
     <ClInclude Include="$(MSBuildThisFileDirectory)CommonSharedConstants.h" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)PinnedFile.h" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)DlssgSm86Package.h" />
     <ClInclude Include="$(MSBuildThisFileDirectory)Logger.h" />
     <ClInclude Include="$(MSBuildThisFileDirectory)SmallVector.h" />
     <ClInclude Include="$(MSBuildThisFileDirectory)StrHelper.h" />

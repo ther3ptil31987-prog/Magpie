@@ -16,7 +16,8 @@ inline bool HasOpticalFlowSelection(std::string_view effect) noexcept {
 		effect == "DLSSFG\\DLSS_FrameGeneration" ||
 		effect == "Diagnostics\\FrameGuidance_Motion" ||
 		effect == "Diagnostics\\FrameGuidance_Confidence" ||
-		effect == "XeSSFG\\XeSS_FrameGeneration";
+		effect == "XeSSFG\\XeSS_FrameGeneration" ||
+		effect == "FSR3FG\\FSR3_FrameGeneration";
 }
 
 // Restrict built-in UI rules to their owning effects. Custom effects may use
@@ -24,11 +25,18 @@ inline bool HasOpticalFlowSelection(std::string_view effect) noexcept {
 template<class GetValue>
 bool IsEffectParameterVisible(std::string_view effect, std::string_view parameter,
 	GetValue&& getValue) noexcept {
+	if (effect == "Color\\HDR_to_SDR" && parameter == "peakNits")
+		return getValue("mode", 0.f) == 0.f;
+	if (effect == "Color\\SDR_to_HDR" && parameter == "nativeWhiteNits")
+		return getValue("mode", 0.f) == 1.f ||
+			(getValue("mode", 0.f) == 0.f && getValue("__hdrHasPair", 0.f) == 0.f);
 	if (effect == "DLSSNR\\DLSSNR_AI_Filter" &&
 		(parameter == "residualChromaTemporalStrength" ||
 		 DLSSNRParameterPass(parameter) > DLSSNRPassCount(getValue))) return false;
 	if (HasOpticalFlowSelection(effect)) {
-		const float method = getValue("opticalFlowMethod", effect == "XeSSFG\\XeSS_FrameGeneration" ? 1.0f : 0.0f);
+		const float defaultMethod = (effect == "XeSSFG\\XeSS_FrameGeneration" ||
+			effect == "FSR3FG\\FSR3_FrameGeneration") ? 1.0f : 0.0f;
+		const float method = getValue("opticalFlowMethod", defaultMethod);
 		if (parameter == "amdOpticalFlowMode") return method == 1.0f;
 		if (parameter == "nvidiaOpticalFlowQuality") return method == 2.0f;
 	}

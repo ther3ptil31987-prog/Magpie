@@ -13,6 +13,7 @@
 #include <rapidjson/prettywriter.h>
 #include <rapidjson/stringbuffer.h>
 #include "ToolbarPlacement.h"
+#include "../src/Magpie.Core/PresentationFrameRate.h"
 #include <cassert>
 #include <chrono>
 #include <functional>
@@ -69,6 +70,8 @@ struct Cursor {
 	HCURSOR CursorHandle() const { return (HCURSOR)1; }
 };
 struct RendererMock {
+	bool HasFrameGeneration() const { return false; }
+	PresentationRateSnapshot PresentationRate() const { return {}; }
 	RECT dest{ 100, 200, 2020, 1280 };
 	const RECT& DestRect() const { return dest; }
 	bool passThrough = false;
@@ -87,6 +90,7 @@ struct ScalingWindow {
 	RendererMock renderer;
 	bool moving = false;
 	static ScalingWindow& Get() { static ScalingWindow s; return s; }
+	HWND Handle() const { return nullptr; }
 	const auto& Options() const { return options; }
 	const auto& CursorManager() const { return cursor; }
 	auto& Renderer() { return renderer; }
@@ -115,11 +119,14 @@ struct InputMock {
 	}
 };
 struct OverlayDrawer {
+	bool _isHdrOverlay = false;
 	ToolbarPlacement _toolbarPlacement;
 	InputMock _imguiImpl;
 	float _dpiScale = 1, _lastToolbarAlpha = 1;
 	bool _isToolbarPinned = true, _isToolbarVisible = true, _isProfilerVisible = false;
 	bool _isEffectParametersVisible = false, _parameterFocusSwitchingEnabled = false;
+	bool _parameterEditPending = false;
+	uint32_t _parameterEditRunId = 0;
 	bool _isCursorOnCaptionArea = false, _isToolbarItemActive = false, _isToolbarDragHovered = false, _overlayDirty = false;
 	ParameterPanelState _parameterPanelState = ParameterPanelState::Closed, _pendingParameterPanelState = ParameterPanelState::Edit;
 	std::optional<ImVec4> _stagedToolbarRect, _presentedToolbarRect;
@@ -134,7 +141,8 @@ struct OverlayDrawer {
 	OverlaySessionState CaptureSessionState() const noexcept;
 	void RestoreSessionState(const OverlaySessionState&) noexcept;
 	bool IsEditingParameters() const { return false; }
-	void _SetParameterPanelState(ParameterPanelState value, bool) { _parameterPanelState = value; _isEffectParametersVisible = value != ParameterPanelState::Closed; }
+	bool _HasParameterForeground() const { return false; }
+	void _SetParameterPanelState(ParameterPanelState value, bool, const char* = "test") { _parameterPanelState = value; _isEffectParametersVisible = value != ParameterPanelState::Closed; }
 	void _ClearStatesIfNoVisibleWindow() {}
 	void InvokeAction(OverlayAction action) { if (action == OverlayAction::EffectParameters) _isEffectParametersVisible = !_isEffectParametersVisible; else _isProfilerVisible = !_isProfilerVisible; }
 	std::string _GetResourceString(std::wstring_view) const { return "Hint"; }
@@ -459,6 +467,17 @@ void ImGuiToolbarTests() {
 		drawer._toolbarPlacement.state.docks.ForMode(windowed)=dock;
 		sourceCanMinimize=minimize; drawer.frameRateText=format;
 		Frame(drawer,{-100,-100});
+	}
+	for (bool hdr : {false,true,false}) {
+		drawer._isHdrOverlay=hdr;
+		Frame(drawer,{-100,-100});
+		const auto* toolbar=ImGui::FindWindowByName("##toolbar");
+		unsigned maxBackgroundAlpha=0;
+		for (const auto& vertex : toolbar->DrawList->VtxBuffer) {
+			if ((vertex.col & ~IM_COL32_A_MASK)==(IM_COL32(15,15,15,0) & ~IM_COL32_A_MASK))
+				maxBackgroundAlpha=std::max(maxBackgroundAlpha,(vertex.col >> IM_COL32_A_SHIFT) & 255u);
+		}
+		assert(maxBackgroundAlpha==(hdr ? 255u : 180u));
 	}
 	ImGui::DestroyContext();
 }

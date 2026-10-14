@@ -1,484 +1,1057 @@
-<Page x:Class="Magpie.ProfilePage"
-      xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-      xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-      xmlns:local="using:Magpie"
-      xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-      xmlns:muxc="using:Microsoft.UI.Xaml.Controls"
-      mc:Ignorable="d">
+<Page xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+	xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+	xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+	xmlns:local="using:Magpie"
+	xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+	xmlns:muxc="using:Microsoft.UI.Xaml.Controls"
+	x:Class="Magpie.ProfilePage"
+	mc:Ignorable="d">
 	<Page.Resources>
-		<x:Double x:Key="FrameRefreshControlColumnWidth">225</x:Double>
-		<Style x:Key="FrameRefreshComboBoxStyle" TargetType="ComboBox"
-		       BasedOn="{StaticResource DefaultComboBoxStyle}">
-			<Setter Property="Width" Value="{StaticResource FrameRefreshControlColumnWidth}" />
-			<Setter Property="MinWidth" Value="0" />
-			<Setter Property="VerticalAlignment" Value="Center" />
+		<!-- Page-local dimensions; other settings pages retain their existing layout. -->
+		<x:Double x:Key="SettingsCardWrapThreshold">600</x:Double>
+		<x:Double x:Key="SettingsCardWrapNoIconThreshold">0</x:Double>
+		<x:Double x:Key="ProfileControlColumnWidth">280</x:Double>
+		<x:Double x:Key="ProfileNumberColumnWidth">116</x:Double>
+		<GridLength x:Key="ProfileUnitColumnWidth">28</GridLength>
+		<x:Double x:Key="ProfileActionWidth">136</x:Double>
+		<x:Double x:Key="ProfileControlGap">8</x:Double>
+		<Style x:Key="ProfileCardStyle" TargetType="local:SettingsCard" BasedOn="{StaticResource DefaultSettingsCardStyle}">
+			<Setter Property="Padding" Value="16,16,48,16"/>
+			<Setter Property="IsWrapEnabled" Value="True"/>
 		</Style>
-		<Style x:Key="FrameRefreshNumberBoxStyle" TargetType="muxc:NumberBox">
-			<Setter Property="MinWidth" Value="0" />
-			<Setter Property="HorizontalAlignment" Value="Stretch" />
-			<Setter Property="VerticalAlignment" Value="Center" />
-			<Setter Property="SpinButtonPlacementMode" Value="Inline" />
+		<Style x:Key="ProfileItemStyle" TargetType="local:SettingsCard" BasedOn="{StaticResource DefaultSettingsExpanderItemStyle}">
+			<Setter Property="Padding" Value="58,8,48,8"/>
+			<Setter Property="IsWrapEnabled" Value="True"/>
+		</Style>
+		<Style x:Key="ProfileExpanderStyle" TargetType="local:SettingsExpander" BasedOn="{StaticResource DefaultSettingsExpanderStyle}">
+			<!-- Native chevron occupies 32 + 8 DIP outside the header card. -->
+			<Setter Property="Padding" Value="16,16,8,16"/>
+			<Setter Property="IsWrapEnabled" Value="True"/>
+		</Style>
+		<Style x:Key="ProfileComboBoxStyle" TargetType="ComboBox" BasedOn="{StaticResource DefaultComboBoxStyle}">
+			<Setter Property="MinWidth" Value="0"/>
+			<Setter Property="HorizontalAlignment" Value="Stretch"/>
+			<Setter Property="VerticalAlignment" Value="Center"/>
+		</Style>
+		<Style x:Key="ProfileNumberBoxStyle" TargetType="muxc:NumberBox">
+			<Setter Property="MinWidth" Value="0"/>
+			<Setter Property="HorizontalAlignment" Value="Stretch"/>
+			<Setter Property="VerticalAlignment" Value="Center"/>
+			<Setter Property="SpinButtonPlacementMode" Value="Hidden"/>
+			<Setter Property="Padding" Value="8,4,0,4"/>
+		</Style>
+		<Style x:Key="ProfileActionStyle" TargetType="Button" BasedOn="{StaticResource DefaultButtonStyle}">
+			<Setter Property="Width" Value="{StaticResource ProfileActionWidth}"/>
+			<Setter Property="MinWidth" Value="0"/>
+			<Setter Property="HorizontalAlignment" Value="Right"/>
+			<Setter Property="ContentTemplate">
+				<Setter.Value>
+					<DataTemplate>
+						<TextBlock Text="{Binding}" TextWrapping="Wrap" TextAlignment="Center"/>
+					</DataTemplate>
+				</Setter.Value>
+			</Setter>
+		</Style>
+		<DataTemplate x:Key="RtssOptionTextTemplate">
+			<TextBlock Text="{Binding}" TextWrapping="Wrap"/>
+		</DataTemplate>
+		<Style x:Key="FrameRefreshModeItemStyle" TargetType="ListBoxItem" BasedOn="{StaticResource DefaultListBoxItemStyle}">
+			<Setter Property="MinWidth" Value="0"/>
+			<Setter Property="MinHeight" Value="28"/>
+			<Setter Property="Padding" Value="12,4"/>
+			<Setter Property="UseSystemFocusVisuals" Value="True"/>
+			<Setter Property="FocusVisualMargin" Value="-2"/>
+			<Setter Property="Template">
+				<Setter.Value>
+					<ControlTemplate TargetType="ListBoxItem">
+						<Grid x:Name="Root" Control.IsTemplateFocusTarget="True" Background="Transparent" CornerRadius="{ThemeResource ControlCornerRadius}">
+							<VisualStateManager.VisualStateGroups>
+								<VisualStateGroup x:Name="CommonStates">
+									<VisualState x:Name="Normal"/>
+									<VisualState x:Name="PointerOver">
+										<VisualState.Setters>
+											<Setter Target="Root.Background" Value="{ThemeResource ControlFillColorSecondaryBrush}"/>
+										</VisualState.Setters>
+									</VisualState>
+									<VisualState x:Name="Pressed">
+										<VisualState.Setters>
+											<Setter Target="Root.Background" Value="{ThemeResource ControlFillColorTertiaryBrush}"/>
+										</VisualState.Setters>
+									</VisualState>
+									<VisualState x:Name="Selected">
+										<VisualState.Setters>
+											<Setter Target="SelectionSurface.Visibility" Value="Visible"/>
+											<Setter Target="SelectionIndicator.Visibility" Value="Visible"/>
+										</VisualState.Setters>
+									</VisualState>
+									<VisualState x:Name="SelectedUnfocused">
+										<VisualState.Setters>
+											<Setter Target="SelectionSurface.Visibility" Value="Visible"/>
+											<Setter Target="SelectionIndicator.Visibility" Value="Visible"/>
+										</VisualState.Setters>
+									</VisualState>
+									<VisualState x:Name="SelectedPointerOver">
+										<VisualState.Setters>
+											<Setter Target="SelectionSurface.Visibility" Value="Visible"/>
+											<Setter Target="SelectionSurface.Background" Value="{ThemeResource ControlFillColorSecondaryBrush}"/>
+											<Setter Target="SelectionIndicator.Visibility" Value="Visible"/>
+										</VisualState.Setters>
+									</VisualState>
+									<VisualState x:Name="SelectedPressed">
+										<VisualState.Setters>
+											<Setter Target="SelectionSurface.Visibility" Value="Visible"/>
+											<Setter Target="SelectionSurface.Background" Value="{ThemeResource ControlFillColorTertiaryBrush}"/>
+											<Setter Target="SelectionIndicator.Visibility" Value="Visible"/>
+										</VisualState.Setters>
+									</VisualState>
+									<VisualState x:Name="Disabled">
+										<VisualState.Setters>
+											<Setter Target="Root.Opacity" Value="0.5"/>
+										</VisualState.Setters>
+									</VisualState>
+								</VisualStateGroup>
+							</VisualStateManager.VisualStateGroups>
+							<Border x:Name="SelectionSurface"
+								Visibility="Collapsed"
+								Background="{ThemeResource ControlFillColorDefaultBrush}"
+								BorderBrush="{ThemeResource ControlStrokeColorDefaultBrush}"
+								BorderThickness="1"
+								CornerRadius="{ThemeResource ControlCornerRadius}"/>
+							<ContentPresenter Margin="{TemplateBinding Padding}"
+								Content="{TemplateBinding Content}"
+								ContentTemplate="{TemplateBinding ContentTemplate}"
+								Foreground="{TemplateBinding Foreground}"
+								HorizontalAlignment="Center"
+								VerticalAlignment="Center"/>
+							<Border x:Name="SelectionIndicator"
+								Visibility="Collapsed"
+								Width="16"
+								Height="2"
+								Margin="0,0,0,1"
+								VerticalAlignment="Bottom"
+								HorizontalAlignment="Center"
+								CornerRadius="1"
+								Background="{ThemeResource SystemControlHighlightAccentBrush}"/>
+						</Grid>
+					</ControlTemplate>
+				</Setter.Value>
+			</Setter>
 		</Style>
 	</Page.Resources>
-	<local:PageFrame Title="{x:Bind ViewModel.Name, Mode=OneWay}"
-	                 Icon="{x:Bind ViewModel.Icon, Mode=OneWay}">
+	<local:PageFrame Title="{x:Bind ViewModel.Name, Mode=OneWay}" Icon="{x:Bind ViewModel.Icon, Mode=OneWay}">
 		<local:SimpleStackPanel Padding="0,4,0,0"
-		                        HorizontalAlignment="Stretch"
-		                        ChildrenTransitions="{StaticResource SettingsCardsAnimations}"
-		                        Spacing="{StaticResource SettingsGroupSpacing}">
+			HorizontalAlignment="Stretch"
+			ChildrenTransitions="{StaticResource SettingsCardsAnimations}"
+			Spacing="{StaticResource SettingsGroupSpacing}">
 			<local:SettingsGroup x:Uid="Profile_General">
-				<local:SettingsCard x:Uid="Profile_General_ScalingMode"
-				                    IsWrapEnabled="True">
+				<local:SettingsCard Style="{StaticResource ProfileCardStyle}"
+					Loaded="ProfileCard_Loaded"
+					SizeChanged="ProfileCard_SizeChanged"
+					x:Uid="Profile_General_ScalingMode"
+					IsWrapEnabled="True">
 					<local:SettingsCard.HeaderIcon>
-						<PathIcon Data="{StaticResource SpecialEffectSizeIconData}" />
+						<PathIcon Data="{StaticResource SpecialEffectSizeIconData}"/>
 					</local:SettingsCard.HeaderIcon>
-					<ComboBox DropDownOpened="ComboBox_DropDownOpened"
-					          ItemsSource="{x:Bind ViewModel.ScalingModes, Mode=OneTime}"
-					          SelectedIndex="{x:Bind ViewModel.ScalingMode, Mode=TwoWay}" />
+					<ComboBox Style="{StaticResource ProfileComboBoxStyle}"
+						DropDownOpened="ComboBox_DropDownOpened"
+						ItemsSource="{x:Bind ViewModel.ScalingModes, Mode=OneTime}"
+						SelectedIndex="{x:Bind ViewModel.ScalingMode, Mode=TwoWay}"/>
 				</local:SettingsCard>
-				<local:SettingsCard x:Uid="Profile_General_CaptureMethod"
-				                    IsWrapEnabled="True">
+				<local:SettingsCard Style="{StaticResource ProfileCardStyle}"
+					Loaded="ProfileCard_Loaded"
+					SizeChanged="ProfileCard_SizeChanged"
+					x:Uid="Profile_General_CaptureMethod"
+					IsWrapEnabled="True">
 					<local:SettingsCard.HeaderIcon>
-						<FontIcon Glyph="&#xE9A6;" />
+						<FontIcon Glyph="&#xE9A6;"/>
 					</local:SettingsCard.HeaderIcon>
-					<ComboBox DropDownOpened="ComboBox_DropDownOpened"
-					          ItemsSource="{x:Bind ViewModel.CaptureMethods, Mode=OneTime}"
-					          SelectedIndex="{x:Bind ViewModel.CaptureMethod, Mode=TwoWay}" />
+					<ComboBox Style="{StaticResource ProfileComboBoxStyle}"
+						DropDownOpened="ComboBox_DropDownOpened"
+						ItemsSource="{x:Bind ViewModel.CaptureMethods, Mode=OneTime}"
+						SelectedIndex="{x:Bind ViewModel.CaptureMethod, Mode=TwoWay}"/>
 				</local:SettingsCard>
 				<muxc:InfoBar x:Uid="Profile_General_DesktopDuplicationWarning"
-				              IsClosable="False"
-				              IsOpen="{x:Bind ViewModel.IsCaptureMethodDesktopDuplication, Mode=OneWay}"
-				              Severity="Warning" />
-				<local:SettingsCard x:Name="AutoScaleSettingsCard"
-				                    x:Uid="Profile_General_AutoScale"
-				                    x:Load="{x:Bind ViewModel.IsNotDefaultProfile, Mode=OneTime}"
-				                    IsWrapEnabled="True">
+					IsClosable="False"
+					IsOpen="{x:Bind ViewModel.IsCaptureMethodDesktopDuplication, Mode=OneWay}"
+					Severity="Warning"/>
+				<local:SettingsCard Style="{StaticResource ProfileCardStyle}"
+					Loaded="ProfileCard_Loaded"
+					SizeChanged="ProfileCard_SizeChanged"
+					x:Name="AutoScaleSettingsCard"
+					x:Uid="Profile_General_AutoScale"
+					x:Load="{x:Bind ViewModel.IsNotDefaultProfile, Mode=OneTime}"
+					IsWrapEnabled="True">
 					<local:SettingsCard.HeaderIcon>
-						<FontIcon Glyph="&#xE945;" />
+						<FontIcon Glyph="&#xE945;"/>
 					</local:SettingsCard.HeaderIcon>
-					<ComboBox DropDownOpened="ComboBox_DropDownOpened"
-					          SelectedIndex="{x:Bind ViewModel.AutoScale, Mode=TwoWay}">
-						<ComboBoxItem x:Uid="Profile_General_AutoScale_Disabled" />
-						<ComboBoxItem x:Uid="Profile_General_AutoScale_Fullscreen" />
-						<ComboBoxItem x:Uid="Profile_General_AutoScale_Windowed" />
+					<ComboBox Style="{StaticResource ProfileComboBoxStyle}" DropDownOpened="ComboBox_DropDownOpened" SelectedIndex="{x:Bind ViewModel.AutoScale, Mode=TwoWay}">
+						<ComboBoxItem x:Uid="Profile_General_AutoScale_Disabled"/>
+						<ComboBoxItem x:Uid="Profile_General_AutoScale_Fullscreen"/>
+						<ComboBoxItem x:Uid="Profile_General_AutoScale_Windowed"/>
 					</ComboBox>
 				</local:SettingsCard>
-				<local:SettingsCard x:Uid="Profile_General_3DGameMode">
+				<local:SettingsCard Style="{StaticResource ProfileCardStyle}" Loaded="ProfileCard_Loaded" SizeChanged="ProfileCard_SizeChanged" x:Uid="Profile_General_3DGameMode">
 					<local:SettingsCard.HeaderIcon>
-						<FontIcon Glyph="&#xE7FC;" />
+						<FontIcon Glyph="&#xE7FC;"/>
 					</local:SettingsCard.HeaderIcon>
-					<ToggleSwitch x:Uid="ToggleSwitch"
-					              IsOn="{x:Bind ViewModel.Is3DGameMode, Mode=TwoWay}" />
+					<ToggleSwitch x:Uid="ToggleSwitch" IsOn="{x:Bind ViewModel.Is3DGameMode, Mode=TwoWay}"/>
 				</local:SettingsCard>
 				<!-- HDR compatibility is temporarily unavailable while explicit conversion effects are designed. -->
-				<local:SettingsCard x:Name="MultimonitorSettingsCard"
-				                    x:Uid="Profile_General_Multimonitor"
-				                    x:Load="{x:Bind ViewModel.HasMultipleMonitors, Mode=OneTime}"
-				                    IsWrapEnabled="True">
+				<local:SettingsCard Style="{StaticResource ProfileCardStyle}"
+					Loaded="ProfileCard_Loaded"
+					SizeChanged="ProfileCard_SizeChanged"
+					x:Name="MultimonitorSettingsCard"
+					x:Uid="Profile_General_Multimonitor"
+					x:Load="{x:Bind ViewModel.HasMultipleMonitors, Mode=OneTime}"
+					IsWrapEnabled="True">
 					<local:SettingsCard.HeaderIcon>
-						<FontIcon Glyph="&#xf5a9;" />
+						<FontIcon Glyph="&#xF5A9;"/>
 					</local:SettingsCard.HeaderIcon>
-					<ComboBox DropDownOpened="ComboBox_DropDownOpened"
-					          ItemsSource="{x:Bind ViewModel.MonitorOptions, Mode=OneTime}"
-					          SelectedIndex="{x:Bind ViewModel.MonitorSelection, Mode=TwoWay}" />
+					<ComboBox Style="{StaticResource ProfileComboBoxStyle}"
+						DropDownOpened="ComboBox_DropDownOpened"
+						ItemsSource="{x:Bind ViewModel.MonitorOptions, Mode=OneTime}"
+						SelectedIndex="{x:Bind ViewModel.MonitorSelection, Mode=TwoWay}"/>
 				</local:SettingsCard>
 			</local:SettingsGroup>
 			<local:SettingsGroup x:Uid="Profile_WindowedScaling">
-				<local:SettingsCard x:Uid="Profile_WindowedScaling_InitialScaleFactor"
-				                    IsWrapEnabled="True">
+				<local:SettingsCard Style="{StaticResource ProfileCardStyle}"
+					Loaded="ProfileCard_Loaded"
+					SizeChanged="ProfileCard_SizeChanged"
+					x:Uid="Profile_WindowedScaling_InitialScaleFactor"
+					IsWrapEnabled="True">
 					<local:SettingsCard.HeaderIcon>
-						<FontIcon Glyph="&#xE740;" />
+						<FontIcon Glyph="&#xE740;"/>
 					</local:SettingsCard.HeaderIcon>
-					<Grid MinWidth="{StaticResource SettingsCardContentMinWidth}">
+					<Grid Loaded="PairEditor_Loaded" SizeChanged="PairEditor_SizeChanged">
+						<Grid.RowDefinitions>
+							<RowDefinition Height="Auto"/>
+							<RowDefinition Height="Auto"/>
+						</Grid.RowDefinitions>
 						<Grid.ColumnDefinitions>
-							<ColumnDefinition Width="*" />
-							<ColumnDefinition Width="Auto" />
-							<ColumnDefinition Width="Auto" />
+							<ColumnDefinition Width="*"/>
+							<ColumnDefinition Width="0"/>
+							<ColumnDefinition Width="Auto"/>
 						</Grid.ColumnDefinitions>
-						<ComboBox x:Name="InitialWindowedScaleFactorComboBox"
-						          Grid.Column="0"
-						          HorizontalAlignment="Stretch"
-						          VerticalAlignment="Stretch"
-						          DropDownOpened="ComboBox_DropDownOpened"
-						          SelectedIndex="{x:Bind ViewModel.InitialWindowedScaleFactor, Mode=TwoWay}"
-						          SelectionChanged="InitialWindowedScaleFactorComboBox_SelectionChanged">
-							<ComboBoxItem x:Uid="Profile_WindowedScaling_InitialScaleFactor_Auto" />
+						<ComboBox Style="{StaticResource ProfileComboBoxStyle}"
+							x:Name="InitialWindowedScaleFactorComboBox"
+							Grid.Column="0"
+							HorizontalAlignment="Stretch"
+							VerticalAlignment="Stretch"
+							DropDownOpened="ComboBox_DropDownOpened"
+							SelectedIndex="{x:Bind ViewModel.InitialWindowedScaleFactor, Mode=TwoWay}"
+							SelectionChanged="InitialWindowedScaleFactorComboBox_SelectionChanged">
+							<ComboBoxItem x:Uid="Profile_WindowedScaling_InitialScaleFactor_Auto"/>
 							<x:String>1x</x:String>
 							<x:String>1.25x</x:String>
 							<x:String>1.5x</x:String>
 							<x:String>1.75x</x:String>
 							<x:String>2x</x:String>
 							<x:String>3x</x:String>
-							<ComboBoxItem x:Uid="Profile_WindowedScaling_InitialScaleFactor_Custom" />
+							<ComboBoxItem x:Uid="Profile_WindowedScaling_InitialScaleFactor_Custom"/>
 						</ComboBox>
-						<muxc:NumberBox x:Name="CustomInitialWindowedScaleFactorNumberBox"
-						                Grid.Column="1"
-						                Width="70"
-						                MinWidth="70"
-						                Margin="5,0,0,0"
-						                VerticalAlignment="Stretch"
-						                Loaded="NumberBox_Loaded"
-						                Maximum="10"
-						                Minimum="1"
-						                NumberFormatter="{x:Bind local:App.DoubleFormatter, Mode=OneTime}"
-						                SmallChange="0.1"
-						                Value="{x:Bind ViewModel.CustomInitialWindowedScaleFactor, Mode=TwoWay}" />
-						<TextBlock x:Name="CustomInitialWindowedScaleFactorLabel"
-						           Grid.Column="2"
-						           Margin="5,0,0,0"
-						           VerticalAlignment="Bottom"
-						           Text="x" />
+						<Grid Grid.Column="2"
+							x:Name="CustomInitialWindowedScaleFactorEditor"
+							Visibility="Collapsed"
+							ColumnSpacing="{StaticResource ProfileControlGap}">
+							<Grid.ColumnDefinitions>
+								<ColumnDefinition Width="*"/>
+								<ColumnDefinition Width="{StaticResource ProfileUnitColumnWidth}"/>
+							</Grid.ColumnDefinitions>
+							<muxc:NumberBox Style="{StaticResource ProfileNumberBoxStyle}"
+								x:Name="CustomInitialWindowedScaleFactorNumberBox"
+								x:Uid="Profile_InitialScale_Input"
+								Loaded="NumberBox_Loaded"
+								Maximum="10"
+								Minimum="1"
+								NumberFormatter="{x:Bind local:App.DoubleFormatter, Mode=OneTime}"
+								SmallChange="0.1"
+								Value="{x:Bind ViewModel.CustomInitialWindowedScaleFactor, Mode=TwoWay}"/>
+							<TextBlock Grid.Column="1" Text="x" VerticalAlignment="Center" IsHitTestVisible="False" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+						</Grid>
 					</Grid>
 				</local:SettingsCard>
 			</local:SettingsGroup>
 			<local:SettingsGroup x:Uid="Profile_Performance">
-				<local:SettingsCard x:Name="GraphicsCardSettingsCard"
-				                    x:Uid="Profile_Performance_GraphicsCard"
-				                    x:Load="{x:Bind ViewModel.IsShowGraphicsCardSettingsCard, Mode=OneWay}"
-				                    IsWrapEnabled="True">
+				<local:SettingsCard Style="{StaticResource ProfileCardStyle}"
+					Loaded="ProfileCard_Loaded"
+					SizeChanged="ProfileCard_SizeChanged"
+					x:Name="GraphicsCardSettingsCard"
+					x:Uid="Profile_General_GraphicsCard"
+					IsWrapEnabled="True">
 					<local:SettingsCard.HeaderIcon>
-						<FontIcon Glyph="&#xf211;" />
+						<FontIcon Glyph="&#xF211;"/>
 					</local:SettingsCard.HeaderIcon>
-					<ComboBox DropDownOpened="ComboBox_DropDownOpened"
-					          ItemsSource="{x:Bind ViewModel.GraphicsCards, Mode=OneWay}"
-					          SelectedIndex="{x:Bind ViewModel.GraphicsCard, Mode=TwoWay}" />
+					<ComboBox Style="{StaticResource ProfileComboBoxStyle}"
+						x:Uid="Profile_General_GraphicsCard_Input"
+						DropDownOpened="ComboBox_DropDownOpened"
+						IsEnabled="{x:Bind ViewModel.IsGraphicsCardSelectionEnabled, Mode=OneWay}"
+						ItemsSource="{x:Bind ViewModel.GraphicsCards, Mode=OneWay}"
+						SelectedItem="{x:Bind ViewModel.GraphicsCard, Mode=TwoWay}"/>
 				</local:SettingsCard>
-				<muxc:InfoBar x:Uid="Profile_Performance_NoGraphicsCard"
-				              IsClosable="False"
-				              IsOpen="{x:Bind ViewModel.IsNoGraphicsCard, Mode=OneWay}"
-				              Severity="Warning" />
+				<muxc:InfoBar x:Uid="Profile_General_NoGraphicsCard" IsClosable="False" IsOpen="{x:Bind ViewModel.IsNoGraphicsCard, Mode=OneWay}" Severity="Warning"/>
+				<muxc:InfoBar x:Uid="Profile_General_GraphicsCardUnavailable"
+					IsClosable="False"
+					IsOpen="{x:Bind ViewModel.ShowGraphicsCardUnavailableWarning, Mode=OneWay}"
+					Severity="Warning"/>
 			</local:SettingsGroup>
-			<local:SettingsGroup x:Uid="FrameRefresh">
-				<local:SettingsGroup.Resources>
-					<!-- Keep headers and child rows in the same layout at narrow widths. -->
-					<StaticResource x:Key="SettingsCardWrapNoIconThreshold" ResourceKey="SettingsCardWrapThreshold" />
-				</local:SettingsGroup.Resources>
-				<local:SettingsExpander x:Uid="FrameRefresh_Content" IsWrapEnabled="True" IsExpanded="True">
+			<StackPanel x:Name="FrameRefreshGroup" Spacing="8">
+				<Grid Margin="1,0,0,0" ColumnSpacing="16" SizeChanged="FrameRefreshHeader_SizeChanged">
+					<Grid.RowDefinitions>
+						<RowDefinition Height="Auto"/>
+						<RowDefinition Height="Auto"/>
+					</Grid.RowDefinitions>
+					<Grid.ColumnDefinitions>
+						<ColumnDefinition Width="*"/>
+						<ColumnDefinition Width="Auto"/>
+					</Grid.ColumnDefinitions>
+					<TextBlock x:Uid="FrameRefresh_Title"
+						Style="{ThemeResource BodyStrongTextBlockStyle}"
+						VerticalAlignment="Center"
+						TextWrapping="Wrap"
+						AutomationProperties.HeadingLevel="Level2"/>
+					<local:WrapPanel x:Name="FrameRefreshHeaderActions" Grid.Column="1" HorizontalAlignment="Right" HorizontalSpacing="8" VerticalSpacing="8" VerticalAlignment="Center">
+						<!-- The stock ListBox template does not bind CornerRadius. -->
+						<Border x:Name="FrameRefreshModeBorder"
+							CornerRadius="6" Padding="1" BorderThickness="1"
+							Background="{ThemeResource ControlAltFillColorSecondaryBrush}"
+							BorderBrush="{ThemeResource ControlStrokeColorDefaultBrush}">
+							<ListBox x:Uid="FrameRefresh_Mode_Input"
+								ItemContainerStyle="{StaticResource FrameRefreshModeItemStyle}"
+								Background="Transparent"
+								BorderThickness="0"
+								SelectionMode="Single"
+								SelectedIndex="{x:Bind ViewModel.FrameRefreshModeIndex, Mode=TwoWay}"
+								Padding="0"
+								ScrollViewer.HorizontalScrollMode="Disabled"
+								ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+								ScrollViewer.VerticalScrollMode="Disabled"
+								ScrollViewer.VerticalScrollBarVisibility="Disabled">
+								<ListBox.ItemsPanel>
+									<ItemsPanelTemplate>
+										<StackPanel Orientation="Horizontal"/>
+									</ItemsPanelTemplate>
+								</ListBox.ItemsPanel>
+								<ListBoxItem x:Uid="FrameRefresh_Mode_Simple"/>
+								<ListBoxItem x:Uid="FrameRefresh_Mode_Advanced"/>
+							</ListBox>
+						</Border>
+						<Button x:Uid="FrameRefresh_ResetButton" VerticalAlignment="Center" Click="{x:Bind ViewModel.ResetFrameRefresh}"/>
+					</local:WrapPanel>
+				</Grid>
+				<local:SettingsExpander Style="{StaticResource ProfileExpanderStyle}"
+					Loaded="ProfileExpander_Loaded"
+					SizeChanged="ProfileExpander_SizeChanged"
+					x:Uid="FrameRefresh_RateGroup"
+					IsExpanded="True"
+					IsWrapEnabled="True">
 					<local:SettingsExpander.HeaderIcon>
-						<FontIcon Glyph="&#xE787;" />
+						<FontIcon Glyph="&#xE9D9;"/>
 					</local:SettingsExpander.HeaderIcon>
-					<local:SettingsExpander.Content>
-						<ComboBox x:Uid="FrameRefresh_Content_Input" Style="{StaticResource FrameRefreshComboBoxStyle}" DropDownOpened="ComboBox_DropDownOpened" SelectedIndex="{x:Bind ViewModel.ContentFrameRateModeIndex, Mode=TwoWay}">
-							<ComboBoxItem x:Uid="FrameRefresh_Source" />
-							<ComboBoxItem x:Uid="FrameRefresh_Auto" />
-							<ComboBoxItem x:Uid="FrameRefresh_Custom" />
-						</ComboBox>
-					</local:SettingsExpander.Content>
 					<local:SettingsExpander.Items>
-						<local:SettingsCard x:Uid="FrameRefresh_Pacing" IsWrapEnabled="True">
-							<ComboBox x:Uid="FrameRefresh_Pacing_Input" Style="{StaticResource FrameRefreshComboBoxStyle}" DropDownOpened="ComboBox_DropDownOpened" IsEnabled="{x:Bind ViewModel.IsContentPacingEnabled, Mode=OneWay}" SelectedIndex="{x:Bind ViewModel.FrameSyncModeIndex, Mode=TwoWay}">
-								<ComboBoxItem x:Uid="FrameSync_Mode_FrontEdge" />
-								<ComboBoxItem x:Uid="FrameSync_Mode_Async" />
-								<ComboBoxItem x:Uid="FrameSync_Mode_Reflex" />
+						<local:SettingsCard Style="{StaticResource ProfileItemStyle}"
+							Loaded="ProfileCard_Loaded"
+							SizeChanged="ProfileCard_SizeChanged"
+							x:Uid="FrameRefresh_Content"
+							IsWrapEnabled="True">
+							<Grid Loaded="PairEditor_Loaded" SizeChanged="PairEditor_SizeChanged">
+								<Grid.RowDefinitions>
+									<RowDefinition Height="Auto"/>
+									<RowDefinition Height="Auto"/>
+								</Grid.RowDefinitions>
+								<Grid.ColumnDefinitions>
+									<ColumnDefinition Width="*"/>
+									<ColumnDefinition Width="0"/>
+									<ColumnDefinition Width="Auto"/>
+								</Grid.ColumnDefinitions>
+								<ComboBox x:Uid="FrameRefresh_Content_Input"
+									Style="{StaticResource ProfileComboBoxStyle}"
+									DropDownOpened="ComboBox_DropDownOpened"
+									SelectedIndex="{x:Bind ViewModel.ContentFrameRateModeIndex, Mode=TwoWay}">
+									<ComboBoxItem x:Uid="FrameRefresh_Source" ContentTemplate="{StaticResource RtssOptionTextTemplate}"/>
+									<ComboBoxItem x:Uid="FrameRefresh_Custom" ContentTemplate="{StaticResource RtssOptionTextTemplate}"/>
+								</ComboBox>
+								<Grid Grid.Column="2"
+									Visibility="{x:Bind ViewModel.ShowContentFrameRate, Mode=OneWay}"
+									ColumnSpacing="{StaticResource ProfileControlGap}">
+									<Grid.ColumnDefinitions>
+										<ColumnDefinition Width="*"/>
+										<ColumnDefinition Width="{StaticResource ProfileUnitColumnWidth}"/>
+									</Grid.ColumnDefinitions>
+									<muxc:NumberBox x:Uid="FrameRefresh_ContentRate_Input"
+										Style="{StaticResource ProfileNumberBoxStyle}"
+										Minimum="15"
+										Maximum="360"
+										SmallChange="1"
+										LargeChange="10"
+										Loaded="NumberBox_Loaded"
+										NumberFormatter="{x:Bind local:App.IntegerFormatter, Mode=OneTime}"
+										Value="{x:Bind ViewModel.ContentFrameRate, Mode=TwoWay}"/>
+									<TextBlock Grid.Column="1" Text="FPS" VerticalAlignment="Center" IsHitTestVisible="False" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+								</Grid>
+							</Grid>
+						</local:SettingsCard>
+						<local:SettingsCard Style="{StaticResource ProfileItemStyle}"
+							Loaded="ProfileCard_Loaded"
+							SizeChanged="ProfileCard_SizeChanged"
+							x:Uid="FrameRefresh_Pacing"
+							IsWrapEnabled="True"
+							Visibility="{x:Bind ViewModel.ShowContentPacing, Mode=OneWay}">
+							<ComboBox x:Uid="FrameRefresh_Pacing_Input"
+								Style="{StaticResource ProfileComboBoxStyle}"
+								DropDownOpened="ComboBox_DropDownOpened"
+								IsEnabled="{x:Bind ViewModel.IsContentPacingEnabled, Mode=OneWay}"
+								SelectedIndex="{x:Bind ViewModel.FrameSyncModeIndex, Mode=TwoWay}">
+								<ComboBoxItem x:Uid="FrameSync_Mode_FrontEdge"/>
+								<ComboBoxItem x:Uid="FrameSync_Mode_Async"/>
+								<ComboBoxItem x:Uid="FrameSync_Mode_Reflex"/>
 							</ComboBox>
 						</local:SettingsCard>
-						<local:SettingsCard x:Uid="FrameRefresh_ContentRate" IsWrapEnabled="True" Visibility="{x:Bind ViewModel.ShowContentFrameRate, Mode=OneWay}">
-							<Grid Width="{StaticResource FrameRefreshControlColumnWidth}">
+					</local:SettingsExpander.Items>
+				</local:SettingsExpander>
+				<local:SettingsExpander Style="{StaticResource ProfileExpanderStyle}"
+					Loaded="ProfileExpander_Loaded"
+					SizeChanged="ProfileExpander_SizeChanged"
+					x:Uid="Rtss_Takeover"
+					IsExpanded="True"
+					IsWrapEnabled="True">
+					<local:SettingsExpander.HeaderIcon>
+						<FontIcon Glyph="&#xE71B;"/>
+					</local:SettingsExpander.HeaderIcon>
+					<local:SettingsExpander.Items>
+						<local:SettingsCard Style="{StaticResource ProfileItemStyle}"
+							Loaded="ProfileCard_Loaded"
+							SizeChanged="ProfileCard_SizeChanged"
+							x:Uid="Rtss_SimpleSync"
+							IsWrapEnabled="True"
+							Visibility="{x:Bind ViewModel.IsSimpleFrameRefresh, Mode=OneWay}">
+							<ToggleSwitch x:Uid="Rtss_SimpleSync_Input" Style="{StaticResource RightAlignedCompactToggleSwitchStyle}" IsOn="{x:Bind ViewModel.SimpleRtssSync, Mode=TwoWay}"/>
+						</local:SettingsCard>
+						<local:SettingsCard Style="{StaticResource ProfileItemStyle}"
+							Loaded="ProfileCard_Loaded"
+							SizeChanged="ProfileCard_SizeChanged"
+							x:Uid="Rtss_TargetLimit"
+							IsWrapEnabled="True"
+							Visibility="{x:Bind ViewModel.IsAdvancedFrameRefresh, Mode=OneWay}">
+							<Grid Loaded="PairEditor_Loaded" SizeChanged="PairEditor_SizeChanged">
+								<Grid.RowDefinitions>
+									<RowDefinition Height="Auto"/>
+									<RowDefinition Height="Auto"/>
+								</Grid.RowDefinitions>
 								<Grid.ColumnDefinitions>
-									<ColumnDefinition Width="*" />
-									<ColumnDefinition Width="Auto" />
+									<ColumnDefinition Width="*"/>
+									<ColumnDefinition Width="0"/>
+									<ColumnDefinition Width="Auto"/>
 								</Grid.ColumnDefinitions>
-								<muxc:NumberBox x:Uid="FrameRefresh_ContentRate_Input" Style="{StaticResource FrameRefreshNumberBoxStyle}" Minimum="15" Maximum="360" SmallChange="1" LargeChange="10" Loaded="NumberBox_Loaded" NumberFormatter="{x:Bind local:App.IntegerFormatter, Mode=OneTime}" Value="{x:Bind ViewModel.ContentFrameRate, Mode=TwoWay}" />
-								<TextBlock Grid.Column="1" Margin="8,0,0,0" Text="FPS" VerticalAlignment="Center" />
+								<ComboBox x:Uid="Rtss_Mode_Input"
+									Style="{StaticResource ProfileComboBoxStyle}"
+									DropDownOpened="ComboBox_DropDownOpened"
+									SelectedIndex="{x:Bind ViewModel.RtssModeIndex, Mode=TwoWay}">
+									<ComboBoxItem x:Uid="Rtss_Scope_None" ContentTemplate="{StaticResource RtssOptionTextTemplate}"/>
+									<ComboBoxItem x:Uid="Rtss_Rate_Sync" ContentTemplate="{StaticResource RtssOptionTextTemplate}"/>
+									<ComboBoxItem x:Uid="Rtss_Rate_Custom" ContentTemplate="{StaticResource RtssOptionTextTemplate}"/>
+								</ComboBox>
+								<Grid Grid.Column="2"
+									Visibility="{x:Bind ViewModel.ShowRtssCustomRate, Mode=OneWay}"
+									ColumnSpacing="{StaticResource ProfileControlGap}">
+									<Grid.ColumnDefinitions>
+										<ColumnDefinition Width="*"/>
+										<ColumnDefinition Width="{StaticResource ProfileUnitColumnWidth}"/>
+									</Grid.ColumnDefinitions>
+									<muxc:NumberBox x:Uid="Rtss_CustomRate_Input"
+										Style="{StaticResource ProfileNumberBoxStyle}"
+										Minimum="15"
+										Maximum="360"
+										SmallChange="1"
+										LargeChange="10"
+										Loaded="NumberBox_Loaded"
+										NumberFormatter="{x:Bind local:App.IntegerFormatter, Mode=OneTime}"
+										Value="{x:Bind ViewModel.RtssCustomRate, Mode=TwoWay}"/>
+									<TextBlock Grid.Column="1" Text="FPS" VerticalAlignment="Center" IsHitTestVisible="False" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+								</Grid>
+							</Grid>
+						</local:SettingsCard>
+						<local:SettingsCard Style="{StaticResource ProfileItemStyle}"
+							Loaded="ProfileCard_Loaded"
+							SizeChanged="ProfileCard_SizeChanged"
+							IsWrapEnabled="True"
+							Visibility="{x:Bind ViewModel.ShowRtssOptions, Mode=OneWay}">
+							<local:SettingsCard.Header>
+								<TextBlock x:Uid="Rtss_ScopeLabel" TextWrapping="Wrap"/>
+							</local:SettingsCard.Header>
+							<ComboBox x:Name="RtssScopeField"
+								x:Uid="Rtss_Scope_Input"
+								Style="{StaticResource ProfileComboBoxStyle}"
+								DropDownOpened="ComboBox_DropDownOpened"
+								SelectedIndex="{x:Bind ViewModel.RtssTargetScopeIndex, Mode=TwoWay}">
+								<ComboBoxItem x:Uid="Rtss_Scope_Global" ContentTemplate="{StaticResource RtssOptionTextTemplate}"/>
+								<ComboBoxItem x:Uid="Rtss_Scope_Target" ContentTemplate="{StaticResource RtssOptionTextTemplate}"/>
+							</ComboBox>
+						</local:SettingsCard>
+						<local:SettingsCard Style="{StaticResource ProfileItemStyle}"
+							Loaded="ProfileCard_Loaded"
+							SizeChanged="ProfileCard_SizeChanged"
+							IsWrapEnabled="True"
+							Visibility="{x:Bind ViewModel.ShowRtssOptions, Mode=OneWay}">
+							<local:SettingsCard.Header>
+								<TextBlock x:Uid="Rtss_ExitLabel" TextWrapping="Wrap"/>
+							</local:SettingsCard.Header>
+							<ComboBox x:Name="RtssExitField"
+								x:Uid="Rtss_ExitPolicy_Input"
+								Style="{StaticResource ProfileComboBoxStyle}"
+								DropDownOpened="ComboBox_DropDownOpened"
+								SelectedIndex="{x:Bind ViewModel.RtssExitPolicyIndex, Mode=TwoWay}">
+								<ComboBoxItem x:Uid="Rtss_Exit_Keep" ContentTemplate="{StaticResource RtssOptionTextTemplate}"/>
+								<ComboBoxItem x:Uid="Rtss_Exit_Restore" ContentTemplate="{StaticResource RtssOptionTextTemplate}"/>
+							</ComboBox>
+						</local:SettingsCard>
+						<local:SettingsCard Style="{StaticResource ProfileItemStyle}"
+							Loaded="ProfileCard_Loaded"
+							SizeChanged="ProfileCard_SizeChanged"
+							x:Name="RtssStatusCard"
+							Padding="16,8,48,8"
+							Description="{x:Bind ViewModel.RtssStatusDescription, Mode=OneWay}"
+							AutomationProperties.LiveSetting="Polite"
+							IsWrapEnabled="True">
+							<local:SettingsCard.HeaderIcon>
+								<FontIcon Width="20" Height="20" Glyph="{x:Bind ViewModel.RtssStatusGlyph, Mode=OneWay}"/>
+							</local:SettingsCard.HeaderIcon>
+							<local:SettingsCard.Header>
+								<Grid>
+									<Grid.ColumnDefinitions>
+										<ColumnDefinition Width="Auto"/>
+										<ColumnDefinition Width="*"/>
+									</Grid.ColumnDefinitions>
+									<ProgressRing Width="20" Height="20" Margin="0,0,8,0" IsActive="{x:Bind ViewModel.IsRtssBusy, Mode=OneWay}" Visibility="{x:Bind ViewModel.IsRtssBusy, Mode=OneWay}"/>
+									<TextBlock Grid.Column="1" Text="{x:Bind ViewModel.RtssStatusTitle, Mode=OneWay}" TextWrapping="Wrap"/>
+								</Grid>
+							</local:SettingsCard.Header>
+							<Grid>
+								<local:WrapPanel HorizontalSpacing="8" VerticalSpacing="8" HorizontalAlignment="Right">
+									<HyperlinkButton x:Uid="Rtss_Download"
+										Width="{StaticResource ProfileActionWidth}"
+										MinWidth="0"
+										NavigateUri="https://www.guru3d.com/download/rtss-rivatuner-statistics-server-download/"
+										Visibility="{x:Bind ViewModel.ShowRtssDownload, Mode=OneWay}">
+										<HyperlinkButton.ContentTemplate>
+											<DataTemplate>
+												<TextBlock Text="{Binding}" TextWrapping="Wrap" TextAlignment="Center"/>
+											</DataTemplate>
+										</HyperlinkButton.ContentTemplate>
+									</HyperlinkButton>
+									<Button x:Uid="Rtss_Retry" Style="{StaticResource ProfileActionStyle}" Click="{x:Bind ViewModel.RetryRtss}" Visibility="{x:Bind ViewModel.CanRetryRtss, Mode=OneWay}"/>
+									<ToggleButton x:Name="RtssManagementToggle"
+										x:Uid="Rtss_ManagementToggle"
+										Width="{StaticResource ProfileActionWidth}"
+										MinWidth="0"
+										Checked="RtssManagement_Changed"
+										Unchecked="RtssManagement_Changed"
+										Loaded="RtssManagement_Changed"
+										Visibility="{x:Bind ViewModel.ShowRtssManagement, Mode=OneWay}">
+										<ToggleButton.Resources>
+											<StaticResource x:Key="ToggleButtonBackgroundChecked" ResourceKey="ButtonBackground"/>
+											<StaticResource x:Key="ToggleButtonBackgroundCheckedPointerOver" ResourceKey="ButtonBackgroundPointerOver"/>
+											<StaticResource x:Key="ToggleButtonBackgroundCheckedPressed" ResourceKey="ButtonBackgroundPressed"/>
+											<StaticResource x:Key="ToggleButtonForegroundChecked" ResourceKey="ButtonForeground"/>
+											<StaticResource x:Key="ToggleButtonForegroundCheckedPointerOver" ResourceKey="ButtonForegroundPointerOver"/>
+											<StaticResource x:Key="ToggleButtonForegroundCheckedPressed" ResourceKey="ButtonForegroundPressed"/>
+											<StaticResource x:Key="ToggleButtonBorderBrushChecked" ResourceKey="ButtonBorderBrush"/>
+											<StaticResource x:Key="ToggleButtonBorderBrushCheckedPointerOver" ResourceKey="ButtonBorderBrushPointerOver"/>
+											<StaticResource x:Key="ToggleButtonBorderBrushCheckedPressed" ResourceKey="ButtonBorderBrushPressed"/>
+										</ToggleButton.Resources>
+										<Grid ColumnSpacing="8">
+											<Grid.ColumnDefinitions>
+												<ColumnDefinition Width="*"/>
+												<ColumnDefinition Width="Auto"/>
+											</Grid.ColumnDefinitions>
+											<TextBlock x:Uid="Rtss_ManageText" TextWrapping="Wrap" TextAlignment="Center"/>
+											<FontIcon x:Name="RtssManagementChevron" Grid.Column="1" Glyph="&#xE70D;" FontSize="12"/>
+										</Grid>
+									</ToggleButton>
+								</local:WrapPanel>
+							</Grid>
+						</local:SettingsCard>
+						<local:SettingsCard Style="{StaticResource ProfileItemStyle}"
+							Loaded="ProfileCard_Loaded"
+							SizeChanged="ProfileCard_SizeChanged"
+							x:Name="RtssProgramCard"
+							IsWrapEnabled="True"
+							Visibility="Collapsed"
+							Description="{x:Bind ViewModel.RtssProgramStatus, Mode=OneWay}">
+							<local:SettingsCard.Header>
+								<TextBlock x:Uid="Rtss_ProgramLabel" TextWrapping="Wrap"/>
+							</local:SettingsCard.Header>
+							<Grid>
+								<local:WrapPanel HorizontalSpacing="8" VerticalSpacing="8" HorizontalAlignment="Right">
+									<Button x:Uid="Rtss_Recheck"
+										Style="{StaticResource ProfileActionStyle}"
+										IsEnabled="{x:Bind ViewModel.CanRecheckRtss, Mode=OneWay}"
+										Click="{x:Bind ViewModel.RefreshRtss}"/>
+									<Button Style="{StaticResource ProfileActionStyle}"
+										Content="{x:Bind ViewModel.RtssLaunchText, Mode=OneWay}"
+										IsEnabled="{x:Bind ViewModel.CanLaunchRtss, Mode=OneWay}"
+										Click="{x:Bind ViewModel.LaunchRtss}"/>
+								</local:WrapPanel>
+							</Grid>
+						</local:SettingsCard>
+						<local:SettingsCard Style="{StaticResource ProfileItemStyle}"
+							Loaded="ProfileCard_Loaded"
+							SizeChanged="ProfileCard_SizeChanged"
+							x:Name="RtssSelfCard"
+							IsWrapEnabled="True"
+							Visibility="Collapsed"
+							Description="{x:Bind ViewModel.RtssSelfStatus, Mode=OneWay}">
+							<local:SettingsCard.Header>
+								<TextBlock x:Uid="Rtss_SelfLabel" TextWrapping="Wrap"/>
+							</local:SettingsCard.Header>
+							<Button Style="{StaticResource ProfileActionStyle}"
+								Content="{x:Bind ViewModel.RtssInitializeText, Mode=OneWay}"
+								IsEnabled="{x:Bind ViewModel.CanInitializeMagpie, Mode=OneWay}"
+								Click="{x:Bind ViewModel.InitializeMagpieRtss}"/>
+						</local:SettingsCard>
+						<local:SettingsCard Style="{StaticResource ProfileItemStyle}"
+							Loaded="ProfileCard_Loaded"
+							SizeChanged="ProfileCard_SizeChanged"
+							x:Name="RtssAfterburnerCard"
+							x:Uid="Rtss_OptionalAfterburner"
+							IsWrapEnabled="True"
+							Visibility="Collapsed">
+							<Button x:Uid="Rtss_LaunchOptional"
+								Style="{StaticResource ProfileActionStyle}"
+								AutomationProperties.HelpText="{x:Bind ViewModel.AfterburnerLaunchText, Mode=OneWay}"
+								IsEnabled="{x:Bind ViewModel.CanLaunchAfterburner, Mode=OneWay}"
+								Click="{x:Bind ViewModel.LaunchAfterburner}"/>
+						</local:SettingsCard>
+						<local:SettingsCard Style="{StaticResource ProfileItemStyle}"
+							Loaded="ProfileCard_Loaded"
+							SizeChanged="ProfileCard_SizeChanged"
+							x:Name="RtssResultCard"
+							IsWrapEnabled="True"
+							Visibility="Collapsed">
+							<local:SettingsCard.Description>
+								<TextBlock Text="{x:Bind ViewModel.RtssManagementResult, Mode=OneWay}"
+									TextWrapping="Wrap"
+									Visibility="{x:Bind ViewModel.ShowRtssManagementResult, Mode=OneWay}"
+									AutomationProperties.LiveSetting="Polite"/>
+							</local:SettingsCard.Description>
+						</local:SettingsCard>
+					</local:SettingsExpander.Items>
+				</local:SettingsExpander>
+				<local:SettingsExpander Style="{StaticResource ProfileExpanderStyle}"
+					Loaded="ProfileExpander_Loaded"
+					SizeChanged="ProfileExpander_SizeChanged"
+					x:Uid="FrameRefresh_StaticGroup"
+					IsExpanded="True"
+					IsWrapEnabled="True">
+					<local:SettingsExpander.HeaderIcon>
+						<FontIcon Glyph="&#xE72C;"/>
+					</local:SettingsExpander.HeaderIcon>
+					<local:SettingsExpander.Items>
+						<local:SettingsCard Style="{StaticResource ProfileItemStyle}"
+							Loaded="ProfileCard_Loaded"
+							SizeChanged="ProfileCard_SizeChanged"
+							x:Uid="Home_Advanced_DeveloperOptions_DuplicateFrameDetection"
+							IsWrapEnabled="True"
+							Visibility="{x:Bind ViewModel.IsAdvancedFrameRefresh, Mode=OneWay}">
+							<ComboBox x:Uid="FrameRefresh_DuplicateDetection_Input"
+								Style="{StaticResource ProfileComboBoxStyle}"
+								DropDownOpened="ComboBox_DropDownOpened"
+								SelectedIndex="{x:Bind ViewModel.DuplicateFrameDetectionMode, Mode=TwoWay}">
+								<ComboBoxItem x:Uid="Home_Advanced_DeveloperOptions_DuplicateFrameDetection_Always"/>
+								<ComboBoxItem x:Uid="Home_Advanced_DeveloperOptions_DuplicateFrameDetection_Dynamic"/>
+								<ComboBoxItem x:Uid="Home_Advanced_DeveloperOptions_DuplicateFrameDetection_Never"/>
+							</ComboBox>
+						</local:SettingsCard>
+						<local:SettingsCard Style="{StaticResource ProfileItemStyle}"
+							Loaded="ProfileCard_Loaded"
+							SizeChanged="ProfileCard_SizeChanged"
+							x:Uid="FrameRefresh_Idle"
+							IsWrapEnabled="True">
+							<Grid Loaded="PairEditor_Loaded" SizeChanged="PairEditor_SizeChanged">
+								<Grid.RowDefinitions>
+									<RowDefinition Height="Auto"/>
+									<RowDefinition Height="Auto"/>
+								</Grid.RowDefinitions>
+								<Grid.ColumnDefinitions>
+									<ColumnDefinition Width="*"/>
+									<ColumnDefinition Width="0"/>
+									<ColumnDefinition Width="Auto"/>
+								</Grid.ColumnDefinitions>
+								<ComboBox x:Uid="FrameRefresh_Idle_Input"
+									Style="{StaticResource ProfileComboBoxStyle}"
+									DropDownOpened="ComboBox_DropDownOpened"
+									SelectedIndex="{x:Bind ViewModel.IdleRedrawModeIndex, Mode=TwoWay}">
+									<ComboBoxItem x:Uid="FrameRefresh_Off" ContentTemplate="{StaticResource RtssOptionTextTemplate}"/>
+									<ComboBoxItem x:Uid="FrameRefresh_Custom" ContentTemplate="{StaticResource RtssOptionTextTemplate}"/>
+								</ComboBox>
+								<Grid Grid.Column="2"
+									Visibility="{x:Bind ViewModel.ShowIdleRedrawRate, Mode=OneWay}"
+									ColumnSpacing="{StaticResource ProfileControlGap}">
+									<Grid.ColumnDefinitions>
+										<ColumnDefinition Width="*"/>
+										<ColumnDefinition Width="{StaticResource ProfileUnitColumnWidth}"/>
+									</Grid.ColumnDefinitions>
+									<muxc:NumberBox x:Uid="FrameRefresh_IdleRate_Input"
+										Style="{StaticResource ProfileNumberBoxStyle}"
+										Minimum="15"
+										Maximum="360"
+										SmallChange="1"
+										LargeChange="10"
+										Loaded="NumberBox_Loaded"
+										NumberFormatter="{x:Bind local:App.IntegerFormatter, Mode=OneTime}"
+										Value="{x:Bind ViewModel.IdleRedrawRate, Mode=TwoWay}"/>
+									<TextBlock Grid.Column="1" Text="FPS" VerticalAlignment="Center" IsHitTestVisible="False" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+								</Grid>
 							</Grid>
 						</local:SettingsCard>
 					</local:SettingsExpander.Items>
 				</local:SettingsExpander>
-				<local:SettingsExpander x:Uid="FrameRefresh_Cursor" IsWrapEnabled="True" IsExpanded="{x:Bind ViewModel.ShowCursorSupplement, Mode=OneWay}">
+				<local:SettingsExpander Style="{StaticResource ProfileExpanderStyle}"
+					Loaded="ProfileExpander_Loaded"
+					SizeChanged="ProfileExpander_SizeChanged"
+					x:Uid="FrameRefresh_Cursor"
+					IsWrapEnabled="True"
+					IsExpanded="True"
+					Visibility="{x:Bind ViewModel.IsAdvancedFrameRefresh, Mode=OneWay}">
 					<local:SettingsExpander.HeaderIcon>
-						<FontIcon Glyph="&#xECAD;" />
+						<FontIcon Glyph="&#xE7C9;"/>
 					</local:SettingsExpander.HeaderIcon>
-					<local:SettingsExpander.Content>
-						<ComboBox x:Uid="FrameRefresh_Cursor_Input" Style="{StaticResource FrameRefreshComboBoxStyle}" DropDownOpened="ComboBox_DropDownOpened" SelectedIndex="{x:Bind ViewModel.CursorRefreshModeIndex, Mode=TwoWay}">
-							<ComboBoxItem x:Uid="FrameRefresh_Responsive" />
-							<ComboBoxItem x:Uid="FrameRefresh_OriginalOnly" />
-							<ComboBoxItem x:Uid="FrameRefresh_Supplement" />
-						</ComboBox>
-					</local:SettingsExpander.Content>
 					<local:SettingsExpander.Items>
-						<local:SettingsCard x:Uid="FrameRefresh_CursorSupplement" IsWrapEnabled="True" Visibility="{x:Bind ViewModel.ShowCursorSupplement, Mode=OneWay}">
-							<ComboBox x:Uid="FrameRefresh_CursorSupplement_Input" Style="{StaticResource FrameRefreshComboBoxStyle}" DropDownOpened="ComboBox_DropDownOpened" SelectedIndex="{x:Bind ViewModel.CursorSupplementModeIndex, Mode=TwoWay}">
-								<ComboBoxItem x:Uid="FrameRefresh_Auto" />
-								<ComboBoxItem x:Uid="FrameRefresh_Custom" />
+						<local:SettingsCard Style="{StaticResource ProfileItemStyle}"
+							Loaded="ProfileCard_Loaded"
+							SizeChanged="ProfileCard_SizeChanged"
+							x:Uid="FrameRefresh_CursorStrategy"
+							IsWrapEnabled="True">
+							<ComboBox x:Uid="FrameRefresh_Cursor_Input"
+								Style="{StaticResource ProfileComboBoxStyle}"
+								DropDownOpened="ComboBox_DropDownOpened"
+								SelectedIndex="{x:Bind ViewModel.CursorRefreshModeIndex, Mode=TwoWay}">
+								<ComboBoxItem x:Uid="FrameRefresh_Responsive"/>
+								<ComboBoxItem x:Uid="FrameRefresh_OriginalOnly"/>
+								<ComboBoxItem x:Uid="FrameRefresh_Supplement"/>
 							</ComboBox>
 						</local:SettingsCard>
-						<local:SettingsCard x:Uid="FrameRefresh_CursorRate" IsWrapEnabled="True" Visibility="{x:Bind ViewModel.ShowCursorSupplementRate, Mode=OneWay}">
-							<Grid Width="{StaticResource FrameRefreshControlColumnWidth}">
+						<local:SettingsCard Style="{StaticResource ProfileItemStyle}"
+							Loaded="ProfileCard_Loaded"
+							SizeChanged="ProfileCard_SizeChanged"
+							x:Uid="FrameRefresh_CursorSupplement"
+							IsWrapEnabled="True"
+							Visibility="{x:Bind ViewModel.ShowCursorSupplement, Mode=OneWay}">
+							<Grid Loaded="PairEditor_Loaded" SizeChanged="PairEditor_SizeChanged">
+								<Grid.RowDefinitions>
+									<RowDefinition Height="Auto"/>
+									<RowDefinition Height="Auto"/>
+								</Grid.RowDefinitions>
 								<Grid.ColumnDefinitions>
-									<ColumnDefinition Width="*" />
-									<ColumnDefinition Width="Auto" />
+									<ColumnDefinition Width="*"/>
+									<ColumnDefinition Width="0"/>
+									<ColumnDefinition Width="Auto"/>
 								</Grid.ColumnDefinitions>
-								<muxc:NumberBox x:Uid="FrameRefresh_CursorRate_Input" Style="{StaticResource FrameRefreshNumberBoxStyle}" Minimum="15" Maximum="360" SmallChange="1" LargeChange="10" Loaded="NumberBox_Loaded" NumberFormatter="{x:Bind local:App.IntegerFormatter, Mode=OneTime}" Value="{x:Bind ViewModel.CursorSupplementRate, Mode=TwoWay}" />
-								<TextBlock Grid.Column="1" Margin="8,0,0,0" Text="FPS" VerticalAlignment="Center" />
+								<ComboBox x:Uid="FrameRefresh_CursorSupplement_Input"
+									Style="{StaticResource ProfileComboBoxStyle}"
+									DropDownOpened="ComboBox_DropDownOpened"
+									SelectedIndex="{x:Bind ViewModel.CursorSupplementModeIndex, Mode=TwoWay}">
+									<ComboBoxItem x:Uid="FrameRefresh_Auto" ContentTemplate="{StaticResource RtssOptionTextTemplate}"/>
+									<ComboBoxItem x:Uid="FrameRefresh_Custom" ContentTemplate="{StaticResource RtssOptionTextTemplate}"/>
+								</ComboBox>
+								<Grid Grid.Column="2"
+									Visibility="{x:Bind ViewModel.ShowCursorSupplementRate, Mode=OneWay}"
+									ColumnSpacing="{StaticResource ProfileControlGap}">
+									<Grid.ColumnDefinitions>
+										<ColumnDefinition Width="*"/>
+										<ColumnDefinition Width="{StaticResource ProfileUnitColumnWidth}"/>
+									</Grid.ColumnDefinitions>
+									<muxc:NumberBox x:Uid="FrameRefresh_CursorRate_Input"
+										Style="{StaticResource ProfileNumberBoxStyle}"
+										Minimum="15"
+										Maximum="360"
+										SmallChange="1"
+										LargeChange="10"
+										Loaded="NumberBox_Loaded"
+										NumberFormatter="{x:Bind local:App.IntegerFormatter, Mode=OneTime}"
+										Value="{x:Bind ViewModel.CursorSupplementRate, Mode=TwoWay}"/>
+									<TextBlock Grid.Column="1" Text="FPS" VerticalAlignment="Center" IsHitTestVisible="False" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+								</Grid>
 							</Grid>
 						</local:SettingsCard>
 					</local:SettingsExpander.Items>
 				</local:SettingsExpander>
-				<local:SettingsExpander x:Uid="FrameRefresh_Advanced" IsWrapEnabled="True" IsExpanded="False">
-					<local:SettingsExpander.HeaderIcon>
-						<FontIcon Glyph="&#xE713;" />
-					</local:SettingsExpander.HeaderIcon>
-					<local:SettingsExpander.Items>
-						<local:SettingsCard x:Uid="Home_Advanced_DeveloperOptions_DuplicateFrameDetection" IsWrapEnabled="True">
-							<ComboBox x:Uid="FrameRefresh_DuplicateDetection_Input" Style="{StaticResource FrameRefreshComboBoxStyle}" DropDownOpened="ComboBox_DropDownOpened" SelectedIndex="{x:Bind ViewModel.DuplicateFrameDetectionMode, Mode=TwoWay}">
-								<ComboBoxItem x:Uid="Home_Advanced_DeveloperOptions_DuplicateFrameDetection_Always" />
-								<ComboBoxItem x:Uid="Home_Advanced_DeveloperOptions_DuplicateFrameDetection_Dynamic" />
-								<ComboBoxItem x:Uid="Home_Advanced_DeveloperOptions_DuplicateFrameDetection_Never" />
-							</ComboBox>
-						</local:SettingsCard>
-						<local:SettingsCard x:Uid="FrameRefresh_Idle" IsWrapEnabled="True">
-							<ComboBox x:Uid="FrameRefresh_Idle_Input" Style="{StaticResource FrameRefreshComboBoxStyle}" DropDownOpened="ComboBox_DropDownOpened" SelectedIndex="{x:Bind ViewModel.IdleRedrawModeIndex, Mode=TwoWay}">
-								<ComboBoxItem x:Uid="FrameRefresh_Off" />
-								<ComboBoxItem x:Uid="FrameRefresh_Custom" />
-							</ComboBox>
-						</local:SettingsCard>
-						<local:SettingsCard x:Uid="FrameRefresh_IdleRate" IsWrapEnabled="True" Visibility="{x:Bind ViewModel.ShowIdleRedrawRate, Mode=OneWay}">
-							<Grid Width="{StaticResource FrameRefreshControlColumnWidth}">
-								<Grid.ColumnDefinitions>
-									<ColumnDefinition Width="*" />
-									<ColumnDefinition Width="Auto" />
-								</Grid.ColumnDefinitions>
-								<muxc:NumberBox x:Uid="FrameRefresh_IdleRate_Input" Style="{StaticResource FrameRefreshNumberBoxStyle}" Minimum="15" Maximum="360" SmallChange="1" LargeChange="10" Loaded="NumberBox_Loaded" NumberFormatter="{x:Bind local:App.IntegerFormatter, Mode=OneTime}" Value="{x:Bind ViewModel.IdleRedrawRate, Mode=TwoWay}" />
-								<TextBlock Grid.Column="1" Margin="8,0,0,0" Text="FPS" VerticalAlignment="Center" />
-							</Grid>
-						</local:SettingsCard>
-					</local:SettingsExpander.Items>
-				</local:SettingsExpander>
-				<TextBlock Text="{x:Bind ViewModel.FrameRefreshNotice, Mode=OneWay}" Visibility="{x:Bind ViewModel.ShowFrameRefreshNotice, Mode=OneWay}" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" Margin="16,4" />
-				<local:SettingsCard x:Uid="FrameRefresh_Reset" IsWrapEnabled="True">
-					<Button x:Uid="FrameRefresh_ResetButton" Click="{x:Bind ViewModel.ResetFrameRefresh}" />
+				<local:SettingsCard Style="{StaticResource ProfileCardStyle}" Loaded="ProfileCard_Loaded" SizeChanged="ProfileCard_SizeChanged" x:Uid="FrameRefresh_VRR" IsWrapEnabled="True">
+					<local:SettingsCard.HeaderIcon>
+						<FontIcon Glyph="&#xE7F4;"/>
+					</local:SettingsCard.HeaderIcon>
+					<ToggleSwitch x:Uid="FrameRefresh_VRR_Input" Style="{StaticResource RightAlignedCompactToggleSwitchStyle}" IsOn="{x:Bind ViewModel.IsVRREnabled, Mode=TwoWay}"/>
 				</local:SettingsCard>
-			</local:SettingsGroup>
+			</StackPanel>
 			<local:SettingsGroup x:Uid="Profile_SourceWindow">
-				<local:SettingsCard x:Uid="Profile_SourceWindow_CaptureTitleBar"
-				                    IsEnabled="{x:Bind ViewModel.CanCaptureTitleBar, Mode=OneWay}">
+				<local:SettingsCard Style="{StaticResource ProfileCardStyle}"
+					Loaded="ProfileCard_Loaded"
+					SizeChanged="ProfileCard_SizeChanged"
+					x:Uid="Profile_SourceWindow_CaptureTitleBar"
+					IsEnabled="{x:Bind ViewModel.CanCaptureTitleBar, Mode=OneWay}">
 					<local:SettingsCard.HeaderIcon>
-						<FontIcon Glyph="&#xE737;" />
+						<FontIcon Glyph="&#xE737;"/>
 					</local:SettingsCard.HeaderIcon>
-					<ToggleSwitch x:Uid="ToggleSwitch"
-					              IsOn="{x:Bind ViewModel.IsCaptureTitleBar, Mode=TwoWay}" />
+					<ToggleSwitch x:Uid="ToggleSwitch" IsOn="{x:Bind ViewModel.IsCaptureTitleBar, Mode=TwoWay}"/>
 				</local:SettingsCard>
-				<local:SettingsExpander x:Uid="Profile_SourceWindow_CustomCropping"
-				                        IsExpanded="{x:Bind ViewModel.IsCroppingEnabled, Mode=OneWay}">
+				<local:SettingsExpander Style="{StaticResource ProfileExpanderStyle}"
+					Loaded="ProfileExpander_Loaded"
+					SizeChanged="ProfileExpander_SizeChanged"
+					x:Uid="Profile_SourceWindow_CustomCropping"
+					IsExpanded="{x:Bind ViewModel.IsCroppingEnabled, Mode=OneWay}">
 					<local:SettingsExpander.HeaderIcon>
-						<FontIcon Glyph="&#xE7A8;" />
+						<FontIcon Glyph="&#xE7A8;"/>
 					</local:SettingsExpander.HeaderIcon>
 					<local:SettingsExpander.Content>
-						<ToggleSwitch x:Uid="ToggleSwitch"
-						              IsOn="{x:Bind ViewModel.IsCroppingEnabled, Mode=TwoWay}" />
+						<ToggleSwitch x:Uid="ToggleSwitch" IsOn="{x:Bind ViewModel.IsCroppingEnabled, Mode=TwoWay}"/>
 					</local:SettingsExpander.Content>
 					<local:SettingsExpander.Items>
-						<local:SettingsCard x:Uid="Profile_SourceWindow_CustomCropping_Left"
-						                    IsWrapEnabled="True">
-							<local:SimpleStackPanel Orientation="Horizontal"
-							                        Spacing="8">
-								<muxc:NumberBox LargeChange="10"
-								                Loaded="NumberBox_Loaded"
-								                Minimum="0"
-								                NumberFormatter="{x:Bind local:App.DoubleFormatter, Mode=OneTime}"
-								                SmallChange="1"
-								                SpinButtonPlacementMode="Inline"
-								                Value="{x:Bind ViewModel.CroppingLeft, Mode=TwoWay}" />
-								<TextBlock x:Uid="Profile_SourceWindow_CustomCropping_Pixels"
-								           VerticalAlignment="Center" />
-							</local:SimpleStackPanel>
-						</local:SettingsCard>
-						<local:SettingsCard x:Uid="Profile_SourceWindow_CustomCropping_Right"
-						                    IsWrapEnabled="True">
-							<local:SimpleStackPanel Orientation="Horizontal"
-							                        Spacing="8">
-								<muxc:NumberBox LargeChange="10"
-								                Loaded="NumberBox_Loaded"
-								                Minimum="0"
-								                NumberFormatter="{x:Bind local:App.DoubleFormatter, Mode=OneTime}"
-								                SmallChange="1"
-								                SpinButtonPlacementMode="Inline"
-								                Value="{x:Bind ViewModel.CroppingRight, Mode=TwoWay}" />
-								<TextBlock x:Uid="Profile_SourceWindow_CustomCropping_Pixels"
-								           VerticalAlignment="Center" />
-							</local:SimpleStackPanel>
-						</local:SettingsCard>
-						<local:SettingsCard x:Uid="Profile_SourceWindow_CustomCropping_Top"
-						                    IsWrapEnabled="True">
-							<local:SimpleStackPanel Orientation="Horizontal"
-							                        Spacing="8">
-								<muxc:NumberBox LargeChange="10"
-								                Loaded="NumberBox_Loaded"
-								                Minimum="0"
-								                NumberFormatter="{x:Bind local:App.DoubleFormatter, Mode=OneTime}"
-								                SmallChange="1"
-								                SpinButtonPlacementMode="Inline"
-								                Value="{x:Bind ViewModel.CroppingTop, Mode=TwoWay}" />
-								<TextBlock x:Uid="Profile_SourceWindow_CustomCropping_Pixels"
-								           VerticalAlignment="Center" />
-							</local:SimpleStackPanel>
-						</local:SettingsCard>
-						<local:SettingsCard x:Uid="Profile_SourceWindow_CustomCropping_Bottom"
-						                    IsWrapEnabled="True">
-							<local:SimpleStackPanel Orientation="Horizontal"
-							                        Spacing="8">
-								<muxc:NumberBox LargeChange="10"
-								                Loaded="NumberBox_Loaded"
-								                Minimum="0"
-								                NumberFormatter="{x:Bind local:App.DoubleFormatter, Mode=OneTime}"
-								                SmallChange="1"
-								                SpinButtonPlacementMode="Inline"
-								                Value="{x:Bind ViewModel.CroppingBottom, Mode=TwoWay}" />
-								<TextBlock x:Uid="Profile_SourceWindow_CustomCropping_Pixels"
-								           VerticalAlignment="Center" />
-							</local:SimpleStackPanel>
+						<local:SettingsCard Style="{StaticResource ProfileItemStyle}" Loaded="ProfileCard_Loaded" SizeChanged="ProfileCard_SizeChanged" IsWrapEnabled="True">
+							<Grid>
+								<local:WrapPanel HorizontalAlignment="Right" HorizontalSpacing="8" VerticalSpacing="12">
+									<StackPanel Width="{StaticResource ProfileActionWidth}" Spacing="4">
+										<TextBlock x:Name="CropLeftLabel" x:Uid="Profile_CropLeftLabel"/>
+										<Grid ColumnSpacing="{StaticResource ProfileControlGap}">
+											<Grid.ColumnDefinitions>
+												<ColumnDefinition Width="*"/>
+												<ColumnDefinition Width="{StaticResource ProfileUnitColumnWidth}"/>
+											</Grid.ColumnDefinitions>
+											<muxc:NumberBox x:Uid="Profile_CropLeft_Input"
+												LargeChange="10"
+												Loaded="NumberBox_Loaded"
+												Minimum="0"
+												NumberFormatter="{x:Bind local:App.DoubleFormatter, Mode=OneTime}"
+												SmallChange="1"
+												Style="{StaticResource ProfileNumberBoxStyle}"
+												Value="{x:Bind ViewModel.CroppingLeft, Mode=TwoWay}"/>
+											<TextBlock Grid.Column="1" Text="px" VerticalAlignment="Center" IsHitTestVisible="False" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+										</Grid>
+									</StackPanel>
+									<StackPanel Width="{StaticResource ProfileActionWidth}" Spacing="4">
+										<TextBlock x:Name="CropRightLabel" x:Uid="Profile_CropRightLabel"/>
+										<Grid ColumnSpacing="{StaticResource ProfileControlGap}">
+											<Grid.ColumnDefinitions>
+												<ColumnDefinition Width="*"/>
+												<ColumnDefinition Width="{StaticResource ProfileUnitColumnWidth}"/>
+											</Grid.ColumnDefinitions>
+											<muxc:NumberBox x:Uid="Profile_CropRight_Input"
+												LargeChange="10"
+												Loaded="NumberBox_Loaded"
+												Minimum="0"
+												NumberFormatter="{x:Bind local:App.DoubleFormatter, Mode=OneTime}"
+												SmallChange="1"
+												Style="{StaticResource ProfileNumberBoxStyle}"
+												Value="{x:Bind ViewModel.CroppingRight, Mode=TwoWay}"/>
+											<TextBlock Grid.Column="1" Text="px" VerticalAlignment="Center" IsHitTestVisible="False" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+										</Grid>
+									</StackPanel>
+									<StackPanel Width="{StaticResource ProfileActionWidth}" Spacing="4">
+										<TextBlock x:Name="CropTopLabel" x:Uid="Profile_CropTopLabel"/>
+										<Grid ColumnSpacing="{StaticResource ProfileControlGap}">
+											<Grid.ColumnDefinitions>
+												<ColumnDefinition Width="*"/>
+												<ColumnDefinition Width="{StaticResource ProfileUnitColumnWidth}"/>
+											</Grid.ColumnDefinitions>
+											<muxc:NumberBox x:Uid="Profile_CropTop_Input"
+												LargeChange="10"
+												Loaded="NumberBox_Loaded"
+												Minimum="0"
+												NumberFormatter="{x:Bind local:App.DoubleFormatter, Mode=OneTime}"
+												SmallChange="1"
+												Style="{StaticResource ProfileNumberBoxStyle}"
+												Value="{x:Bind ViewModel.CroppingTop, Mode=TwoWay}"/>
+											<TextBlock Grid.Column="1" Text="px" VerticalAlignment="Center" IsHitTestVisible="False" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+										</Grid>
+									</StackPanel>
+									<StackPanel Width="{StaticResource ProfileActionWidth}" Spacing="4">
+										<TextBlock x:Name="CropBottomLabel" x:Uid="Profile_CropBottomLabel"/>
+										<Grid ColumnSpacing="{StaticResource ProfileControlGap}">
+											<Grid.ColumnDefinitions>
+												<ColumnDefinition Width="*"/>
+												<ColumnDefinition Width="{StaticResource ProfileUnitColumnWidth}"/>
+											</Grid.ColumnDefinitions>
+											<muxc:NumberBox x:Uid="Profile_CropBottom_Input"
+												LargeChange="10"
+												Loaded="NumberBox_Loaded"
+												Minimum="0"
+												NumberFormatter="{x:Bind local:App.DoubleFormatter, Mode=OneTime}"
+												SmallChange="1"
+												Style="{StaticResource ProfileNumberBoxStyle}"
+												Value="{x:Bind ViewModel.CroppingBottom, Mode=TwoWay}"/>
+											<TextBlock Grid.Column="1" Text="px" VerticalAlignment="Center" IsHitTestVisible="False" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+										</Grid>
+									</StackPanel>
+								</local:WrapPanel>
+							</Grid>
 						</local:SettingsCard>
 					</local:SettingsExpander.Items>
 				</local:SettingsExpander>
 			</local:SettingsGroup>
 			<local:SettingsGroup x:Uid="Profile_Cursor">
-				<local:SettingsExpander x:Uid="Profile_Cursor_DrawCursor_ScaleFactor"
-				                        IsWrapEnabled="True">
+				<local:SettingsExpander Style="{StaticResource ProfileExpanderStyle}"
+					Loaded="ProfileExpander_Loaded"
+					SizeChanged="ProfileExpander_SizeChanged"
+					x:Uid="Profile_Cursor_DrawCursor_ScaleFactor"
+					IsWrapEnabled="True">
 					<local:SettingsExpander.HeaderIcon>
-						<FontIcon Glyph="&#xE7C9;" />
+						<FontIcon Glyph="&#xE7C9;"/>
 					</local:SettingsExpander.HeaderIcon>
 					<local:SettingsExpander.Content>
-						<Grid MinWidth="{StaticResource SettingsCardContentMinWidth}">
+						<Grid Loaded="PairEditor_Loaded" SizeChanged="PairEditor_SizeChanged">
+							<Grid.RowDefinitions>
+								<RowDefinition Height="Auto"/>
+								<RowDefinition Height="Auto"/>
+							</Grid.RowDefinitions>
 							<Grid.ColumnDefinitions>
-								<ColumnDefinition Width="*" />
-								<ColumnDefinition Width="Auto" />
-								<ColumnDefinition Width="Auto" />
+								<ColumnDefinition Width="*"/>
+								<ColumnDefinition Width="0"/>
+								<ColumnDefinition Width="Auto"/>
 							</Grid.ColumnDefinitions>
-
-							<ComboBox x:Name="CursorScalingComboBox"
-							          Grid.Column="0"
-							          HorizontalAlignment="Stretch"
-							          VerticalAlignment="Stretch"
-							          DropDownOpened="ComboBox_DropDownOpened"
-							          SelectedIndex="{x:Bind ViewModel.CursorScaling, Mode=TwoWay}"
-							          SelectionChanged="CursorScalingComboBox_SelectionChanged">
+							<ComboBox Style="{StaticResource ProfileComboBoxStyle}"
+								x:Name="CursorScalingComboBox"
+								Grid.Column="0"
+								HorizontalAlignment="Stretch"
+								VerticalAlignment="Stretch"
+								DropDownOpened="ComboBox_DropDownOpened"
+								SelectedIndex="{x:Bind ViewModel.CursorScaling, Mode=TwoWay}"
+								SelectionChanged="CursorScalingComboBox_SelectionChanged">
 								<x:String>0.5x</x:String>
 								<x:String>0.75x</x:String>
-								<ComboBoxItem x:Uid="Profile_Cursor_DrawCursor_ScaleFactor_NoScaling" />
+								<ComboBoxItem x:Uid="Profile_Cursor_DrawCursor_ScaleFactor_NoScaling"/>
 								<x:String>1.25x</x:String>
 								<x:String>1.5x</x:String>
 								<x:String>2x</x:String>
-								<ComboBoxItem x:Uid="Profile_Cursor_DrawCursor_ScaleFactor_SameAsSourceWindow" />
-								<ComboBoxItem x:Uid="Profile_Cursor_DrawCursor_ScaleFactor_Custom" />
+								<ComboBoxItem x:Uid="Profile_Cursor_DrawCursor_ScaleFactor_SameAsSourceWindow"/>
+								<ComboBoxItem x:Uid="Profile_Cursor_DrawCursor_ScaleFactor_Custom"/>
 							</ComboBox>
-							<muxc:NumberBox x:Name="CustomCursorScalingNumberBox"
-							                Grid.Column="1"
-							                Width="70"
-							                MinWidth="70"
-							                Margin="5,0,0,0"
-							                VerticalAlignment="Stretch"
-							                Loaded="NumberBox_Loaded"
-							                Maximum="10"
-							                Minimum="0.1"
-							                NumberFormatter="{x:Bind local:App.DoubleFormatter, Mode=OneTime}"
-							                SmallChange="0.1"
-							                Value="{x:Bind ViewModel.CustomCursorScaling, Mode=TwoWay}" />
-							<TextBlock x:Name="CustomCursorScalingLabel"
-							           Grid.Column="2"
-							           Margin="5,0,0,0"
-							           VerticalAlignment="Bottom"
-							           Text="x" />
+							<Grid Grid.Column="2"
+								x:Name="CustomCursorScalingEditor"
+								Visibility="Collapsed"
+								ColumnSpacing="{StaticResource ProfileControlGap}">
+								<Grid.ColumnDefinitions>
+									<ColumnDefinition Width="*"/>
+									<ColumnDefinition Width="{StaticResource ProfileUnitColumnWidth}"/>
+								</Grid.ColumnDefinitions>
+								<muxc:NumberBox Style="{StaticResource ProfileNumberBoxStyle}"
+									x:Name="CustomCursorScalingNumberBox"
+									x:Uid="Profile_CursorScale_Input"
+									Loaded="NumberBox_Loaded"
+									Maximum="10"
+									Minimum="0.1"
+									NumberFormatter="{x:Bind local:App.DoubleFormatter, Mode=OneTime}"
+									SmallChange="0.1"
+									Value="{x:Bind ViewModel.CustomCursorScaling, Mode=TwoWay}"/>
+								<TextBlock Grid.Column="1" Text="x" VerticalAlignment="Center" IsHitTestVisible="False" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+							</Grid>
 						</Grid>
 					</local:SettingsExpander.Content>
 					<local:SettingsExpander.Items>
-						<local:SettingsCard x:Uid="Profile_Cursor_DrawCursor_Interpolation"
-						                    IsWrapEnabled="True">
-							<ComboBox DropDownOpened="ComboBox_DropDownOpened"
-							          SelectedIndex="{x:Bind ViewModel.CursorInterpolationMode, Mode=TwoWay}">
-								<ComboBoxItem x:Uid="Profile_Cursor_DrawCursor_Interpolation_NearestNeighbor" />
-								<ComboBoxItem x:Uid="Profile_Cursor_DrawCursor_Interpolation_Bilinear" />
+						<local:SettingsCard Style="{StaticResource ProfileItemStyle}"
+							Loaded="ProfileCard_Loaded"
+							SizeChanged="ProfileCard_SizeChanged"
+							x:Uid="Profile_Cursor_DrawCursor_Interpolation"
+							IsWrapEnabled="True">
+							<ComboBox Style="{StaticResource ProfileComboBoxStyle}" DropDownOpened="ComboBox_DropDownOpened" SelectedIndex="{x:Bind ViewModel.CursorInterpolationMode, Mode=TwoWay}">
+								<ComboBoxItem x:Uid="Profile_Cursor_DrawCursor_Interpolation_NearestNeighbor"/>
+								<ComboBoxItem x:Uid="Profile_Cursor_DrawCursor_Interpolation_Bilinear"/>
 							</ComboBox>
 						</local:SettingsCard>
 					</local:SettingsExpander.Items>
 				</local:SettingsExpander>
-				<local:SettingsExpander x:Uid="Profile_Cursor_AutoHide"
-				                        IsExpanded="{x:Bind ViewModel.IsAutoHideCursorEnabled, Mode=OneWay}">
+				<local:SettingsExpander Style="{StaticResource ProfileExpanderStyle}"
+					Loaded="ProfileExpander_Loaded"
+					SizeChanged="ProfileExpander_SizeChanged"
+					x:Uid="Profile_Cursor_AutoHide"
+					IsExpanded="{x:Bind ViewModel.IsAutoHideCursorEnabled, Mode=OneWay}">
 					<local:SettingsExpander.HeaderIcon>
-						<FontIcon Glyph="&#xEC32;" />
+						<FontIcon Glyph="&#xEC32;"/>
 					</local:SettingsExpander.HeaderIcon>
 					<local:SettingsExpander.Content>
-						<ToggleSwitch x:Uid="ToggleSwitch"
-						              IsOn="{x:Bind ViewModel.IsAutoHideCursorEnabled, Mode=TwoWay}" />
+						<ToggleSwitch x:Uid="ToggleSwitch" IsOn="{x:Bind ViewModel.IsAutoHideCursorEnabled, Mode=TwoWay}"/>
 					</local:SettingsExpander.Content>
 					<local:SettingsExpander.Items>
-						<local:SettingsCard x:Uid="Profile_Cursor_AutoHide_Delay"
-						                    IsWrapEnabled="True">
-							<Grid MinWidth="{StaticResource SettingsCardContentMinWidth}">
+						<local:SettingsCard Style="{StaticResource ProfileItemStyle}"
+							Loaded="ProfileCard_Loaded"
+							SizeChanged="ProfileCard_SizeChanged"
+							x:Uid="Profile_Cursor_AutoHide_Delay"
+							IsWrapEnabled="True">
+							<Grid>
 								<Grid.ColumnDefinitions>
-									<ColumnDefinition Width="*" />
-									<ColumnDefinition Width="Auto" />
+									<ColumnDefinition Width="*"/>
+									<ColumnDefinition Width="Auto"/>
 								</Grid.ColumnDefinitions>
 								<Slider Grid.Column="0"
-								        MinWidth="0"
-								        VerticalAlignment="Center"
-								        IsThumbToolTipEnabled="False"
-								        Maximum="5"
-								        Minimum="0.1"
-								        StepFrequency="0.1"
-								        Value="{x:Bind ViewModel.AutoHideCursorDelay, Mode=TwoWay}" />
-								<TextBlock Grid.Column="1"
-								           Width="18"
-								           Margin="8,0,0,0"
-								           VerticalAlignment="Center"
-								           Text="{x:Bind ViewModel.AutoHideCursorDelayText, Mode=OneWay}"
-								           TextAlignment="Center" />
+									MinWidth="0"
+									VerticalAlignment="Center"
+									IsThumbToolTipEnabled="False"
+									Maximum="5"
+									Minimum="0.1"
+									StepFrequency="0.1"
+									Value="{x:Bind ViewModel.AutoHideCursorDelay, Mode=TwoWay}"/>
+								<TextBlock Grid.Column="1" Width="52" Margin="8,0,0,0" VerticalAlignment="Center" Text="{x:Bind ViewModel.AutoHideCursorDelayText, Mode=OneWay}" TextAlignment="Center"/>
 							</Grid>
 						</local:SettingsCard>
 					</local:SettingsExpander.Items>
 				</local:SettingsExpander>
-				<local:SettingsCard x:Uid="Profile_Cursor_DrawCursor_AdjustCursorSpeed">
+				<local:SettingsCard Style="{StaticResource ProfileCardStyle}"
+					Loaded="ProfileCard_Loaded"
+					SizeChanged="ProfileCard_SizeChanged"
+					x:Uid="Profile_Cursor_DrawCursor_AdjustCursorSpeed">
 					<local:SettingsCard.HeaderIcon>
-						<PathIcon Data="{StaticResource MoveIconData}" />
+						<PathIcon Data="{StaticResource MoveIconData}"/>
 					</local:SettingsCard.HeaderIcon>
-					<ToggleSwitch x:Uid="ToggleSwitch"
-					              IsOn="{x:Bind ViewModel.IsAdjustCursorSpeed, Mode=TwoWay}" />
+					<ToggleSwitch x:Uid="ToggleSwitch" IsOn="{x:Bind ViewModel.IsAdjustCursorSpeed, Mode=TwoWay}"/>
 				</local:SettingsCard>
 			</local:SettingsGroup>
 			<local:SettingsGroup x:Uid="Profile_Advanced">
-				<local:SettingsCard x:Name="LaunchParametersSettingsCard"
-				                    x:Uid="Profile_Advanced_LaunchParameters"
-				                    x:Load="{x:Bind ViewModel.IsNotDefaultProfile, Mode=OneTime}"
-				                    IsWrapEnabled="True">
+				<local:SettingsCard Style="{StaticResource ProfileCardStyle}"
+					Loaded="ProfileCard_Loaded"
+					SizeChanged="ProfileCard_SizeChanged"
+					x:Name="LaunchParametersSettingsCard"
+					ContentAlignment="Vertical"
+					HorizontalContentAlignment="Stretch"
+					x:Uid="Profile_Advanced_LaunchParameters"
+					x:Load="{x:Bind ViewModel.IsNotDefaultProfile, Mode=OneTime}"
+					IsWrapEnabled="True">
 					<local:SettingsCard.HeaderIcon>
-						<FontIcon Glyph="&#xE756;" />
+						<FontIcon Glyph="&#xE756;"/>
 					</local:SettingsCard.HeaderIcon>
-					<TextBox MaxWidth="400"
-					         KeyDown="LaunchParametersTextBox_KeyDown"
-					         Text="{x:Bind ViewModel.LaunchParameters, Mode=TwoWay}">
+					<TextBox MinWidth="0" HorizontalAlignment="Stretch" KeyDown="LaunchParametersTextBox_KeyDown" Text="{x:Bind ViewModel.LaunchParameters, Mode=TwoWay}">
 						<TextBox.ContextFlyout>
-							<local:TextMenuFlyout />
+							<local:TextMenuFlyout/>
 						</TextBox.ContextFlyout>
 					</TextBox>
 				</local:SettingsCard>
-				<local:SettingsCard x:Uid="Profile_Advanced_DestAlignment">
+				<local:SettingsCard Style="{StaticResource ProfileCardStyle}" Loaded="ProfileCard_Loaded" SizeChanged="ProfileCard_SizeChanged" x:Uid="Profile_Advanced_DestAlignment">
 					<local:SettingsCard.HeaderIcon>
-						<FontIcon Glyph="&#xE799;" />
+						<FontIcon Glyph="&#xE799;"/>
 					</local:SettingsCard.HeaderIcon>
-					<ComboBox DropDownOpened="ComboBox_DropDownOpened"
-					          SelectedIndex="{x:Bind ViewModel.DestAlignment, Mode=TwoWay}">
-						<ComboBoxItem x:Uid="Profile_Advanced_DestAlignment_TopLeft" />
-						<ComboBoxItem x:Uid="Profile_Advanced_DestAlignment_TopCenter" />
-						<ComboBoxItem x:Uid="Profile_Advanced_DestAlignment_TopRight" />
-						<ComboBoxItem x:Uid="Profile_Advanced_DestAlignment_Left" />
-						<ComboBoxItem x:Uid="Profile_Advanced_DestAlignment_Center" />
-						<ComboBoxItem x:Uid="Profile_Advanced_DestAlignment_Right" />
-						<ComboBoxItem x:Uid="Profile_Advanced_DestAlignment_BottomLeft" />
-						<ComboBoxItem x:Uid="Profile_Advanced_DestAlignment_BottomCenter" />
-						<ComboBoxItem x:Uid="Profile_Advanced_DestAlignment_BottomRight" />
+					<ComboBox Style="{StaticResource ProfileComboBoxStyle}" DropDownOpened="ComboBox_DropDownOpened" SelectedIndex="{x:Bind ViewModel.DestAlignment, Mode=TwoWay}">
+						<ComboBoxItem x:Uid="Profile_Advanced_DestAlignment_TopLeft"/>
+						<ComboBoxItem x:Uid="Profile_Advanced_DestAlignment_TopCenter"/>
+						<ComboBoxItem x:Uid="Profile_Advanced_DestAlignment_TopRight"/>
+						<ComboBoxItem x:Uid="Profile_Advanced_DestAlignment_Left"/>
+						<ComboBoxItem x:Uid="Profile_Advanced_DestAlignment_Center"/>
+						<ComboBoxItem x:Uid="Profile_Advanced_DestAlignment_Right"/>
+						<ComboBoxItem x:Uid="Profile_Advanced_DestAlignment_BottomLeft"/>
+						<ComboBoxItem x:Uid="Profile_Advanced_DestAlignment_BottomCenter"/>
+						<ComboBoxItem x:Uid="Profile_Advanced_DestAlignment_BottomRight"/>
 					</ComboBox>
 				</local:SettingsCard>
-				<local:SettingsCard x:Uid="Profile_Advanced_DisableDirectFlip">
+				<local:SettingsCard Style="{StaticResource ProfileCardStyle}" Loaded="ProfileCard_Loaded" SizeChanged="ProfileCard_SizeChanged" x:Uid="Profile_Advanced_DisableDirectFlip">
 					<local:SettingsCard.HeaderIcon>
-						<FontIcon Glyph="&#xF259;" />
+						<FontIcon Glyph="&#xF259;"/>
 					</local:SettingsCard.HeaderIcon>
-					<ToggleSwitch x:Uid="ToggleSwitch"
-					              IsOn="{x:Bind ViewModel.IsDirectFlipDisabled, Mode=TwoWay}" />
+					<ToggleSwitch x:Uid="ToggleSwitch" IsOn="{x:Bind ViewModel.IsDirectFlipDisabled, Mode=TwoWay}"/>
 				</local:SettingsCard>
-				<local:SettingsCard x:Uid="Profile_Advanced_ParameterFocusSwitching" IsWrapEnabled="True">
-					<local:SettingsCard.HeaderIcon><FontIcon Glyph="&#xE9E9;" /></local:SettingsCard.HeaderIcon>
-					<ToggleSwitch x:Uid="ToggleSwitch"
-					              IsOn="{x:Bind ViewModel.IsParameterFocusSwitchingEnabled, Mode=TwoWay}" />
+				<local:SettingsCard Style="{StaticResource ProfileCardStyle}"
+					Loaded="ProfileCard_Loaded"
+					SizeChanged="ProfileCard_SizeChanged"
+					x:Uid="Profile_Advanced_ParameterFocusSwitching"
+					IsWrapEnabled="True">
+					<local:SettingsCard.HeaderIcon>
+						<FontIcon Glyph="&#xE9E9;"/>
+					</local:SettingsCard.HeaderIcon>
+					<ToggleSwitch x:Uid="ToggleSwitch" IsOn="{x:Bind ViewModel.IsParameterFocusSwitchingEnabled, Mode=TwoWay}"/>
 				</local:SettingsCard>
 			</local:SettingsGroup>
 		</local:SimpleStackPanel>

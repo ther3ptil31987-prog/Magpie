@@ -2,6 +2,7 @@
 #include "MainWindow.h"
 #include "App.h"
 #include "AppSettings.h"
+#include "ScalingService.h"
 #include "CaptionButtonsControl.h"
 #include "CommonSharedConstants.h"
 #include "resource.h"
@@ -43,6 +44,7 @@ bool MainWindow::Create(bool startMinimized) noexcept {
 	if (!Handle()) {
 		return false;
 	}
+	ScalingService::Get().MainUIChanged(Handle());
 
 	_Content(make_self<RootPage>());
 
@@ -321,6 +323,7 @@ LRESULT MainWindow::_MessageHandler(UINT msg, WPARAM wParam, LPARAM lParam) noex
 	}
 	case WM_DESTROY:
 	{
+		ScalingService::Get().MainUIChanged(nullptr);
 		AppSettings::Get().Save();
 		_appThemeChangedRevoker.Revoke();
 		// 标题栏窗口经常使用 Content()，确保在关闭 DWXS 前销毁

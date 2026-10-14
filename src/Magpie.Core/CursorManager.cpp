@@ -624,7 +624,7 @@ void CursorManager::_UpdateCursorState() noexcept {
 	const HWND hwndScaling = ScalingWindow::Get().Handle();
 	// 复制是特意的，用于检查缩放窗口的位置和尺寸更改
 	const RECT rendererRect = ScalingWindow::Get().RendererRect();
-	const bool isSrcFocused = ScalingWindow::Get().SrcTracker().IsFocused();
+	const bool isSrcFocused = ScalingWindow::Get().IsSourceForeground();
 	
 	const DWORD style = GetWindowExStyle(hwndScaling);
 
@@ -877,7 +877,7 @@ void CursorManager::_ClipCursorForMonitors(POINT cursorPos) noexcept {
 	const RECT& srcRect = renderer.SrcRect();
 	const RECT& destRect = renderer.DestRect();
 
-	const bool isSrcFocused = ScalingWindow::Get().SrcTracker().IsFocused();
+	const bool isSrcFocused = ScalingWindow::Get().IsSourceForeground();
 
 	// 根据当前光标位置的四个方向有无屏幕来确定应该在哪些方向限制光标，但这无法
 	// 处理屏幕之间存在间隙的情况。解决办法是 _StopCapture 只在目标位置存在屏幕时才取消捕获，
@@ -1207,7 +1207,7 @@ bool CursorManager::_StopCapture(POINT& cursorPos, bool onDestroy) noexcept {
 	//
 	// 在有黑边的情况下自动将光标调整到全屏窗口外
 
-	POINT newCursorPos = SrcToScaling(cursorPos, ScalingWindow::Get().SrcTracker().IsFocused());
+	POINT newCursorPos = SrcToScaling(cursorPos, ScalingWindow::Get().IsSourceForeground());
 
 	if (onDestroy || MonitorFromPoint(newCursorPos, MONITOR_DEFAULTTONULL)) {
 		cursorPos = newCursorPos;

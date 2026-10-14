@@ -1,7 +1,7 @@
 // Executed by the color-component adapter / RTX Video HDR backend.
 //!MAGPIE EFFECT
 //!VERSION 4
-//!SORT_NAME RTX Video HDR
+//!SORT_NAME Nvidia VFX TrueHDR
 
 //!PARAMETER
 //!LABEL Contrast
@@ -34,6 +34,14 @@ int middleGray;
 //!MAX 2000
 //!STEP 1
 int peakNits;
+
+//!PARAMETER
+//!LABEL Debanding
+//!DEFAULT 1
+//!MIN 0
+//!MAX 1
+//!STEP 1
+int debanding;
 
 //!TEXTURE
 Texture2D INPUT;

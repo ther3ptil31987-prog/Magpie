@@ -209,6 +209,7 @@ void ScalingModeItem::AddEffect(const hstring& fullName) {
 	if (!effectInfo) return;
 	EffectItem& effect = _Data().effects.emplace_back();
 	effect.name = fullName;
+	NormalizeFrameGenerationParameters(effect);
 	if (fullName == L"DLSSNR\\DLSSNR_AI_Filter")
 		NormalizeDLSSNRDetailParameters(effect.parameters);
 	if (effectInfo->CanScale()) {
@@ -227,7 +228,7 @@ void ScalingModeItem::AddEffect(const hstring& fullName) {
 }
 
 bool ScalingModeItem::CanAddEffect(const hstring& fullName) const noexcept {
-	if (_IsRemoved() || !EffectsService::Get().GetEffect(fullName)) {
+	if (_IsRemoved() || _Data().hdrMigrationInvalid || !EffectsService::Get().GetEffect(fullName)) {
 		return false;
 	}
 
@@ -242,6 +243,8 @@ bool ScalingModeItem::CanAddEffect(const hstring& fullName) const noexcept {
 
 hstring ScalingModeItem::EffectAddProblem(const hstring& fullName) const {
 	if (_IsRemoved()) return L"请重新打开要编辑的效果组，再添加效果器。";
+	if (_Data().hdrMigrationInvalid) return ResourceLoader::GetForCurrentView(
+		CommonSharedConstants::APP_RESOURCE_MAP_ID).GetString(L"ScalingModes_HdrMigrationInvalid_Description");
 	if (!EffectsService::Get().GetEffect(fullName)) return L"请恢复对应效果器文件并重启 Magpie，再尝试添加。";
 	if (CanAddEffect(fullName)) return {};
 	for (const auto& effect : _Data().effects) {
@@ -273,6 +276,8 @@ hstring ScalingModeItem::Description() const noexcept {
 	if (_IsRemoved()) {
 		return {};
 	}
+	if (_Data().hdrMigrationInvalid) return ResourceLoader::GetForCurrentView(
+		CommonSharedConstants::APP_RESOURCE_MAP_ID).GetString(L"ScalingModes_HdrMigrationInvalid_Description");
 
 	std::wstring result;
 	for (const EffectItem& effect : _Data().effects) {
@@ -395,7 +400,7 @@ bool ScalingModeItem::CanReorderEffects() const noexcept {
 		return false;
 	}
 
-	return _effects.Size() > 1;
+	return !_Data().hdrMigrationInvalid && _effects.Size() > 1;
 }
 
 void ScalingModeItem::Remove() {

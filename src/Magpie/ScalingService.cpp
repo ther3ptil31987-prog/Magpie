@@ -5,12 +5,16 @@
 #include "EffectsService.h"
 #include "ErrorService.h"
 #include "Logger.h"
+#include "MainWindow.h"
+#include "RootPage.h"
 #include "ProfileService.h"
 #include "ProfileIdentity.h"
 #include "DLSSNRDetailParameters.h"
 #include "ScalingMode.h"
 #include "ScalingModesService.h"
 #include "ScalingService.h"
+#include "SourceWindowRelations.h"
+#include "RtssService.h"
 #include "StrHelper.h"
 #include "ShortcutService.h"
 #include "ToastService.h"
@@ -24,6 +28,14 @@ using namespace winrt;
 using winrt::Magpie::ShortcutAction;
 
 namespace Magpie {
+
+void ScalingService::MainUIChanged(HWND window) {
+	if (_scalingRuntime) _scalingRuntime->UpdateMainUI(RegisterSessionWindow(window));
+}
+
+void ScalingService::UpdateScreenshotContent(ScreenshotContent content) {
+	if (_scalingRuntime) _scalingRuntime->UpdateScreenshotContent(content);
+}
 
 static ToolbarShortcutLabels GetToolbarShortcutLabels() {
 	const auto& settings = AppSettings::Get();
@@ -54,6 +66,7 @@ void ScalingService::Initialize() {
 		std::bind_front(&ScalingService::_ScalingRuntime_StateChanged, this));
 
 	const DispatcherQueue& dispatcher = App::Get().Dispatcher();
+	RtssService::Get().Initialize(dispatcher);
 
 	_countDownTimer = dispatcher.CreateTimer();
 	_countDownTimer.Interval(25ms);
@@ -73,6 +86,23 @@ void ScalingService::Initialize() {
 		if (_activeFrameSyncProfile.lock() != profile.runtimeIdentity) return;
 		if (_scalingRuntime) _scalingRuntime->UpdateFrameRefreshSettings(profile.frameRefresh);
 	});
+	_frameRefreshModeChangedRevoker = AppSettings::Get().FrameRefreshModeChanged(auto_revoke, [this] {
+		auto& settings = AppSettings::Get();
+		const Profile* profile = FindProfileByIdentity(settings.DefaultProfile(), settings.Profiles(), _activeFrameSyncProfile);
+		if (profile && _scalingRuntime)
+			_scalingRuntime->UpdateFrameRefreshSettings(profile->frameRefresh, settings.IsSimpleFrameRefresh());
+	});
+	_rtssChangedRevoker = ProfileService::Get().RtssSettingsChanged(auto_revoke, [this](const Profile& profile) {
+		// Page edits, including disabling management, apply at the next start.
+		if (_activeFrameSyncProfile.lock() == profile.runtimeIdentity && _scalingRuntime)
+			_scalingRuntime->UpdateFrameRefreshSettings(profile.frameRefresh, std::nullopt, true);
+	});
+
+	_duplicateRefreshChangedRevoker = AppSettings::Get().DuplicateFrameDetectionModeChanged(auto_revoke, [this] {
+		auto& settings = AppSettings::Get();
+		const Profile* profile = FindProfileByIdentity(settings.DefaultProfile(), settings.Profiles(), _activeFrameSyncProfile);
+		if (profile && _scalingRuntime) _scalingRuntime->UpdateFrameRefreshSettings(profile->frameRefresh, std::nullopt, true);
+	});
 
 	// 立即检查前台窗口
 	_CheckForegroundTimer_Tick(nullptr, nullptr);
@@ -85,9 +115,13 @@ void ScalingService::Uninitialize() {
 
 	_checkForegroundTimer.Stop();
 	_countDownTimer.Stop();
+	RtssService::Get().End();
 	_frameSyncChangedRevoker.Revoke();
+	_rtssChangedRevoker.Revoke();
+	_frameRefreshModeChangedRevoker.Revoke();
 	_toolbarShortcutsChangedRevoker.Revoke();
 	_scalingRuntime.reset();
+	RtssService::Get().Uninitialize();
 	// The runtime destructor drains UI requests before this final flush.
 	_FlushEffectParametersSaves(true);
 	// Also wait for any snapshot already being written in the background. The
@@ -215,8 +249,14 @@ static IssueContext MakeIssueContext(HWND window, const Profile& profile) {
 	result.profileClass = profile.classNameRule;
 	result.captureMethod = profile.captureMethod;
 	const auto& modes = AppSettings::Get().ScalingModes();
-	if (profile.scalingMode >= 0 && static_cast<size_t>(profile.scalingMode) < modes.size())
+	if (profile.scalingMode >= 0 && static_cast<size_t>(profile.scalingMode) < modes.size()) {
 		result.scalingModeName = modes[profile.scalingMode].name;
+		result.scalingModeIdentity = modes[profile.scalingMode].runtimeIdentity;
+		for (const auto& effect : modes[profile.scalingMode].effects) {
+			result.effectNames.push_back(effect.name);
+			result.effectIdentities.push_back(effect.runtimeIdentity);
+		}
+	}
 	wchar_t title[512]{};
 	GetWindowTextW(window, title, static_cast<int>(std::size(title)));
 	result.windowTitle = title;
@@ -247,13 +287,15 @@ static bool IsPopupWindow(HWND hwndPopup, HWND hwndOwner) noexcept {
 
 	DWORD pid1 = 0;
 	DWORD pid2 = 0;
-	GetWindowThreadProcessId(hwndPopup, &pid1);
-	GetWindowThreadProcessId(hwndOwner, &pid2);
-	if (pid1 != pid2) {
+	if (!QueryWindowThreadProcessId(hwndPopup, pid1) ||
+		!QueryWindowThreadProcessId(hwndOwner, pid2) || pid1 != pid2) {
 		return false;
 	}
 
-	return !GetWindow(hwndOwner, GW_ENABLEDPOPUP);
+	// The scaling output and its input helpers are owned by the source on the
+	// native path; they are not application modal popups.
+	return !EnabledSourcePopup(hwndOwner,
+		FindWindow(CommonSharedConstants::SCALING_WINDOW_CLASS_NAME, nullptr));
 }
 
 static bool IsReadyForScaling(HWND hwndFore) noexcept {
@@ -270,7 +312,7 @@ static bool IsReadyForScaling(HWND hwndFore) noexcept {
 
 void ScalingService::_CheckForegroundTimer_Tick(winrt::DispatcherQueueTimer const&, winrt::IInspectable const&) {
 	if (_isAutoScaleSuspended) return;
-	const HWND hwndFore = GetForegroundWindow();
+	const HWND hwndFore = Win32Helper::GetRealForegroundWindow();
 	if (!hwndFore || hwndFore == _hwndChecked) {
 		return;
 	}
@@ -296,6 +338,8 @@ void ScalingService::_CheckForegroundTimer_Tick(winrt::DispatcherQueueTimer cons
 
 void ScalingService::_ScalingRuntime_StateChanged(ScalingState value) {
 	App::Get().Dispatcher().TryEnqueue([this, value]() {
+		if (!_scalingRuntime || _scalingRuntime->State() != value) return;
+		if (value == ScalingState::Idle || value == ScalingState::Stopping) RtssService::Get().End();
 		bool shouldRestartForSmoothMotion = false;
 
 		if (value == ScalingState::Scaling) {
@@ -308,7 +352,7 @@ void ScalingService::_ScalingRuntime_StateChanged(ScalingState value) {
 			// 缩放结束后源窗口位于前台则不要检查自动缩放，用户可能刚通过快捷键或
 			// 工具栏终止缩放。_CheckForegroundTimer_Tick 也实现了类似功能，但它
 			// 的触发频率较低，容易错过时机。
-			if (GetForegroundWindow() == _hwndCurSrc) {
+			if (Win32Helper::GetRealForegroundWindow() == _hwndCurSrc) {
 				_hwndChecked = _hwndCurSrc;
 			}
 
@@ -327,7 +371,7 @@ void ScalingService::_ScalingRuntime_StateChanged(ScalingState value) {
 }
 
 void ScalingService::_ScaleForegroundWindow(bool windowedMode) {
-	const HWND hWnd = GetForegroundWindow();
+	const HWND hWnd = Win32Helper::GetRealForegroundWindow();
 	if (!hWnd) {
 		return;
 	}
@@ -401,6 +445,10 @@ ScalingError ScalingService::_StartScaleImpl(HWND hWnd, const Profile& profile, 
 
 	const ScalingMode& scalingMode =
 		ScalingModesService::Get().GetScalingMode(profile.scalingMode);
+	if (scalingMode.hdrMigrationInvalid) {
+		Logger::Get().Error("Invalid HDR trial configuration retained for recovery");
+		return ScalingError::HdrComponentInvalidParameters;
+	}
 	const std::vector<EffectItem>& effects = scalingMode.effects;
 	if (effects.empty()) {
 		return ScalingError::ScalingModeEmpty;
@@ -432,6 +480,7 @@ ScalingError ScalingService::_StartScaleImpl(HWND hWnd, const Profile& profile, 
 	ScalingOptions options;
 	options.scalingModeIdx = static_cast<uint32_t>(profile.scalingMode);
 	options.scalingModeName = scalingMode.name;
+	options.legacyHdrCaptureIntent = scalingMode.legacyHdrCaptureIntent;
 
 	options.effects.reserve(effects.size());
 	for (const EffectItem& effectItem : effects) {
@@ -447,7 +496,8 @@ ScalingError ScalingService::_StartScaleImpl(HWND hWnd, const Profile& profile, 
 
 	options.graphicsCardId = profile.graphicsCardId;
 	options.captureMethod = profile.captureMethod;
-	ApplyFrameRefreshSettings(options, profile.frameRefresh);
+	options.isSimpleFrameRefresh = AppSettings::Get().IsSimpleFrameRefresh();
+	ApplyFrameRefreshSettings(options, profile.frameRefresh, options.isSimpleFrameRefresh);
 	options.multiMonitorUsage = profile.multiMonitorUsage;
 	options.preferredMonitorId = profile.preferredMonitorId;
 	options.destAlignment = profile.destAlignment;
@@ -527,6 +577,7 @@ ScalingError ScalingService::_StartScaleImpl(HWND hWnd, const Profile& profile, 
 	}
 
 	options.isParameterFocusSwitchingEnabled = profile.isParameterFocusSwitchingEnabled;
+	options.mainUI = RegisterSessionWindow(App::Get().MainWindow().Handle());
 
 	// 应用全局配置
 	AppSettings& settings = AppSettings::Get();
@@ -541,14 +592,15 @@ ScalingError ScalingService::_StartScaleImpl(HWND hWnd, const Profile& profile, 
 	options.IsWarningsAreErrors(settings.IsWarningsAreErrors());
 	options.IsAllowScalingMaximized(settings.IsAllowScalingMaximized());
 	options.IsSimulateExclusiveFullscreen(settings.IsSimulateExclusiveFullscreen());
-	options.duplicateFrameDetectionMode = settings.DuplicateFrameDetectionMode();
-	options.IsStatisticsForDynamicDetectionEnabled(settings.IsStatisticsForDynamicDetectionEnabled());
+	options.duplicateFrameDetectionMode = options.isSimpleFrameRefresh ?
+		DuplicateFrameDetectionMode::Never : settings.DuplicateFrameDetectionMode();
+	options.IsStatisticsForDynamicDetectionEnabled(!options.isSimpleFrameRefresh && settings.IsStatisticsForDynamicDetectionEnabled());
 	options.IsInlineParams(settings.IsInlineParams());
 	options.IsFP16Disabled(settings.IsFP16Disabled());
 	options.frameSyncProfileIdentity = profile.runtimeIdentity;
 	_activeFrameSyncProfile = profile.runtimeIdentity;
-	// VRR remains deferred while its settings card is hidden.
-	options.isVRREnabled = false;
+	// ApplyFrameRefreshSettings supplies an explicit, default-off profile VRR
+	// request. The dormant global vrr setting remains ignored.
 
 	options.fullscreenInitialToolbarState = settings.FullscreenInitialToolbarState();
 	options.windowedInitialToolbarState = settings.WindowedInitialToolbarState();
@@ -559,6 +611,7 @@ ScalingError ScalingService::_StartScaleImpl(HWND hWnd, const Profile& profile, 
 			ScalingService::Get()._SaveToolbarDock(identity, windowed, dock, runId);
 		});
 	};
+	options.screenshotContent = settings.ScreenshotContent();
 	options.screenshotsDir = settings.ScreenshotsDir();
 	if (options.screenshotsDir.empty()) {
 		// 回落到使用当前目录
@@ -571,12 +624,37 @@ ScalingError ScalingService::_StartScaleImpl(HWND hWnd, const Profile& profile, 
 		ToastService::Get().ShowMessageOnWindow({}, msg, hwndTarget);
 	};
 
-	const IssueContext issueContext = MakeIssueContext(hWnd, profile);
+	IssueContext issueContext = MakeIssueContext(hWnd, profile);
+	issueContext.dlssNrSession = options.dlssNrSession;
+	ErrorService::Get().BeginScalingSession(options.dlssNrSession, issueContext);
+	options.dlssNrStatusChanged = [issueContext](uint32_t runId, uint32_t index, const DlssNrStatus& status) {
+		ErrorService::Get().DlssNrStatusChanged(runId, index, status, issueContext);
+	};
+	options.openDlssNrHelp = [issueContext](uint32_t index) {
+		App::Get().Dispatcher().TryEnqueue([issueContext, index] {
+			if (issueContext.dlssNrSession != ErrorService::Get().DlssNrSession()) return;
+			const auto snapshot = issueContext.dlssNrSession->Read();
+			if (index >= snapshot.effects.size()) return;
+			IssueContext context = issueContext;
+			context.runId = snapshot.runId;
+			context.effectIndex = index;
+			context.dlssNrStatus = snapshot.effects[index];
+			if (context.dlssNrStatus->Failed()) ErrorService::Get().Report(
+				context.dlssNrStatus->state == DlssNrState::Stopped ? ScalingError::DlssNrStopped : ScalingError::DlssNrUnavailable,
+				{}, nullptr, 0, context);
+			App::Get().ShowMainWindow();
+			if (const auto root = App::Get().RootPage()) root->NavigateToHome();
+		});
+	};
 	options.showError = [issueContext](HWND target, ScalingError error) noexcept {
-		ErrorService::Get().Report(error, {}, target, 0, issueContext);
+		auto context = issueContext;
+		context.runId = context.dlssNrSession->Read().runId;
+		ErrorService::Get().Report(error, {}, target, 0, std::move(context));
 	};
 	options.reportErrorDetails = [issueContext](HWND target, ScalingError error, std::string_view context, uint32_t systemError) noexcept {
-		ErrorService::Get().Report(error, std::string(context), target, systemError, issueContext);
+		auto issue = issueContext;
+		issue.runId = issue.dlssNrSession->Read().runId;
+		ErrorService::Get().Report(error, std::string(context), target, systemError, std::move(issue));
 	};
 
 	options.save = [](const ScalingOptions& options, HWND /*hwndScaling*/) noexcept {
@@ -628,7 +706,15 @@ ScalingError ScalingService::_StartScaleImpl(HWND hWnd, const Profile& profile, 
 		}
 	};
 
+	const auto rtssSession = RtssService::Get().Begin(hWnd, profile.runtimeIdentity,
+		EffectiveRtssSettings(profile.rtss, options.isSimpleFrameRefresh));
+	options.contentTargetChanged = [rtssSession](HWND source, bool fixed, double baseRate, bool constrained) {
+		App::Get().Dispatcher().TryEnqueue([rtssSession, source, fixed, baseRate, constrained] {
+			RtssService::Get().ContentTargetChanged(rtssSession, source, fixed, baseRate, constrained);
+		});
+	};
 	if (!_scalingRuntime->Start(hWnd, std::move(options), force)) {
+		RtssService::Get().End();
 		return ScalingError::ScalingFailedGeneral;
 	}
 
@@ -761,6 +847,9 @@ void ScalingService::_HandleEffectParametersRequest(
 		return;
 	}
 	ScalingMode& mode = modes[sessionOptions.scalingModeIdx];
+	if (mode.hdrMigrationInvalid || mode.legacyHdrCaptureIntent != sessionOptions.legacyHdrCaptureIntent) {
+		fail(EffectParametersSaveError::SessionExpired); return;
+	}
 	if (mode.name != sessionOptions.scalingModeName ||
 		mode.effects.size() != sessionOptions.effects.size() ||
 		request.effects.size() != mode.effects.size() ||
@@ -776,7 +865,7 @@ void ScalingService::_HandleEffectParametersRequest(
 		if (StrHelper::UTF16ToUTF8(destination.name) != session.name ||
 			request.effects[i].name != session.name ||
 			request.previousEffects[i].name != session.name ||
-			destination.scalingType != session.scalingType || destination.scale != session.scale) {
+			!MergeEffectScalingChanges(destination, request.previousEffects[i], request.effects[i])) {
 			fail(EffectParametersSaveError::Conflict);
 			return;
 		}
@@ -796,6 +885,7 @@ void ScalingService::_HandleEffectParametersRequest(
 			fail(EffectParametersSaveError::Conflict);
 			return;
 		}
+		NormalizeFrameGenerationParameters(destination);
 	}
 	mode.effects = std::move(merged);
 	if (frameSyncProfile->frameRefresh != mergedFrameRefresh) {
@@ -819,6 +909,14 @@ void ScalingService::_HandleEffectParametersRequest(
 		return;
 	}
 	request.saveState->Complete(request.revision, EffectParametersSaveError::None);
+	EffectParameterSessionState::Snapshot refreshSnapshot;
+	if (sessionOptions.parameterSession) sessionOptions.parameterSession->ReadIfChanged(refreshSnapshot);
+	if (sessionOptions.isSimpleFrameRefresh != settings.IsSimpleFrameRefresh() || refreshSnapshot.refreshPolicyChanged) {
+		// Rebuild all session options, including duplicate detection and the RTSS
+		// lifecycle, instead of reusing the old mode's immutable runtime snapshot.
+		_StartScale(request.hwndSource, *frameSyncProfile, sessionOptions.IsWindowedMode(), true);
+		return;
+	}
 	std::vector<EffectOption> effects;
 	for (const EffectItem& item : mode.effects) effects.push_back(static_cast<EffectOption>(item));
 	if (!_scalingRuntime->RestartWithEffectParameters(request.hwndSource,

@@ -1,41 +1,41 @@
-Magpie Experimental v0.6.9 x64
+Magpie Experimental v0.6.10 x64
 
 安装或升级
-完全退出托盘中的 Magpie，将 Magpie-Experimental-x64.zip 完整解压到新目录，再运行其中的 Magpie.exe。
-普通配置优先读取 %LOCALAPPDATA%\Magpie\config\v4e\config.json；没有 v4e 时自动导入 v4，后续只保存到 v4e。
-便携用户可将原配置复制到新程序目录内的 config\v4e\config.json，保留原文件用于回退。
+备份设置并从托盘完全退出 Magpie，将 Magpie-Experimental-x64.zip 完整解压到新目录，再运行 Magpie.exe。
+普通配置：%LOCALAPPDATA%\Magpie\config\v4e\config.json。没有 v4e 时导入旧 v4，后续保存到 v4e。
+便携配置：程序目录内的 config\v4e\config.json。保留旧程序和原配置，以便回退。
 
-0.6.9 使用要点
-效果组右上角“其他选项”提供导入、导出、配置文件夹和重置。重置仍需确认。
-默认配置与应用配置统一使用“帧率与刷新”；内容、光标、空闲三项手动值为 15–360 FPS、整数、步进 1。有效旧设置自动迁移。
-新配置默认内容自定义 60 FPS、Front Edge、原始帧优先并补充、光标最低 60 FPS、空闲重绘启用 30 FPS。修改自动保存，重启缩放后生效。
-按住工具栏空白或 FPS 区域拖动，可上下停靠；不需要专用拖动按钮。
-DLSSNR 默认 Multi Pass 1、抗闪烁无，支持 1/2/3 次处理。统一细节控制作用于全部 Pass 后的总残差；进阶调整默认隐藏，收起不重置参数。
-FG 重复帧过滤默认开启，可在倍率与光流方法之间关闭；全局重复检测位于“帧率与刷新”的高级选项。
-旧 XeSS x2/MFG 迁移为 XeSS_FrameGeneration，倍率设为 2，保留光流方法与质量。已有统一效果的倍率不重置。
-效果组出现失效项时，恢复对应效果文件，或移除此项并添加替代效果。旧组重名时用铅笔按钮修改名称，效果内容保留。
+0.6.10 使用要点
+帧率与刷新默认简单模式；高级模式提供节奏、光标和通用重复检测选项。切换保留高级偏好，重新开始缩放后生效。
+内容帧率为跟随源或自定义，旧内容自动模式迁移为跟随源。手动值 15–360 FPS、步进 1；新配置内容 60 FPS、空闲重绘开启且为 30 FPS。
+RTSS 联动与 VRR 默认关闭，按需开启。RTSS 状态反映配置和工具状态，实际游戏限帧需要确认。
+DLSS/XeSS/FSR3/VFG 共用通用重复帧检测，新配置默认关闭。空闲重绘复用缓存画面，不增加真实内容或生成帧。
+FSR3 固定 2×、仅 SDR，默认 AMDOF 质量，组合限制见 FSR3FG-README.md。
+NVIDIA VFX 提供 Upscale、VSR、VFG 和 TrueHDR。VFG 为 SDR 2–8×，默认 2×、Balanced，旧 High 迁移为 Balanced。
+HDR 通过手动添加并排序转换节点配置。截图可选输入＋输出、仅输出（默认）或仅输入。
+DLSSNR 状态与分类引导帮助判断实际运行状态；165 个效果的双语说明提供用途与起步建议。
 
 完整更新、安装与限制见 RELEASE-NOTES.md，帧率说明见 FRAME_SYNC_GUIDE.md。
-请保留许可证、THIRD-PARTY-NOTICES.md 和 build-manifest.json。
-可选附件沿用 0.6.8：DLSSNR-DLL-Options-310.8.0.0.zip、NGX_OTA_Switch.bat。普通安装无需运行 OTA 工具。
+保留 LICENSE-Magpie.txt、THIRD-PARTY-NOTICES.md、组件许可证及 build-manifest.json。
+可选附件：DLSSNR-DLL-Options.zip、NGX_OTA_Switch.bat。普通安装无需运行 OTA 工具。
 
 English
 
 Install or upgrade
-Fully exit Magpie from the system tray, extract Magpie-Experimental-x64.zip completely into a new folder, then run its Magpie.exe.
-Normal settings prefer %LOCALAPPDATA%\Magpie\config\v4e\config.json; if v4e is absent, v4 is imported automatically and subsequent saves use only v4e.
-Portable users can copy their existing settings to config\v4e\config.json in the new program folder and retain the original for rollback.
+Back up settings, fully exit Magpie from the tray, extract the complete Magpie-Experimental-x64.zip into a new folder and run Magpie.exe.
+Normal settings: %LOCALAPPDATA%\Magpie\config\v4e\config.json. If v4e is absent, import v4 and save subsequent changes to v4e.
+Portable settings: config\v4e\config.json under the program folder. Keep the previous program and settings for rollback.
 
-0.6.9 essentials
-Other options in the effect-group header provides Import, Export, Configuration folder and Reset. Reset still requires confirmation.
-Default/application profiles share Frame rate and refresh. Manual content, cursor and idle values use 15–360 FPS, integers and 1-FPS steps. Valid legacy settings migrate automatically.
-New defaults: Custom content 60 FPS, Front Edge, original frames with supplementation, cursor minimum 60 FPS, idle redraw enabled at 30 FPS. Edits save automatically and apply after restarting scaling.
-Drag blank or FPS areas of the toolbar to dock at the top or bottom; no dedicated drag button is needed.
-DLSSNR defaults to Multi Pass 1 and Anti-flicker None, with 1/2/3 passes available. Unified detail controls affect the total residual after all passes. Advanced starts hidden; collapsing it retains parameters.
-FG duplicate filtering defaults to On and can be disabled between multiplier and optical-flow method. Global duplicate detection is in the advanced Frame rate and refresh settings.
-Legacy XeSS x2/MFG migrates to XeSS_FrameGeneration at 2x, retaining optical-flow method and quality. Existing unified effects keep their multiplier.
-For an invalid effect, restore its file or remove it and add a replacement. Rename duplicate legacy groups with the pencil button; their effects are retained.
+0.6.10 essentials
+Frame rate and refresh defaults to Simple. Advanced exposes pacing, cursor and general duplicate-detection options. Switching retains advanced preferences and applies after restarting scaling.
+Content rate is Follow source or Custom; legacy content Automatic migrates to Follow source. Manual rates use 15–360 FPS in steps of 1. New defaults: 60-FPS content and enabled 30-FPS idle redraw.
+RTSS integration and VRR default to Off; enable as needed. RTSS status describes configuration and tool state; confirm actual in-game limiting separately.
+DLSS/XeSS/FSR3/VFG share general duplicate detection, default-off for new settings. Idle redraw reuses cached pictures without adding real content or generated frames.
+FSR3 is fixed 2x SDR and defaults to AMDOF Quality. See FSR3FG-README.md for combination restrictions.
+NVIDIA VFX provides Upscale, VSR, VFG and TrueHDR. VFG uses SDR 2–8x, defaults to 2x Balanced and migrates retired High to Balanced.
+Configure HDR by manually adding and ordering conversion nodes. Screenshots offer input + output, output only (default), or input only.
+DLSSNR state and cause-specific guidance help identify actual operation; bilingual descriptions for 165 effects explain purpose and initial setup.
 
-See RELEASE-NOTES.md for complete updates, installation and limitations, and FRAME_SYNC_GUIDE.md for frame-rate settings.
-Retain the licenses, THIRD-PARTY-NOTICES.md and build-manifest.json.
-Optional assets reuse the 0.6.8 DLSSNR-DLL-Options-310.8.0.0.zip and NGX_OTA_Switch.bat. Normal installation does not require the OTA tool.
+See RELEASE-NOTES.md for updates, installation and limitations, and FRAME_SYNC_GUIDE.md for refresh settings.
+Retain LICENSE-Magpie.txt, THIRD-PARTY-NOTICES.md, component licenses and build-manifest.json.
+Optional assets: DLSSNR-DLL-Options.zip and NGX_OTA_Switch.bat. Normal installation does not require the OTA tool.

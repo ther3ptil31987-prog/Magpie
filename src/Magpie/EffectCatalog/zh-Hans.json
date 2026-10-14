@@ -5,124 +5,124 @@
     {
       "id": "upscale",
       "name": "放大与超分",
-      "description": "改变输出尺寸，按素材选择插值、边缘重建或时序超分。",
+      "description": "改变图像尺寸，按素材选择通用缩放、动画线条重建、像素画放大或时序超分。",
       "subcategories": [
         {
           "name": "通用",
-          "description": "适用于一般照片、视频、游戏和界面；比较清晰度、光晕与处理开销。"
+          "description": "缩放照片、视频、游戏和界面。Bilinear 偏柔和且开销低，Bicubic 可调平滑度与锐度，Lanczos 偏锐利。"
         },
         {
           "name": "动画线条",
-          "description": "适用于动画和视觉小说；比较轮廓、色块及细小纹理的保留。"
+          "description": "重建动画与视觉小说的轮廓和色块；带噪声素材可选降噪模型，固定倍率按目标尺寸选择。"
         },
         {
           "name": "像素画",
-          "description": "选择保留像素块或平滑轮廓的方案；整数倍率通常更容易保持均匀网格。"
+          "description": "最近邻保留像素块，xBR／xBRZ 平滑轮廓。整数倍率保持均匀网格，自由尺寸方案用于适配窗口或屏幕。"
         },
         {
           "name": "时序重建",
-          "description": "使用连续捕获帧重建细节；运动和深度信息有限，留意重影、遮挡与界面。"
+          "description": "结合连续捕获帧重建细节，适合游戏与视频放大。运动由图像估计，快速运动、遮挡和界面边缘可能出现重影。"
         },
         {
           "name": "缩小与尺寸整理",
-          "description": "用于降低分辨率，或在固定倍率放大之后整理最终尺寸。"
+          "description": "降低图像分辨率，或将固定倍率放大后的画面整理到最终输出尺寸。"
         }
       ]
     },
     {
       "id": "cleanup",
       "name": "清理修复",
-      "description": "减轻噪声、色带或线条缺陷；通常先修复，再放大与锐化。",
+      "description": "减轻噪声、色带或线条缺陷，通常先清理素材，再放大与锐化。",
       "subcategories": [
         {
           "name": "降噪",
-          "description": "先尝试较低强度；比较噪声减轻与细小纹理的损失。"
+          "description": "减轻颗粒和压缩噪声。从较低强度开始，随噪声程度增加；较强处理也会平滑细小纹理。"
         },
         {
           "name": "去色带",
-          "description": "平滑天空和暗部渐变；避免过强设置抹去真实纹理。"
+          "description": "柔化天空和暗部渐变的分层边界，用阈值与范围控制处理程度。"
         },
         {
           "name": "线条修复",
-          "description": "修整动画轮廓或线条粗细，通常放在主要放大步骤之前。"
+          "description": "恢复动画轮廓或调整粗细，通常用于放大前的线条整理。"
         }
       ]
     },
     {
       "id": "antialiasing",
       "name": "抗锯齿",
-      "description": "平滑边缘锯齿；空间方案处理当前帧，时序方案还使用捕获帧历史。",
+      "description": "平滑阶梯状边缘；空间方案处理当前帧，时序方案结合连续帧。",
       "subcategories": [
         {
           "name": "空间",
-          "description": "处理当前帧的边缘，适合先尝试；注意文字和细线是否变软。"
+          "description": "直接平滑当前画面的轮廓，适合先尝试的游戏抗锯齿。处理同时会柔化部分文字与细线。"
         },
         {
           "name": "时序",
-          "description": "结合连续捕获帧的实验方案；重点检查运动重影和细线稳定性。"
+          "description": "结合帧历史处理细线与斜边；属于实验方案，运动边缘可能产生重影。"
         }
       ]
     },
     {
       "id": "sharpen",
       "name": "锐化细节",
-      "description": "增强局部对比与边缘清晰度；注意过强时的光晕和噪声。",
+      "description": "增强边缘与局部对比，让偏软的画面更清楚。",
       "subcategories": [
         {
           "name": "通用锐化",
-          "description": "通常放在缩放后；先使用一种锐化，避免叠加光晕与噪声。"
+          "description": "通常在缩放后使用一种锐化，从较低强度开始；较强处理会放大噪声，并在高对比边缘产生光圈。"
         }
       ]
     },
     {
       "id": "frame",
       "name": "补帧与帧率",
-      "description": "生成中间帧或限制基础帧率；与“帧率与刷新”设置配合使用。",
+      "description": "补帧增加用于显示的中间画面，限帧控制基础输入频率。基础帧率、重复检测与空闲重绘在“帧率与刷新”中设置。",
       "subcategories": [
         {
           "name": "补帧",
-          "description": "一个效果组使用一种补帧方案；显示帧率增加不等于游戏逻辑帧率增加。"
+          "description": "每个效果组选择一种补帧方案，从 2× 开始。较高倍率增加处理开销；快速运动、遮挡和游戏文字可能产生伪影。"
         },
         {
           "name": "帧率调度",
-          "description": "限制捕获与处理的基础帧率，拖动条目不改变限帧范围。"
+          "description": "设置捕获与处理的基础帧率上限；使用补帧时，以此作为生成帧的输入频率。"
         }
       ]
     },
     {
       "id": "style",
       "name": "风格显示",
-      "description": "调整颜色、亮度、纹理或复古显示风格，按观看偏好选择。",
+      "description": "按观看偏好调整颜色、亮度、纹理或复古显示外观。",
       "subcategories": [
         {
           "name": "CRT",
-          "description": "扫描线、遮罩、辉光和曲面等复古效果，通常放在缩放之后。"
+          "description": "用扫描线、遮罩、辉光或曲面模拟旧式屏幕，通常放在缩放后。外观按 SDR 设计，HDR 经过兼容转换。"
         },
         {
           "name": "图像调整",
-          "description": "按观看偏好调整亮度与颜色；HDR 下请检查高光和渐变。"
+          "description": "调整画面的明暗与颜色，从亮度、对比度开始逐项设置。"
         },
         {
           "name": "AI 画面重塑",
-          "description": "改变纹理与细节组织，适合愿意对比原图的进阶用户。"
+          "description": "重新塑造纹理与细节风格，从单次、较低强度开始探索画面质感。"
         }
       ]
     },
     {
       "id": "diagnostic",
       "name": "诊断调试",
-      "description": "查看运动估计与置信度，帮助定位时序处理问题。",
+      "description": "查看运动方向与估计置信度，定位时序处理问题。",
       "subcategories": [
         {
           "name": "诊断",
-          "description": "用于查看运动和置信度，诊断色图不作为正常观看输出。"
+          "description": "用色图显示运动与可靠程度，适合调试光流和连续帧处理。"
         }
       ]
     },
     {
       "id": "hdr-components",
       "name": "HDR 组件",
-      "description": "在 HDR 与 SDR 之间转换，或将 SDR 画面扩展为 HDR。",
+      "description": "设置 HDR／SDR 的转换顺序。兼容配对用于中间 SDR 处理，白点映射呈现 SDR 内容，TrueHDR 用 AI 重塑亮度与颜色；HDR 捕获或输出需对应屏幕开启 Windows HDR。",
       "subcategories": []
     }
   ],
@@ -137,10 +137,10 @@
         "cleanup"
       ],
       "summary": "动画 2× 放大，同时减轻噪声。",
-      "details": "适合有压缩噪声的动画与线稿；干净素材请检查细小纹理是否被抹去。固定 2×，作为主要放大步骤，再少量锐化。\n\nHDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。",
+      "details": "放大动画与线稿，同时减轻颗粒和压缩噪声，适合需要清理的动画素材。固定放大 2×，可直接作为主要放大步骤使用。",
       "level": "situational",
       "recommendation": "特定场景推荐",
-      "search": "ACNet ACNet 放大与超分 动画线条 动画 2× 放大，同时减轻噪声。 适合有压缩噪声的动画与线稿；干净素材请检查细小纹理是否被抹去。固定 2×，作为主要放大步骤，再少量锐化。  HDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。",
+      "search": "ACNet ACNet 放大与超分 动画线条 动画 2× 放大，同时减轻噪声。 放大动画与线稿，同时减轻颗粒和压缩噪声，适合需要清理的动画素材。固定放大 2×，可直接作为主要放大步骤使用。",
       "family": null,
       "subfamily": null
     },
@@ -153,15 +153,15 @@
         "upscale",
         "antialiasing"
       ],
-      "summary": "3D 画面 2× 放大，并平滑锯齿。",
-      "details": "固定 2×，不使用帧历史，作为主要缩放步骤。包含抗锯齿处理；检查细线和文字是否变软。\n\nHDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。",
+      "summary": "放大 3D 画面至 2×，同时平滑锯齿。",
+      "details": "处理当前帧的 3D 游戏与渲染画面，重建放大后的边缘并平滑锯齿。采用 US 模型，固定放大 2×，可直接作为主要放大步骤使用。",
       "level": "situational",
       "recommendation": "特定场景推荐",
-      "search": "Anime4K\\Anime4K_3D_AA_Upscale_US Anime4K 3D AA Upscale US 放大与超分 通用 3D 画面 2× 放大，并平滑锯齿。 固定 2×，不使用帧历史，作为主要缩放步骤。包含抗锯齿处理；检查细线和文字是否变软。  HDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。 Anime4K\\Anime4K_3D_AA_Upscale_US Anime4K",
+      "search": "Anime4K\\Anime4K_3D_AA_Upscale_US Anime4K 3D AA Upscale US 放大与超分 通用 Anime4K\\Anime4K_3D_AA_Upscale_US Anime4K 放大 3D 画面至 2×，同时平滑锯齿。 处理当前帧的 3D 游戏与渲染画面，重建放大后的边缘并平滑锯齿。采用 US 模型，固定放大 2×，可直接作为主要放大步骤使用。",
       "family": {
         "id": "anime4k",
         "name": "Anime4K",
-        "summary": "按放大、降噪或线条修复选择。S～UL 是不同模型预设，Soft 与 GAN 的纹理风格也不同。"
+        "summary": "按放大、降噪或线条修复选择。S～UL 表示模型规模；Soft 修复较柔和，GAN 更主动地塑造纹理。"
       },
       "subfamily": null
     },
@@ -173,15 +173,15 @@
       "purposes": [
         "upscale"
       ],
-      "summary": "面向 3D 画面的 2× 空间放大。",
-      "details": "固定 2×，不使用帧历史，作为主要缩放步骤。与 AA 版比较边缘平滑度和细节保留。\n\nHDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。",
+      "summary": "放大 3D 画面至 2×，重建边缘细节。",
+      "details": "处理当前帧的 3D 游戏与渲染画面，重建放大后的边缘与细节。采用 US 模型，固定放大 2×，可直接作为主要放大步骤使用。",
       "level": "situational",
       "recommendation": "特定场景推荐",
-      "search": "Anime4K\\Anime4K_3D_Upscale_US Anime4K 3D Upscale US 放大与超分 通用 面向 3D 画面的 2× 空间放大。 固定 2×，不使用帧历史，作为主要缩放步骤。与 AA 版比较边缘平滑度和细节保留。  HDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。 Anime4K\\Anime4K_3D_Upscale_US Anime4K",
+      "search": "Anime4K\\Anime4K_3D_Upscale_US Anime4K 3D Upscale US 放大与超分 通用 Anime4K\\Anime4K_3D_Upscale_US Anime4K 放大 3D 画面至 2×，重建边缘细节。 处理当前帧的 3D 游戏与渲染画面，重建放大后的边缘与细节。采用 US 模型，固定放大 2×，可直接作为主要放大步骤使用。",
       "family": {
         "id": "anime4k",
         "name": "Anime4K",
-        "summary": "按放大、降噪或线条修复选择。S～UL 是不同模型预设，Soft 与 GAN 的纹理风格也不同。"
+        "summary": "按放大、降噪或线条修复选择。S～UL 表示模型规模；Soft 修复较柔和，GAN 更主动地塑造纹理。"
       },
       "subfamily": null
     },
@@ -193,15 +193,15 @@
       "purposes": [
         "cleanup"
       ],
-      "summary": "动画双边降噪：均值变体。",
-      "details": "保持输入尺寸，通常在放大前处理。本项使用均值统计方式；与另外两种变体比较颗粒、线条和纹理。逐步增加强度，避免细节变软。\n\nHDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。",
+      "summary": "减轻动画颗粒噪声，使用双边均值滤波。",
+      "details": "平滑动画画面中的颗粒与色块内噪声，同时按边缘差异控制混合。适合放大前的素材清理，保持输入尺寸。使用均值统计方式，可从低强度开始调节降噪程度。",
       "level": "situational",
       "recommendation": "特定场景推荐",
-      "search": "Anime4K\\Anime4K_Denoise_Bilateral_Mean Anime4K Denoise Bilateral Mean 清理修复 降噪 动画双边降噪：均值变体。 保持输入尺寸，通常在放大前处理。本项使用均值统计方式；与另外两种变体比较颗粒、线条和纹理。逐步增加强度，避免细节变软。  HDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。 Anime4K\\Anime4K_Denoise_Bilateral_Mean Strength Anime4K",
+      "search": "Anime4K\\Anime4K_Denoise_Bilateral_Mean Anime4K Denoise Bilateral Mean 清理修复 降噪 Anime4K\\Anime4K_Denoise_Bilateral_Mean Strength Anime4K 减轻动画颗粒噪声，使用双边均值滤波。 平滑动画画面中的颗粒与色块内噪声，同时按边缘差异控制混合。适合放大前的素材清理，保持输入尺寸。使用均值统计方式，可从低强度开始调节降噪程度。",
       "family": {
         "id": "anime4k",
         "name": "Anime4K",
-        "summary": "按放大、降噪或线条修复选择。S～UL 是不同模型预设，Soft 与 GAN 的纹理风格也不同。"
+        "summary": "按放大、降噪或线条修复选择。S～UL 表示模型规模；Soft 修复较柔和，GAN 更主动地塑造纹理。"
       },
       "subfamily": null
     },
@@ -213,15 +213,15 @@
       "purposes": [
         "cleanup"
       ],
-      "summary": "动画双边降噪：中值变体。",
-      "details": "保持输入尺寸，通常在放大前处理。本项使用中值统计方式；与另外两种变体比较颗粒、线条和纹理。逐步增加强度，避免细节变软。\n\nHDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。",
+      "summary": "减轻动画颗粒噪声，使用双边中值滤波。",
+      "details": "平滑动画画面中的颗粒与色块内噪声，同时按边缘差异控制混合。适合放大前的素材清理，保持输入尺寸。使用中值统计方式，可从低强度开始调节降噪程度。",
       "level": "situational",
       "recommendation": "特定场景推荐",
-      "search": "Anime4K\\Anime4K_Denoise_Bilateral_Median Anime4K Denoise Bilateral Median 清理修复 降噪 动画双边降噪：中值变体。 保持输入尺寸，通常在放大前处理。本项使用中值统计方式；与另外两种变体比较颗粒、线条和纹理。逐步增加强度，避免细节变软。  HDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。 Anime4K\\Anime4K_Denoise_Bilateral_Median Strength Anime4K",
+      "search": "Anime4K\\Anime4K_Denoise_Bilateral_Median Anime4K Denoise Bilateral Median 清理修复 降噪 Anime4K\\Anime4K_Denoise_Bilateral_Median Strength Anime4K 减轻动画颗粒噪声，使用双边中值滤波。 平滑动画画面中的颗粒与色块内噪声，同时按边缘差异控制混合。适合放大前的素材清理，保持输入尺寸。使用中值统计方式，可从低强度开始调节降噪程度。",
       "family": {
         "id": "anime4k",
         "name": "Anime4K",
-        "summary": "按放大、降噪或线条修复选择。S～UL 是不同模型预设，Soft 与 GAN 的纹理风格也不同。"
+        "summary": "按放大、降噪或线条修复选择。S～UL 表示模型规模；Soft 修复较柔和，GAN 更主动地塑造纹理。"
       },
       "subfamily": null
     },
@@ -233,15 +233,15 @@
       "purposes": [
         "cleanup"
       ],
-      "summary": "动画双边降噪：众数变体。",
-      "details": "保持输入尺寸，通常在放大前处理。本项使用众数统计方式；与另外两种变体比较颗粒、线条和纹理。逐步增加强度，避免细节变软。\n\nHDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。",
+      "summary": "减轻动画颗粒噪声，使用双边众数滤波。",
+      "details": "平滑动画画面中的颗粒与色块内噪声，同时按边缘差异控制混合。适合放大前的素材清理，保持输入尺寸。使用众数统计方式，可从低强度开始调节降噪程度。",
       "level": "situational",
       "recommendation": "特定场景推荐",
-      "search": "Anime4K\\Anime4K_Denoise_Bilateral_Mode Anime4K Denoise Bilateral Mode 清理修复 降噪 动画双边降噪：众数变体。 保持输入尺寸，通常在放大前处理。本项使用众数统计方式；与另外两种变体比较颗粒、线条和纹理。逐步增加强度，避免细节变软。  HDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。 Anime4K\\Anime4K_Denoise_Bilateral_Mode Strength Anime4K",
+      "search": "Anime4K\\Anime4K_Denoise_Bilateral_Mode Anime4K Denoise Bilateral Mode 清理修复 降噪 Anime4K\\Anime4K_Denoise_Bilateral_Mode Strength Anime4K 减轻动画颗粒噪声，使用双边众数滤波。 平滑动画画面中的颗粒与色块内噪声，同时按边缘差异控制混合。适合放大前的素材清理，保持输入尺寸。使用众数统计方式，可从低强度开始调节降噪程度。",
       "family": {
         "id": "anime4k",
         "name": "Anime4K",
-        "summary": "按放大、降噪或线条修复选择。S～UL 是不同模型预设，Soft 与 GAN 的纹理风格也不同。"
+        "summary": "按放大、降噪或线条修复选择。S～UL 表示模型规模；Soft 修复较柔和，GAN 更主动地塑造纹理。"
       },
       "subfamily": null
     },
@@ -253,15 +253,15 @@
       "purposes": [
         "cleanup"
       ],
-      "summary": "动画线条修复：L。",
-      "details": "保持输入尺寸，通常先修复再放大。本项为 L 预设，请与同家族其他模型比较线条和纹理。不同规模增加的计算量不代表每种素材都更好。\n\nHDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。",
+      "summary": "修复动画线条，采用 L 模型。",
+      "details": "恢复动画与视觉小说中模糊的轮廓，让线条更清楚。保持输入尺寸，可在主要放大步骤之前使用。本项采用 L 模型。",
       "level": "situational",
       "recommendation": "特定场景推荐",
-      "search": "Anime4K\\Anime4K_Restore_L Anime4K Restore L 清理修复 线条修复 动画线条修复：L。 保持输入尺寸，通常先修复再放大。本项为 L 预设，请与同家族其他模型比较线条和纹理。不同规模增加的计算量不代表每种素材都更好。  HDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。 Anime4K\\Anime4K_Restore_L Anime4K",
+      "search": "Anime4K\\Anime4K_Restore_L Anime4K Restore L 清理修复 线条修复 Anime4K\\Anime4K_Restore_L Anime4K 修复动画线条，采用 L 模型。 恢复动画与视觉小说中模糊的轮廓，让线条更清楚。保持输入尺寸，可在主要放大步骤之前使用。本项采用 L 模型。",
       "family": {
         "id": "anime4k",
         "name": "Anime4K",
-        "summary": "按放大、降噪或线条修复选择。S～UL 是不同模型预设，Soft 与 GAN 的纹理风格也不同。"
+        "summary": "按放大、降噪或线条修复选择。S～UL 表示模型规模；Soft 修复较柔和，GAN 更主动地塑造纹理。"
       },
       "subfamily": null
     },
@@ -273,15 +273,15 @@
       "purposes": [
         "cleanup"
       ],
-      "summary": "动画线条修复：M。",
-      "details": "保持输入尺寸，通常先修复再放大。本项为 M 预设，请与同家族其他模型比较线条和纹理。不同规模增加的计算量不代表每种素材都更好。\n\nHDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。",
+      "summary": "修复动画线条，采用 M 模型。",
+      "details": "恢复动画与视觉小说中模糊的轮廓，让线条更清楚。保持输入尺寸，可在主要放大步骤之前使用。本项采用 M 模型。",
       "level": "situational",
       "recommendation": "特定场景推荐",
-      "search": "Anime4K\\Anime4K_Restore_M Anime4K Restore M 清理修复 线条修复 动画线条修复：M。 保持输入尺寸，通常先修复再放大。本项为 M 预设，请与同家族其他模型比较线条和纹理。不同规模增加的计算量不代表每种素材都更好。  HDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。 Anime4K\\Anime4K_Restore_M Anime4K",
+      "search": "Anime4K\\Anime4K_Restore_M Anime4K Restore M 清理修复 线条修复 Anime4K\\Anime4K_Restore_M Anime4K 修复动画线条，采用 M 模型。 恢复动画与视觉小说中模糊的轮廓，让线条更清楚。保持输入尺寸，可在主要放大步骤之前使用。本项采用 M 模型。",
       "family": {
         "id": "anime4k",
         "name": "Anime4K",
-        "summary": "按放大、降噪或线条修复选择。S～UL 是不同模型预设，Soft 与 GAN 的纹理风格也不同。"
+        "summary": "按放大、降噪或线条修复选择。S～UL 表示模型规模；Soft 修复较柔和，GAN 更主动地塑造纹理。"
       },
       "subfamily": null
     },
@@ -293,15 +293,15 @@
       "purposes": [
         "cleanup"
       ],
-      "summary": "动画线条修复：S。",
-      "details": "保持输入尺寸，通常先修复再放大。本项为 S 预设，请与同家族其他模型比较线条和纹理。不同规模增加的计算量不代表每种素材都更好。\n\nHDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。",
+      "summary": "修复动画线条，采用 S 模型。",
+      "details": "恢复动画与视觉小说中模糊的轮廓，让线条更清楚。保持输入尺寸，可在主要放大步骤之前使用。本项采用 S 模型。",
       "level": "situational",
       "recommendation": "特定场景推荐",
-      "search": "Anime4K\\Anime4K_Restore_S Anime4K Restore S 清理修复 线条修复 动画线条修复：S。 保持输入尺寸，通常先修复再放大。本项为 S 预设，请与同家族其他模型比较线条和纹理。不同规模增加的计算量不代表每种素材都更好。  HDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。 Anime4K\\Anime4K_Restore_S Anime4K",
+      "search": "Anime4K\\Anime4K_Restore_S Anime4K Restore S 清理修复 线条修复 Anime4K\\Anime4K_Restore_S Anime4K 修复动画线条，采用 S 模型。 恢复动画与视觉小说中模糊的轮廓，让线条更清楚。保持输入尺寸，可在主要放大步骤之前使用。本项采用 S 模型。",
       "family": {
         "id": "anime4k",
         "name": "Anime4K",
-        "summary": "按放大、降噪或线条修复选择。S～UL 是不同模型预设，Soft 与 GAN 的纹理风格也不同。"
+        "summary": "按放大、降噪或线条修复选择。S～UL 表示模型规模；Soft 修复较柔和，GAN 更主动地塑造纹理。"
       },
       "subfamily": null
     },
@@ -313,15 +313,15 @@
       "purposes": [
         "cleanup"
       ],
-      "summary": "动画线条修复：Soft L。",
-      "details": "保持输入尺寸，通常先修复再放大。本项为 Soft L 预设，Soft 使用较柔和的恢复模型；请与普通版比较线条和纹理。不同规模增加的计算量不代表每种素材都更好。\n\nHDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。",
+      "summary": "修复动画线条，采用柔和的 Soft L 模型。",
+      "details": "以柔和的方式整理动画与视觉小说中模糊的轮廓，让线条更清楚。保持输入尺寸，可在主要放大步骤之前使用。本项采用 Soft L 模型。",
       "level": "situational",
       "recommendation": "特定场景推荐",
-      "search": "Anime4K\\Anime4K_Restore_Soft_L Anime4K Restore Soft L 清理修复 线条修复 动画线条修复：Soft L。 保持输入尺寸，通常先修复再放大。本项为 Soft L 预设，Soft 使用较柔和的恢复模型；请与普通版比较线条和纹理。不同规模增加的计算量不代表每种素材都更好。  HDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。 Anime4K\\Anime4K_Restore_Soft_L Anime4K",
+      "search": "Anime4K\\Anime4K_Restore_Soft_L Anime4K Restore Soft L 清理修复 线条修复 Anime4K\\Anime4K_Restore_Soft_L Anime4K 修复动画线条，采用柔和的 Soft L 模型。 以柔和的方式整理动画与视觉小说中模糊的轮廓，让线条更清楚。保持输入尺寸，可在主要放大步骤之前使用。本项采用 Soft L 模型。",
       "family": {
         "id": "anime4k",
         "name": "Anime4K",
-        "summary": "按放大、降噪或线条修复选择。S～UL 是不同模型预设，Soft 与 GAN 的纹理风格也不同。"
+        "summary": "按放大、降噪或线条修复选择。S～UL 表示模型规模；Soft 修复较柔和，GAN 更主动地塑造纹理。"
       },
       "subfamily": null
     },
@@ -333,15 +333,15 @@
       "purposes": [
         "cleanup"
       ],
-      "summary": "动画线条修复：Soft M。",
-      "details": "保持输入尺寸，通常先修复再放大。本项为 Soft M 预设，Soft 使用较柔和的恢复模型；请与普通版比较线条和纹理。不同规模增加的计算量不代表每种素材都更好。\n\nHDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。",
+      "summary": "修复动画线条，采用柔和的 Soft M 模型。",
+      "details": "以柔和的方式整理动画与视觉小说中模糊的轮廓，让线条更清楚。保持输入尺寸，可在主要放大步骤之前使用。本项采用 Soft M 模型。",
       "level": "situational",
       "recommendation": "特定场景推荐",
-      "search": "Anime4K\\Anime4K_Restore_Soft_M Anime4K Restore Soft M 清理修复 线条修复 动画线条修复：Soft M。 保持输入尺寸，通常先修复再放大。本项为 Soft M 预设，Soft 使用较柔和的恢复模型；请与普通版比较线条和纹理。不同规模增加的计算量不代表每种素材都更好。  HDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。 Anime4K\\Anime4K_Restore_Soft_M Anime4K",
+      "search": "Anime4K\\Anime4K_Restore_Soft_M Anime4K Restore Soft M 清理修复 线条修复 Anime4K\\Anime4K_Restore_Soft_M Anime4K 修复动画线条，采用柔和的 Soft M 模型。 以柔和的方式整理动画与视觉小说中模糊的轮廓，让线条更清楚。保持输入尺寸，可在主要放大步骤之前使用。本项采用 Soft M 模型。",
       "family": {
         "id": "anime4k",
         "name": "Anime4K",
-        "summary": "按放大、降噪或线条修复选择。S～UL 是不同模型预设，Soft 与 GAN 的纹理风格也不同。"
+        "summary": "按放大、降噪或线条修复选择。S～UL 表示模型规模；Soft 修复较柔和，GAN 更主动地塑造纹理。"
       },
       "subfamily": null
     },
@@ -353,15 +353,15 @@
       "purposes": [
         "cleanup"
       ],
-      "summary": "动画线条修复：Soft S。",
-      "details": "保持输入尺寸，通常先修复再放大。本项为 Soft S 预设，Soft 使用较柔和的恢复模型；请与普通版比较线条和纹理。不同规模增加的计算量不代表每种素材都更好。\n\nHDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。",
+      "summary": "修复动画线条，采用柔和的 Soft S 模型。",
+      "details": "以柔和的方式整理动画与视觉小说中模糊的轮廓，让线条更清楚。保持输入尺寸，可在主要放大步骤之前使用。本项采用 Soft S 模型。",
       "level": "situational",
       "recommendation": "特定场景推荐",
-      "search": "Anime4K\\Anime4K_Restore_Soft_S Anime4K Restore Soft S 清理修复 线条修复 动画线条修复：Soft S。 保持输入尺寸，通常先修复再放大。本项为 Soft S 预设，Soft 使用较柔和的恢复模型；请与普通版比较线条和纹理。不同规模增加的计算量不代表每种素材都更好。  HDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。 Anime4K\\Anime4K_Restore_Soft_S Anime4K",
+      "search": "Anime4K\\Anime4K_Restore_Soft_S Anime4K Restore Soft S 清理修复 线条修复 Anime4K\\Anime4K_Restore_Soft_S Anime4K 修复动画线条，采用柔和的 Soft S 模型。 以柔和的方式整理动画与视觉小说中模糊的轮廓，让线条更清楚。保持输入尺寸，可在主要放大步骤之前使用。本项采用 Soft S 模型。",
       "family": {
         "id": "anime4k",
         "name": "Anime4K",
-        "summary": "按放大、降噪或线条修复选择。S～UL 是不同模型预设，Soft 与 GAN 的纹理风格也不同。"
+        "summary": "按放大、降噪或线条修复选择。S～UL 表示模型规模；Soft 修复较柔和，GAN 更主动地塑造纹理。"
       },
       "subfamily": null
     },
@@ -373,15 +373,15 @@
       "purposes": [
         "cleanup"
       ],
-      "summary": "动画线条修复：Soft UL。",
-      "details": "保持输入尺寸，通常先修复再放大。本项为 Soft UL 预设，Soft 使用较柔和的恢复模型；请与普通版比较线条和纹理。不同规模增加的计算量不代表每种素材都更好。\n\nHDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。",
+      "summary": "修复动画线条，采用柔和的 Soft UL 模型。",
+      "details": "以柔和的方式整理动画与视觉小说中模糊的轮廓，让线条更清楚。保持输入尺寸，可在主要放大步骤之前使用。本项采用 Soft UL 模型。",
       "level": "situational",
       "recommendation": "特定场景推荐",
-      "search": "Anime4K\\Anime4K_Restore_Soft_UL Anime4K Restore Soft UL 清理修复 线条修复 动画线条修复：Soft UL。 保持输入尺寸，通常先修复再放大。本项为 Soft UL 预设，Soft 使用较柔和的恢复模型；请与普通版比较线条和纹理。不同规模增加的计算量不代表每种素材都更好。  HDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。 Anime4K\\Anime4K_Restore_Soft_UL Anime4K",
+      "search": "Anime4K\\Anime4K_Restore_Soft_UL Anime4K Restore Soft UL 清理修复 线条修复 Anime4K\\Anime4K_Restore_Soft_UL Anime4K 修复动画线条，采用柔和的 Soft UL 模型。 以柔和的方式整理动画与视觉小说中模糊的轮廓，让线条更清楚。保持输入尺寸，可在主要放大步骤之前使用。本项采用 Soft UL 模型。",
       "family": {
         "id": "anime4k",
         "name": "Anime4K",
-        "summary": "按放大、降噪或线条修复选择。S～UL 是不同模型预设，Soft 与 GAN 的纹理风格也不同。"
+        "summary": "按放大、降噪或线条修复选择。S～UL 表示模型规模；Soft 修复较柔和，GAN 更主动地塑造纹理。"
       },
       "subfamily": null
     },
@@ -393,15 +393,15 @@
       "purposes": [
         "cleanup"
       ],
-      "summary": "动画线条修复：Soft VL。",
-      "details": "保持输入尺寸，通常先修复再放大。本项为 Soft VL 预设，Soft 使用较柔和的恢复模型；请与普通版比较线条和纹理。不同规模增加的计算量不代表每种素材都更好。\n\nHDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。",
+      "summary": "修复动画线条，采用柔和的 Soft VL 模型。",
+      "details": "以柔和的方式整理动画与视觉小说中模糊的轮廓，让线条更清楚。保持输入尺寸，可在主要放大步骤之前使用。本项采用 Soft VL 模型。",
       "level": "situational",
       "recommendation": "特定场景推荐",
-      "search": "Anime4K\\Anime4K_Restore_Soft_VL Anime4K Restore Soft VL 清理修复 线条修复 动画线条修复：Soft VL。 保持输入尺寸，通常先修复再放大。本项为 Soft VL 预设，Soft 使用较柔和的恢复模型；请与普通版比较线条和纹理。不同规模增加的计算量不代表每种素材都更好。  HDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。 Anime4K\\Anime4K_Restore_Soft_VL Anime4K",
+      "search": "Anime4K\\Anime4K_Restore_Soft_VL Anime4K Restore Soft VL 清理修复 线条修复 Anime4K\\Anime4K_Restore_Soft_VL Anime4K 修复动画线条，采用柔和的 Soft VL 模型。 以柔和的方式整理动画与视觉小说中模糊的轮廓，让线条更清楚。保持输入尺寸，可在主要放大步骤之前使用。本项采用 Soft VL 模型。",
       "family": {
         "id": "anime4k",
         "name": "Anime4K",
-        "summary": "按放大、降噪或线条修复选择。S～UL 是不同模型预设，Soft 与 GAN 的纹理风格也不同。"
+        "summary": "按放大、降噪或线条修复选择。S～UL 表示模型规模；Soft 修复较柔和，GAN 更主动地塑造纹理。"
       },
       "subfamily": null
     },
@@ -413,15 +413,15 @@
       "purposes": [
         "cleanup"
       ],
-      "summary": "动画线条修复：UL。",
-      "details": "保持输入尺寸，通常先修复再放大。本项为 UL 预设，请与同家族其他模型比较线条和纹理。不同规模增加的计算量不代表每种素材都更好。\n\nHDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。",
+      "summary": "修复动画线条，采用 UL 模型。",
+      "details": "恢复动画与视觉小说中模糊的轮廓，让线条更清楚。保持输入尺寸，可在主要放大步骤之前使用。本项采用 UL 模型。",
       "level": "situational",
       "recommendation": "特定场景推荐",
-      "search": "Anime4K\\Anime4K_Restore_UL Anime4K Restore UL 清理修复 线条修复 动画线条修复：UL。 保持输入尺寸，通常先修复再放大。本项为 UL 预设，请与同家族其他模型比较线条和纹理。不同规模增加的计算量不代表每种素材都更好。  HDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。 Anime4K\\Anime4K_Restore_UL Anime4K",
+      "search": "Anime4K\\Anime4K_Restore_UL Anime4K Restore UL 清理修复 线条修复 Anime4K\\Anime4K_Restore_UL Anime4K 修复动画线条，采用 UL 模型。 恢复动画与视觉小说中模糊的轮廓，让线条更清楚。保持输入尺寸，可在主要放大步骤之前使用。本项采用 UL 模型。",
       "family": {
         "id": "anime4k",
         "name": "Anime4K",
-        "summary": "按放大、降噪或线条修复选择。S～UL 是不同模型预设，Soft 与 GAN 的纹理风格也不同。"
+        "summary": "按放大、降噪或线条修复选择。S～UL 表示模型规模；Soft 修复较柔和，GAN 更主动地塑造纹理。"
       },
       "subfamily": null
     },
@@ -433,15 +433,15 @@
       "purposes": [
         "cleanup"
       ],
-      "summary": "动画线条修复：VL。",
-      "details": "保持输入尺寸，通常先修复再放大。本项为 VL 预设，请与同家族其他模型比较线条和纹理。不同规模增加的计算量不代表每种素材都更好。\n\nHDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。",
+      "summary": "修复动画线条，采用 VL 模型。",
+      "details": "恢复动画与视觉小说中模糊的轮廓，让线条更清楚。保持输入尺寸，可在主要放大步骤之前使用。本项采用 VL 模型。",
       "level": "situational",
       "recommendation": "特定场景推荐",
-      "search": "Anime4K\\Anime4K_Restore_VL Anime4K Restore VL 清理修复 线条修复 动画线条修复：VL。 保持输入尺寸，通常先修复再放大。本项为 VL 预设，请与同家族其他模型比较线条和纹理。不同规模增加的计算量不代表每种素材都更好。  HDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。 Anime4K\\Anime4K_Restore_VL Anime4K",
+      "search": "Anime4K\\Anime4K_Restore_VL Anime4K Restore VL 清理修复 线条修复 Anime4K\\Anime4K_Restore_VL Anime4K 修复动画线条，采用 VL 模型。 恢复动画与视觉小说中模糊的轮廓，让线条更清楚。保持输入尺寸，可在主要放大步骤之前使用。本项采用 VL 模型。",
       "family": {
         "id": "anime4k",
         "name": "Anime4K",
-        "summary": "按放大、降噪或线条修复选择。S～UL 是不同模型预设，Soft 与 GAN 的纹理风格也不同。"
+        "summary": "按放大、降噪或线条修复选择。S～UL 表示模型规模；Soft 修复较柔和，GAN 更主动地塑造纹理。"
       },
       "subfamily": null
     },
@@ -453,15 +453,15 @@
       "purposes": [
         "cleanup"
       ],
-      "summary": "细化动画中偏粗的线条。",
-      "details": "保持输入尺寸，通常放在主要放大之前。强度与迭代次数共同影响细化程度；从低值开始，检查细线是否断裂或过细。\n\nHDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。",
+      "summary": "细化动画中偏粗的轮廓线条。",
+      "details": "收细动画与线稿中的粗线，突出轮廓形状，保持输入尺寸。适合在放大前整理线条；先使用较低强度，再按需要增加迭代次数与细化程度。",
       "level": "situational",
       "recommendation": "特定场景推荐",
-      "search": "Anime4K\\Anime4K_Thin_HQ Anime4K Thin HQ 清理修复 线条修复 细化动画中偏粗的线条。 保持输入尺寸，通常放在主要放大之前。强度与迭代次数共同影响细化程度；从低值开始，检查细线是否断裂或过细。  HDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。 Anime4K\\Anime4K_Thin_HQ Strength Iterations Anime4K",
+      "search": "Anime4K\\Anime4K_Thin_HQ Anime4K Thin HQ 清理修复 线条修复 Anime4K\\Anime4K_Thin_HQ Strength Iterations Anime4K 细化动画中偏粗的轮廓线条。 收细动画与线稿中的粗线，突出轮廓形状，保持输入尺寸。适合在放大前整理线条；先使用较低强度，再按需要增加迭代次数与细化程度。",
       "family": {
         "id": "anime4k",
         "name": "Anime4K",
-        "summary": "按放大、降噪或线条修复选择。S～UL 是不同模型预设，Soft 与 GAN 的纹理风格也不同。"
+        "summary": "按放大、降噪或线条修复选择。S～UL 表示模型规模；Soft 修复较柔和，GAN 更主动地塑造纹理。"
       },
       "subfamily": null
     },
@@ -474,15 +474,15 @@
         "upscale",
         "cleanup"
       ],
-      "summary": "动画 2× 放大并降噪。",
-      "details": "固定 2×，L 预设。适合带噪声动画，请检查细小纹理是否被抹去。作为主要缩放步骤，后续少量锐化；较大模型需留出计算余量。\n\nHDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。",
+      "summary": "动画 2× 放大并降噪，使用 L 模型。",
+      "details": "放大动画并减轻颗粒和压缩噪声，适合带噪声的素材。可直接作为主要放大步骤使用，固定放大 2×。本项采用 L 模型。",
       "level": "situational",
       "recommendation": "特定场景推荐",
-      "search": "Anime4K\\Anime4K_Upscale_Denoise_L Anime4K Upscale Denoise L 放大与超分 动画线条 动画 2× 放大并降噪。 固定 2×，L 预设。适合带噪声动画，请检查细小纹理是否被抹去。作为主要缩放步骤，后续少量锐化；较大模型需留出计算余量。  HDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。 Anime4K\\Anime4K_Upscale_Denoise_L Anime4K",
+      "search": "Anime4K\\Anime4K_Upscale_Denoise_L Anime4K Upscale Denoise L 放大与超分 动画线条 Anime4K\\Anime4K_Upscale_Denoise_L Anime4K 动画 2× 放大并降噪，使用 L 模型。 放大动画并减轻颗粒和压缩噪声，适合带噪声的素材。可直接作为主要放大步骤使用，固定放大 2×。本项采用 L 模型。",
       "family": {
         "id": "anime4k",
         "name": "Anime4K",
-        "summary": "按放大、降噪或线条修复选择。S～UL 是不同模型预设，Soft 与 GAN 的纹理风格也不同。"
+        "summary": "按放大、降噪或线条修复选择。S～UL 表示模型规模；Soft 修复较柔和，GAN 更主动地塑造纹理。"
       },
       "subfamily": null
     },
@@ -495,15 +495,15 @@
         "upscale",
         "cleanup"
       ],
-      "summary": "动画 2× 放大并降噪。",
-      "details": "固定 2×，S 预设。适合带噪声动画，请检查细小纹理是否被抹去。作为主要缩放步骤，后续少量锐化；较大模型需留出计算余量。\n\nHDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。",
+      "summary": "动画 2× 放大并降噪，使用 S 模型。",
+      "details": "放大动画并减轻颗粒和压缩噪声，适合带噪声的素材。可直接作为主要放大步骤使用，固定放大 2×。本项采用 S 模型。",
       "level": "situational",
       "recommendation": "特定场景推荐",
-      "search": "Anime4K\\Anime4K_Upscale_Denoise_S Anime4K Upscale Denoise S 放大与超分 动画线条 动画 2× 放大并降噪。 固定 2×，S 预设。适合带噪声动画，请检查细小纹理是否被抹去。作为主要缩放步骤，后续少量锐化；较大模型需留出计算余量。  HDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。 Anime4K\\Anime4K_Upscale_Denoise_S Anime4K",
+      "search": "Anime4K\\Anime4K_Upscale_Denoise_S Anime4K Upscale Denoise S 放大与超分 动画线条 Anime4K\\Anime4K_Upscale_Denoise_S Anime4K 动画 2× 放大并降噪，使用 S 模型。 放大动画并减轻颗粒和压缩噪声，适合带噪声的素材。可直接作为主要放大步骤使用，固定放大 2×。本项采用 S 模型。",
       "family": {
         "id": "anime4k",
         "name": "Anime4K",
-        "summary": "按放大、降噪或线条修复选择。S～UL 是不同模型预设，Soft 与 GAN 的纹理风格也不同。"
+        "summary": "按放大、降噪或线条修复选择。S～UL 表示模型规模；Soft 修复较柔和，GAN 更主动地塑造纹理。"
       },
       "subfamily": null
     },
@@ -516,15 +516,15 @@
         "upscale",
         "cleanup"
       ],
-      "summary": "动画 2× 放大并降噪。",
-      "details": "固定 2×，UL 预设。适合带噪声动画，请检查细小纹理是否被抹去。作为主要缩放步骤，后续少量锐化；较大模型需留出计算余量。\n\nHDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。",
+      "summary": "动画 2× 放大并降噪，使用 UL 模型。",
+      "details": "放大动画并减轻颗粒和压缩噪声，适合带噪声的素材。可直接作为主要放大步骤使用，固定放大 2×。本项采用 UL 模型。",
       "level": "situational",
       "recommendation": "特定场景推荐",
-      "search": "Anime4K\\Anime4K_Upscale_Denoise_UL Anime4K Upscale Denoise UL 放大与超分 动画线条 动画 2× 放大并降噪。 固定 2×，UL 预设。适合带噪声动画，请检查细小纹理是否被抹去。作为主要缩放步骤，后续少量锐化；较大模型需留出计算余量。  HDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。 Anime4K\\Anime4K_Upscale_Denoise_UL Anime4K",
+      "search": "Anime4K\\Anime4K_Upscale_Denoise_UL Anime4K Upscale Denoise UL 放大与超分 动画线条 Anime4K\\Anime4K_Upscale_Denoise_UL Anime4K 动画 2× 放大并降噪，使用 UL 模型。 放大动画并减轻颗粒和压缩噪声，适合带噪声的素材。可直接作为主要放大步骤使用，固定放大 2×。本项采用 UL 模型。",
       "family": {
         "id": "anime4k",
         "name": "Anime4K",
-        "summary": "按放大、降噪或线条修复选择。S～UL 是不同模型预设，Soft 与 GAN 的纹理风格也不同。"
+        "summary": "按放大、降噪或线条修复选择。S～UL 表示模型规模；Soft 修复较柔和，GAN 更主动地塑造纹理。"
       },
       "subfamily": null
     },
@@ -537,15 +537,15 @@
         "upscale",
         "cleanup"
       ],
-      "summary": "动画 2× 放大并降噪。",
-      "details": "固定 2×，VL 预设。适合带噪声动画，请检查细小纹理是否被抹去。作为主要缩放步骤，后续少量锐化；较大模型需留出计算余量。\n\nHDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。",
+      "summary": "动画 2× 放大并降噪，使用 VL 模型。",
+      "details": "放大动画并减轻颗粒和压缩噪声，适合带噪声的素材。可直接作为主要放大步骤使用，固定放大 2×。本项采用 VL 模型。",
       "level": "situational",
       "recommendation": "特定场景推荐",
-      "search": "Anime4K\\Anime4K_Upscale_Denoise_VL Anime4K Upscale Denoise VL 放大与超分 动画线条 动画 2× 放大并降噪。 固定 2×，VL 预设。适合带噪声动画，请检查细小纹理是否被抹去。作为主要缩放步骤，后续少量锐化；较大模型需留出计算余量。  HDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。 Anime4K\\Anime4K_Upscale_Denoise_VL Anime4K",
+      "search": "Anime4K\\Anime4K_Upscale_Denoise_VL Anime4K Upscale Denoise VL 放大与超分 动画线条 Anime4K\\Anime4K_Upscale_Denoise_VL Anime4K 动画 2× 放大并降噪，使用 VL 模型。 放大动画并减轻颗粒和压缩噪声，适合带噪声的素材。可直接作为主要放大步骤使用，固定放大 2×。本项采用 VL 模型。",
       "family": {
         "id": "anime4k",
         "name": "Anime4K",
-        "summary": "按放大、降噪或线条修复选择。S～UL 是不同模型预设，Soft 与 GAN 的纹理风格也不同。"
+        "summary": "按放大、降噪或线条修复选择。S～UL 表示模型规模；Soft 修复较柔和，GAN 更主动地塑造纹理。"
       },
       "subfamily": null
     },
@@ -557,15 +557,15 @@
       "purposes": [
         "upscale"
       ],
-      "summary": "动画 2× 放大，GAN 纹理风格。",
-      "details": "固定 2×，M 预设。GAN 会更主动重塑纹理，请与普通模型比较。作为主要缩放步骤，后续少量锐化；较大模型需留出计算余量。\n\nHDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。",
+      "summary": "动画 2× 放大并重塑纹理，使用 M 模型。",
+      "details": "放大动画并重新塑造纹理，适合希望突出画面细节的素材。可直接作为主要放大步骤使用，固定放大 2×。本项采用 GAN M 模型。",
       "level": "situational",
       "recommendation": "特定场景推荐",
-      "search": "Anime4K\\Anime4K_Upscale_GAN_x2_M Anime4K Upscale GAN x2 M 放大与超分 动画线条 动画 2× 放大，GAN 纹理风格。 固定 2×，M 预设。GAN 会更主动重塑纹理，请与普通模型比较。作为主要缩放步骤，后续少量锐化；较大模型需留出计算余量。  HDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。 Anime4K\\Anime4K_Upscale_GAN_x2_M Anime4K",
+      "search": "Anime4K\\Anime4K_Upscale_GAN_x2_M Anime4K Upscale GAN x2 M 放大与超分 动画线条 Anime4K\\Anime4K_Upscale_GAN_x2_M Anime4K 动画 2× 放大并重塑纹理，使用 M 模型。 放大动画并重新塑造纹理，适合希望突出画面细节的素材。可直接作为主要放大步骤使用，固定放大 2×。本项采用 GAN M 模型。",
       "family": {
         "id": "anime4k",
         "name": "Anime4K",
-        "summary": "按放大、降噪或线条修复选择。S～UL 是不同模型预设，Soft 与 GAN 的纹理风格也不同。"
+        "summary": "按放大、降噪或线条修复选择。S～UL 表示模型规模；Soft 修复较柔和，GAN 更主动地塑造纹理。"
       },
       "subfamily": null
     },
@@ -577,15 +577,15 @@
       "purposes": [
         "upscale"
       ],
-      "summary": "动画 2× 放大，GAN 纹理风格。",
-      "details": "固定 2×，S 预设。GAN 会更主动重塑纹理，请与普通模型比较。作为主要缩放步骤，后续少量锐化；较大模型需留出计算余量。\n\nHDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。",
+      "summary": "动画 2× 放大并重塑纹理，使用 S 模型。",
+      "details": "放大动画并重新塑造纹理，适合希望突出画面细节的素材。可直接作为主要放大步骤使用，固定放大 2×。本项采用 GAN S 模型。",
       "level": "situational",
       "recommendation": "特定场景推荐",
-      "search": "Anime4K\\Anime4K_Upscale_GAN_x2_S Anime4K Upscale GAN x2 S 放大与超分 动画线条 动画 2× 放大，GAN 纹理风格。 固定 2×，S 预设。GAN 会更主动重塑纹理，请与普通模型比较。作为主要缩放步骤，后续少量锐化；较大模型需留出计算余量。  HDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。 Anime4K\\Anime4K_Upscale_GAN_x2_S Anime4K",
+      "search": "Anime4K\\Anime4K_Upscale_GAN_x2_S Anime4K Upscale GAN x2 S 放大与超分 动画线条 Anime4K\\Anime4K_Upscale_GAN_x2_S Anime4K 动画 2× 放大并重塑纹理，使用 S 模型。 放大动画并重新塑造纹理，适合希望突出画面细节的素材。可直接作为主要放大步骤使用，固定放大 2×。本项采用 GAN S 模型。",
       "family": {
         "id": "anime4k",
         "name": "Anime4K",
-        "summary": "按放大、降噪或线条修复选择。S～UL 是不同模型预设，Soft 与 GAN 的纹理风格也不同。"
+        "summary": "按放大、降噪或线条修复选择。S～UL 表示模型规模；Soft 修复较柔和，GAN 更主动地塑造纹理。"
       },
       "subfamily": null
     },
@@ -597,15 +597,15 @@
       "purposes": [
         "upscale"
       ],
-      "summary": "动画 3× 放大，GAN 纹理风格。",
-      "details": "固定 3×，L 预设。GAN 会更主动重塑纹理，请与普通模型比较。作为主要缩放步骤，后续少量锐化；较大模型需留出计算余量。\n\nHDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。",
+      "summary": "动画 3× 放大并重塑纹理，使用 L 模型。",
+      "details": "放大动画并重新塑造纹理，适合希望突出画面细节的素材。可直接作为主要放大步骤使用，固定放大 3×。本项采用 GAN L 模型。",
       "level": "situational",
       "recommendation": "特定场景推荐",
-      "search": "Anime4K\\Anime4K_Upscale_GAN_x3_L Anime4K Upscale GAN x3 L 放大与超分 动画线条 动画 3× 放大，GAN 纹理风格。 固定 3×，L 预设。GAN 会更主动重塑纹理，请与普通模型比较。作为主要缩放步骤，后续少量锐化；较大模型需留出计算余量。  HDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。 Anime4K\\Anime4K_Upscale_GAN_x3_L Anime4K",
+      "search": "Anime4K\\Anime4K_Upscale_GAN_x3_L Anime4K Upscale GAN x3 L 放大与超分 动画线条 Anime4K\\Anime4K_Upscale_GAN_x3_L Anime4K 动画 3× 放大并重塑纹理，使用 L 模型。 放大动画并重新塑造纹理，适合希望突出画面细节的素材。可直接作为主要放大步骤使用，固定放大 3×。本项采用 GAN L 模型。",
       "family": {
         "id": "anime4k",
         "name": "Anime4K",
-        "summary": "按放大、降噪或线条修复选择。S～UL 是不同模型预设，Soft 与 GAN 的纹理风格也不同。"
+        "summary": "按放大、降噪或线条修复选择。S～UL 表示模型规模；Soft 修复较柔和，GAN 更主动地塑造纹理。"
       },
       "subfamily": null
     },
@@ -617,15 +617,15 @@
       "purposes": [
         "upscale"
       ],
-      "summary": "动画 2× 放大：L 预设。",
-      "details": "固定 2×，L 预设。适合动画与线稿，按轮廓和纹理选择模型。作为主要缩放步骤，后续少量锐化；较大模型需留出计算余量。\n\nHDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。",
+      "summary": "动画 2× 放大与线条重建，使用 L 模型。",
+      "details": "重建动画与视觉小说的轮廓和色块过渡，适合线条明确的素材。可直接作为主要放大步骤使用，固定放大 2×。本项采用 L 模型。",
       "level": "situational",
       "recommendation": "特定场景推荐",
-      "search": "Anime4K\\Anime4K_Upscale_L Anime4K Upscale L 放大与超分 动画线条 动画 2× 放大：L 预设。 固定 2×，L 预设。适合动画与线稿，按轮廓和纹理选择模型。作为主要缩放步骤，后续少量锐化；较大模型需留出计算余量。  HDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。 Anime4K\\Anime4K_Upscale_L Anime4K",
+      "search": "Anime4K\\Anime4K_Upscale_L Anime4K Upscale L 放大与超分 动画线条 Anime4K\\Anime4K_Upscale_L Anime4K 动画 2× 放大与线条重建，使用 L 模型。 重建动画与视觉小说的轮廓和色块过渡，适合线条明确的素材。可直接作为主要放大步骤使用，固定放大 2×。本项采用 L 模型。",
       "family": {
         "id": "anime4k",
         "name": "Anime4K",
-        "summary": "按放大、降噪或线条修复选择。S～UL 是不同模型预设，Soft 与 GAN 的纹理风格也不同。"
+        "summary": "按放大、降噪或线条修复选择。S～UL 表示模型规模；Soft 修复较柔和，GAN 更主动地塑造纹理。"
       },
       "subfamily": null
     },
@@ -637,15 +637,15 @@
       "purposes": [
         "upscale"
       ],
-      "summary": "动画 2× 放大：S 预设。",
-      "details": "固定 2×，S 预设。适合动画与线稿，按轮廓和纹理选择模型。作为主要缩放步骤，后续少量锐化；较大模型需留出计算余量。\n\nHDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。",
+      "summary": "动画 2× 放大与线条重建，使用 S 模型。",
+      "details": "重建动画与视觉小说的轮廓和色块过渡，适合线条明确的素材。可直接作为主要放大步骤使用，固定放大 2×。本项采用 S 模型。",
       "level": "situational",
       "recommendation": "特定场景推荐",
-      "search": "Anime4K\\Anime4K_Upscale_S Anime4K Upscale S 放大与超分 动画线条 动画 2× 放大：S 预设。 固定 2×，S 预设。适合动画与线稿，按轮廓和纹理选择模型。作为主要缩放步骤，后续少量锐化；较大模型需留出计算余量。  HDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。 Anime4K\\Anime4K_Upscale_S Anime4K",
+      "search": "Anime4K\\Anime4K_Upscale_S Anime4K Upscale S 放大与超分 动画线条 Anime4K\\Anime4K_Upscale_S Anime4K 动画 2× 放大与线条重建，使用 S 模型。 重建动画与视觉小说的轮廓和色块过渡，适合线条明确的素材。可直接作为主要放大步骤使用，固定放大 2×。本项采用 S 模型。",
       "family": {
         "id": "anime4k",
         "name": "Anime4K",
-        "summary": "按放大、降噪或线条修复选择。S～UL 是不同模型预设，Soft 与 GAN 的纹理风格也不同。"
+        "summary": "按放大、降噪或线条修复选择。S～UL 表示模型规模；Soft 修复较柔和，GAN 更主动地塑造纹理。"
       },
       "subfamily": null
     },
@@ -657,15 +657,15 @@
       "purposes": [
         "upscale"
       ],
-      "summary": "动画 2× 放大：UL 预设。",
-      "details": "固定 2×，UL 预设。适合动画与线稿，按轮廓和纹理选择模型。作为主要缩放步骤，后续少量锐化；较大模型需留出计算余量。\n\nHDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。",
+      "summary": "动画 2× 放大与线条重建，使用 UL 模型。",
+      "details": "重建动画与视觉小说的轮廓和色块过渡，适合线条明确的素材。可直接作为主要放大步骤使用，固定放大 2×。本项采用 UL 模型。",
       "level": "situational",
       "recommendation": "特定场景推荐",
-      "search": "Anime4K\\Anime4K_Upscale_UL Anime4K Upscale UL 放大与超分 动画线条 动画 2× 放大：UL 预设。 固定 2×，UL 预设。适合动画与线稿，按轮廓和纹理选择模型。作为主要缩放步骤，后续少量锐化；较大模型需留出计算余量。  HDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。 Anime4K\\Anime4K_Upscale_UL Anime4K",
+      "search": "Anime4K\\Anime4K_Upscale_UL Anime4K Upscale UL 放大与超分 动画线条 Anime4K\\Anime4K_Upscale_UL Anime4K 动画 2× 放大与线条重建，使用 UL 模型。 重建动画与视觉小说的轮廓和色块过渡，适合线条明确的素材。可直接作为主要放大步骤使用，固定放大 2×。本项采用 UL 模型。",
       "family": {
         "id": "anime4k",
         "name": "Anime4K",
-        "summary": "按放大、降噪或线条修复选择。S～UL 是不同模型预设，Soft 与 GAN 的纹理风格也不同。"
+        "summary": "按放大、降噪或线条修复选择。S～UL 表示模型规模；Soft 修复较柔和，GAN 更主动地塑造纹理。"
       },
       "subfamily": null
     },
@@ -677,15 +677,15 @@
       "purposes": [
         "upscale"
       ],
-      "summary": "动画 2× 放大：VL 预设。",
-      "details": "固定 2×，VL 预设。适合动画与线稿，按轮廓和纹理选择模型。作为主要缩放步骤，后续少量锐化；较大模型需留出计算余量。\n\nHDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。",
+      "summary": "动画 2× 放大与线条重建，使用 VL 模型。",
+      "details": "重建动画与视觉小说的轮廓和色块过渡，适合线条明确的素材。可直接作为主要放大步骤使用，固定放大 2×。本项采用 VL 模型。",
       "level": "situational",
       "recommendation": "特定场景推荐",
-      "search": "Anime4K\\Anime4K_Upscale_VL Anime4K Upscale VL 放大与超分 动画线条 动画 2× 放大：VL 预设。 固定 2×，VL 预设。适合动画与线稿，按轮廓和纹理选择模型。作为主要缩放步骤，后续少量锐化；较大模型需留出计算余量。  HDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。 Anime4K\\Anime4K_Upscale_VL Anime4K",
+      "search": "Anime4K\\Anime4K_Upscale_VL Anime4K Upscale VL 放大与超分 动画线条 Anime4K\\Anime4K_Upscale_VL Anime4K 动画 2× 放大与线条重建，使用 VL 模型。 重建动画与视觉小说的轮廓和色块过渡，适合线条明确的素材。可直接作为主要放大步骤使用，固定放大 2×。本项采用 VL 模型。",
       "family": {
         "id": "anime4k",
         "name": "Anime4K",
-        "summary": "按放大、降噪或线条修复选择。S～UL 是不同模型预设，Soft 与 GAN 的纹理风格也不同。"
+        "summary": "按放大、降噪或线条修复选择。S～UL 表示模型规模；Soft 修复较柔和，GAN 更主动地塑造纹理。"
       },
       "subfamily": null
     },
@@ -697,11 +697,11 @@
       "purposes": [
         "upscale"
       ],
-      "summary": "可调平滑度与锐度的三次插值。",
-      "details": "适合一般图像、视频和界面。输出尺寸由效果组设置；B、C 参数共同改变平滑度和锐度，先从默认值尝试，注意边缘光晕。\n\n支持 HDR 浮点处理路径，仍需比较高光和边缘振铃。",
+      "summary": "缩放图像，可调节画面的平滑度与锐度。",
+      "details": "通过三次插值缩放照片、视频和界面，兼顾边缘清晰度与平滑过渡。在效果组中设置目标尺寸，先使用默认参数，再用 B、C 调整柔和程度与边缘锐度。支持 HDR 浮点处理。",
       "level": "first_try",
       "recommendation": "优先尝试",
-      "search": "Bicubic Bicubic 放大与超分 通用 可调平滑度与锐度的三次插值。 适合一般图像、视频和界面。输出尺寸由效果组设置；B、C 参数共同改变平滑度和锐度，先从默认值尝试，注意边缘光晕。  支持 HDR 浮点处理路径，仍需比较高光和边缘振铃。 B C",
+      "search": "Bicubic Bicubic 放大与超分 通用 B C 缩放图像，可调节画面的平滑度与锐度。 通过三次插值缩放照片、视频和界面，兼顾边缘清晰度与平滑过渡。在效果组中设置目标尺寸，先使用默认参数，再用 B、C 调整柔和程度与边缘锐度。支持 HDR 浮点处理。",
       "family": null,
       "subfamily": null
     },
@@ -713,11 +713,11 @@
       "purposes": [
         "upscale"
       ],
-      "summary": "快速缩放，画面偏柔和。",
-      "details": "适合性能优先或比较其他缩放器的基线。输出尺寸由效果组设置；图像可能偏软，细小文字请与 Bicubic 或 Lanczos 比较。\n\nHDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。",
+      "summary": "快速缩放图像，形成柔和的像素过渡。",
+      "details": "通过相邻像素混合缩放图像，画面较柔和，处理开销较低。适合性能优先的视频、游戏和一般图像；在效果组中设置目标尺寸即可使用。",
       "level": "first_try",
       "recommendation": "优先尝试",
-      "search": "Bilinear Bilinear 放大与超分 通用 快速缩放，画面偏柔和。 适合性能优先或比较其他缩放器的基线。输出尺寸由效果组设置；图像可能偏软，细小文字请与 Bicubic 或 Lanczos 比较。  HDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。",
+      "search": "Bilinear Bilinear 放大与超分 通用 快速缩放图像，形成柔和的像素过渡。 通过相邻像素混合缩放图像，画面较柔和，处理开销较低。适合性能优先的视频、游戏和一般图像；在效果组中设置目标尺寸即可使用。",
       "family": null,
       "subfamily": null
     },
@@ -729,15 +729,15 @@
       "purposes": [
         "upscale"
       ],
-      "summary": "同时缩放与自适应锐化。",
-      "details": "输出尺寸由效果组设置，可作为主要缩放步骤。与只锐化的 CAS 分开选择；先比较默认锐度，注意噪声和光晕。\n\nHDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。",
+      "summary": "缩放图像，同时增强边缘与局部对比。",
+      "details": "在缩放时根据局部对比调整锐化，让游戏与一般图像的边缘更清楚。在效果组中设置目标尺寸，再从较低锐度开始调节，适合作为主要缩放步骤。",
       "level": "first_try",
       "recommendation": "优先尝试",
-      "search": "CAS\\CAS_Scaling CAS Scaling 放大与超分 通用 同时缩放与自适应锐化。 输出尺寸由效果组设置，可作为主要缩放步骤。与只锐化的 CAS 分开选择；先比较默认锐度，注意噪声和光晕。  HDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。 CAS\\CAS_Scaling Sharpness CAS",
+      "search": "CAS\\CAS_Scaling CAS Scaling 放大与超分 通用 CAS\\CAS_Scaling Sharpness CAS 缩放图像，同时增强边缘与局部对比。 在缩放时根据局部对比调整锐化，让游戏与一般图像的边缘更清楚。在效果组中设置目标尺寸，再从较低锐度开始调节，适合作为主要缩放步骤。",
       "family": {
         "id": "cas",
         "name": "CAS",
-        "summary": "CAS 保持尺寸并锐化；CAS Scaling 同时缩放与锐化。先低强度尝试，避免叠加光晕。"
+        "summary": "CAS 在原尺寸锐化，CAS Scaling 同时缩放与锐化；按是否需要改变尺寸选择。"
       },
       "subfamily": null
     },
@@ -749,15 +749,15 @@
       "purposes": [
         "sharpen"
       ],
-      "summary": "同尺寸对比度自适应锐化。",
-      "details": "通常放在缩放后，用于增强局部清晰度。保持输入尺寸；先尝试低锐度，避免与其他锐化重复叠加。\n\nHDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。",
+      "summary": "根据局部对比增强边缘清晰度。",
+      "details": "自适应增强图像边缘和局部细节，保持输入尺寸。适合为缩放后偏软的游戏、视频和图像收尾；从较低锐度开始调节清晰程度。",
       "level": "first_try",
       "recommendation": "优先尝试",
-      "search": "CAS\\CAS CAS 锐化细节 通用锐化 同尺寸对比度自适应锐化。 通常放在缩放后，用于增强局部清晰度。保持输入尺寸；先尝试低锐度，避免与其他锐化重复叠加。  HDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。 CAS\\CAS Sharpness CAS",
+      "search": "CAS\\CAS CAS 锐化细节 通用锐化 CAS\\CAS Sharpness CAS 根据局部对比增强边缘清晰度。 自适应增强图像边缘和局部细节，保持输入尺寸。适合为缩放后偏软的游戏、视频和图像收尾；从较低锐度开始调节清晰程度。",
       "family": {
         "id": "cas",
         "name": "CAS",
-        "summary": "CAS 保持尺寸并锐化；CAS Scaling 同时缩放与锐化。先低强度尝试，避免叠加光晕。"
+        "summary": "CAS 在原尺寸锐化，CAS Scaling 同时缩放与锐化；按是否需要改变尺寸选择。"
       },
       "subfamily": null
     },
@@ -769,11 +769,11 @@
       "purposes": [
         "style"
       ],
-      "summary": "扫描线、遮罩与辉光的 CRT 风格。",
-      "details": "较易入门的平面 CRT 风格，适合复古游戏。输出尺寸由效果组设置，通常放在主要缩放后。先比较遮罩尺度和扫描线强度；按 SDR 观感设计，HDR 使用 SDR 兼容转换；请检查亮度、颜色和高光。",
+      "summary": "用扫描线、遮罩与辉光呈现平面 CRT 风格。",
+      "details": "模拟平面显像管的扫描线与发光质感，适合复古游戏。通常放在缩放后，从扫描线强度和遮罩大小开始调整观看效果。",
       "level": "situational",
       "recommendation": "特定场景推荐",
-      "search": "CRT\\CRT_Easymode CRT Easymode 风格显示 CRT 扫描线、遮罩与辉光的 CRT 风格。 较易入门的平面 CRT 风格，适合复古游戏。输出尺寸由效果组设置，通常放在主要缩放后。先比较遮罩尺度和扫描线强度；按 SDR 观感设计，HDR 使用 SDR 兼容转换；请检查亮度、颜色和高光。 CRT\\CRT_Easymode Sharpness Horizontal Sharpness Vertical Mask Strength Mask Dot Width Mask Dot Height Mask Stagger Mask Size Scanline Strength Scanline Beam Width Min Scanline Beam Width Max Scanline Brightness Min Scanline Brightness Max Scanline Cutoff Gamma Input Gamma Output Brightness Boost Dilation",
+      "search": "CRT\\CRT_Easymode CRT Easymode 风格显示 CRT CRT\\CRT_Easymode Sharpness Horizontal Sharpness Vertical Mask Strength Mask Dot Width Mask Dot Height Mask Stagger Mask Size Scanline Strength Scanline Beam Width Min Scanline Beam Width Max Scanline Brightness Min Scanline Brightness Max Scanline Cutoff Gamma Input Gamma Output Brightness Boost Dilation 用扫描线、遮罩与辉光呈现平面 CRT 风格。 模拟平面显像管的扫描线与发光质感，适合复古游戏。通常放在缩放后，从扫描线强度和遮罩大小开始调整观看效果。",
       "family": null,
       "subfamily": null
     },
@@ -785,11 +785,11 @@
       "purposes": [
         "style"
       ],
-      "summary": "带屏幕曲面和边角的 CRT 风格。",
-      "details": "通过曲面、边角和扫描线模拟旧式屏幕。输出尺寸由效果组设置，通常放在主要缩放后。先比较遮罩尺度和扫描线强度；按 SDR 观感设计，HDR 使用 SDR 兼容转换；请检查亮度、颜色和高光。",
+      "summary": "模拟曲面显像管的弯曲屏幕与扫描线。",
+      "details": "用曲面、圆角和扫描线塑造旧式屏幕外观，适合街机与复古游戏。通常放在缩放后，从曲率和边角大小开始调整屏幕形状。",
       "level": "situational",
       "recommendation": "特定场景推荐",
-      "search": "CRT\\CRT_Geom CRT Geom 风格显示 CRT 带屏幕曲面和边角的 CRT 风格。 通过曲面、边角和扫描线模拟旧式屏幕。输出尺寸由效果组设置，通常放在主要缩放后。先比较遮罩尺度和扫描线强度；按 SDR 观感设计，HDR 使用 SDR 兼容转换；请检查亮度、颜色和高光。 CRT\\CRT_Geom Target Gamma Monitor Gamma Distance Curvature Curvature Radius Corner Size Corner Smoothness Horizontal Tilt Vertical Tilt Horizontal Overscan Vertical Overscan Dot Mask Sharpness Scanline Weight Luminance Boost",
+      "search": "CRT\\CRT_Geom CRT Geom 风格显示 CRT CRT\\CRT_Geom Target Gamma Monitor Gamma Distance Curvature Curvature Radius Corner Size Corner Smoothness Horizontal Tilt Vertical Tilt Horizontal Overscan Vertical Overscan Dot Mask Sharpness Scanline Weight Luminance Boost 模拟曲面显像管的弯曲屏幕与扫描线。 用曲面、圆角和扫描线塑造旧式屏幕外观，适合街机与复古游戏。通常放在缩放后，从曲率和边角大小开始调整屏幕形状。",
       "family": null,
       "subfamily": null
     },
@@ -801,11 +801,11 @@
       "purposes": [
         "style"
       ],
-      "summary": "扫描线与磷光遮罩的 CRT 风格。",
-      "details": "适合比较扫描线与遮罩的清晰轮廓。输出尺寸由效果组设置，通常放在主要缩放后。先比较遮罩尺度和扫描线强度；按 SDR 观感设计，HDR 使用 SDR 兼容转换；请检查亮度、颜色和高光。",
+      "summary": "用清晰的扫描线与磷光遮罩呈现 CRT 风格。",
+      "details": "模拟显像管的扫描线与磷光点结构，适合强调像素轮廓的复古游戏。通常放在缩放后，先调节扫描线强度，再设置磷光遮罩与亮度。",
       "level": "situational",
       "recommendation": "特定场景推荐",
-      "search": "CRT\\CRT_Hyllian CRT Hyllian 风格显示 CRT 扫描线与磷光遮罩的 CRT 风格。 适合比较扫描线与遮罩的清晰轮廓。输出尺寸由效果组设置，通常放在主要缩放后。先比较遮罩尺度和扫描线强度；按 SDR 观感设计，HDR 使用 SDR 兼容转换；请检查亮度、颜色和高光。 CRT\\CRT_Hyllian Phosphor Vertical Scanlines Input Gamma Output Gamma Sharpness Color Boost Red Boost Green Boost Blue Boost Scanline Strength Min Beam Width Max Beam Width Anti-Ringing",
+      "search": "CRT\\CRT_Hyllian CRT Hyllian 风格显示 CRT CRT\\CRT_Hyllian Phosphor Vertical Scanlines Input Gamma Output Gamma Sharpness Color Boost Red Boost Green Boost Blue Boost Scanline Strength Min Beam Width Max Beam Width Anti-Ringing 用清晰的扫描线与磷光遮罩呈现 CRT 风格。 模拟显像管的扫描线与磷光点结构，适合强调像素轮廓的复古游戏。通常放在缩放后，先调节扫描线强度，再设置磷光遮罩与亮度。",
       "family": null,
       "subfamily": null
     },
@@ -817,11 +817,11 @@
       "purposes": [
         "style"
       ],
-      "summary": "扫描线、阴影遮罩与亮度塑形。",
-      "details": "通过扫描线与阴影遮罩改变复古显示观感。输出尺寸由效果组设置，通常放在主要缩放后。先比较遮罩尺度和扫描线强度；按 SDR 观感设计，HDR 使用 SDR 兼容转换；请检查亮度、颜色和高光。",
+      "summary": "模拟显像管的扫描线、阴影遮罩与亮度分布。",
+      "details": "通过扫描线和阴影遮罩重现复古屏幕的明暗质感，适合像素游戏。通常放在缩放后，选择遮罩样式，再调节扫描线与亮度。",
       "level": "situational",
       "recommendation": "特定场景推荐",
-      "search": "CRT\\CRT_Lottes CRT Lottes 风格显示 CRT 扫描线、阴影遮罩与亮度塑形。 通过扫描线与阴影遮罩改变复古显示观感。输出尺寸由效果组设置，通常放在主要缩放后。先比较遮罩尺度和扫描线强度；按 SDR 观感设计，HDR 使用 SDR 兼容转换；请检查亮度、颜色和高光。 CRT\\CRT_Lottes Scanline Hardness Pixel Hardness Horizontal Display Warp Vertical Display Warp Mask Dark Mask Light Shadow Mask Brightness Boost Bloom-X Soft Bloom-Y Soft Bloom Amount Filter Kernel Shape",
+      "search": "CRT\\CRT_Lottes CRT Lottes 风格显示 CRT CRT\\CRT_Lottes Scanline Hardness Pixel Hardness Horizontal Display Warp Vertical Display Warp Mask Dark Mask Light Shadow Mask Brightness Boost Bloom-X Soft Bloom-Y Soft Bloom Amount Filter Kernel Shape 模拟显像管的扫描线、阴影遮罩与亮度分布。 通过扫描线和阴影遮罩重现复古屏幕的明暗质感，适合像素游戏。通常放在缩放后，选择遮罩样式，再调节扫描线与亮度。",
       "family": null,
       "subfamily": null
     },
@@ -833,11 +833,11 @@
       "purposes": [
         "style"
       ],
-      "summary": "模拟视频带宽、混色和扫描线。",
-      "details": "适合偏好模拟视频模糊与混色的复古素材。输出尺寸由效果组设置，通常放在主要缩放后。先比较遮罩尺度和扫描线强度；按 SDR 观感设计，HDR 使用 SDR 兼容转换；请检查亮度、颜色和高光。",
+      "summary": "模拟旧式视频的柔化、混色与扫描线。",
+      "details": "通过模拟视频带宽塑造柔和、相邻颜色交融的复古画面，适合旧主机游戏。通常放在缩放后，从信号分辨率与扫描线设置开始调整。",
       "level": "situational",
       "recommendation": "特定场景推荐",
-      "search": "CRT\\GTU_v050 GTU v050 风格显示 CRT 模拟视频带宽、混色和扫描线。 适合偏好模拟视频模糊与混色的复古素材。输出尺寸由效果组设置，通常放在主要缩放后。先比较遮罩尺度和扫描线强度；按 SDR 观感设计，HDR 使用 SDR 兼容转换；请检查亮度、颜色和高光。 CRT\\GTU_v050 Composite Connection No Scanlines Signal Resolution Y Signal Resolution I Signal Resolution Q TV Vertical Resolution Black Level Contrast",
+      "search": "CRT\\GTU_v050 GTU v050 风格显示 CRT CRT\\GTU_v050 Composite Connection No Scanlines Signal Resolution Y Signal Resolution I Signal Resolution Q TV Vertical Resolution Black Level Contrast 模拟旧式视频的柔化、混色与扫描线。 通过模拟视频带宽塑造柔和、相邻颜色交融的复古画面，适合旧主机游戏。通常放在缩放后，从信号分辨率与扫描线设置开始调整。",
       "family": null,
       "subfamily": null
     },
@@ -849,20 +849,20 @@
       "purposes": [
         "upscale"
       ],
-      "summary": "视觉小说与动画 2× 放大并降噪。",
-      "details": "固定 2×，CuNNy 原版，16 层／16 通道。DN 适合带噪声素材；干净线稿请与普通版比较纹理损失。作为主要缩放步骤；网络规格改变计算量，不代表画质排名。\n\nHDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。",
+      "summary": "动画 2× 放大并降噪，使用 16x16C 模型。",
+      "details": "放大动画与视觉小说画面，同时减轻颗粒和压缩噪声。适合轮廓清楚、带有噪声的素材，可直接作为主要放大步骤使用。采用 16 层、16 通道模型，固定放大 2×。",
       "level": "situational",
       "recommendation": "特定场景推荐",
-      "search": "CuNNy\\CuNNy-16x16C-NVL-DN CuNNy 16x16C NVL DN 放大与超分 通用 视觉小说与动画 2× 放大并降噪。 固定 2×，CuNNy 原版，16 层／16 通道。DN 适合带噪声素材；干净线稿请与普通版比较纹理损失。作为主要缩放步骤；网络规格改变计算量，不代表画质排名。  HDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。 CuNNy\\CuNNy-16x16C-NVL-DN CuNNy",
+      "search": "CuNNy\\CuNNy-16x16C-NVL-DN CuNNy 16x16C NVL DN 放大与超分 通用 CuNNy\\CuNNy-16x16C-NVL-DN CuNNy 动画 2× 放大并降噪，使用 16x16C 模型。 放大动画与视觉小说画面，同时减轻颗粒和压缩噪声。适合轮廓清楚、带有噪声的素材，可直接作为主要放大步骤使用。采用 16 层、16 通道模型，固定放大 2×。",
       "family": {
         "id": "cunny",
         "name": "CuNNy",
-        "summary": "面向动画和视觉小说的 2× 放大。原版 DN 同时降噪；CuNNy2 是另一代模型。按纹理与性能余量选规格。"
+        "summary": "动画与视觉小说的 2× 放大。原版 DN 同时降噪，CuNNy2 提供另一代模型；数字表示层数与通道数，较大模型需要更多计算。"
       },
       "subfamily": {
         "id": "original",
         "name": "CuNNy 原版",
-        "summary": "原版 2× 模型，按层数和通道数选择；DN 用于带噪声素材，干净线稿可比较普通版。"
+        "summary": "原版 2× 模型。普通版重建线条，DN 同时降噪；层数和通道数共同决定模型规模。"
       }
     },
     {
@@ -873,20 +873,20 @@
       "purposes": [
         "upscale"
       ],
-      "summary": "视觉小说与动画 2× 放大。",
-      "details": "固定 2×，CuNNy 原版，16 层／16 通道。普通模型侧重放大；噪声较重时可比较降噪方案。作为主要缩放步骤；网络规格改变计算量，不代表画质排名。\n\nHDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。",
+      "summary": "动画 2× 放大，使用 16x16C 模型。",
+      "details": "放大动画与视觉小说画面，重建线条和色块间的过渡。适合轮廓明确的素材，可直接作为主要放大步骤使用。采用 16 层、16 通道模型，固定放大 2×。",
       "level": "situational",
       "recommendation": "特定场景推荐",
-      "search": "CuNNy\\CuNNy-16x16C-NVL CuNNy 16x16C NVL 放大与超分 通用 视觉小说与动画 2× 放大。 固定 2×，CuNNy 原版，16 层／16 通道。普通模型侧重放大；噪声较重时可比较降噪方案。作为主要缩放步骤；网络规格改变计算量，不代表画质排名。  HDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。 CuNNy\\CuNNy-16x16C-NVL CuNNy",
+      "search": "CuNNy\\CuNNy-16x16C-NVL CuNNy 16x16C NVL 放大与超分 通用 CuNNy\\CuNNy-16x16C-NVL CuNNy 动画 2× 放大，使用 16x16C 模型。 放大动画与视觉小说画面，重建线条和色块间的过渡。适合轮廓明确的素材，可直接作为主要放大步骤使用。采用 16 层、16 通道模型，固定放大 2×。",
       "family": {
         "id": "cunny",
         "name": "CuNNy",
-        "summary": "面向动画和视觉小说的 2× 放大。原版 DN 同时降噪；CuNNy2 是另一代模型。按纹理与性能余量选规格。"
+        "summary": "动画与视觉小说的 2× 放大。原版 DN 同时降噪，CuNNy2 提供另一代模型；数字表示层数与通道数，较大模型需要更多计算。"
       },
       "subfamily": {
         "id": "original",
         "name": "CuNNy 原版",
-        "summary": "原版 2× 模型，按层数和通道数选择；DN 用于带噪声素材，干净线稿可比较普通版。"
+        "summary": "原版 2× 模型。普通版重建线条，DN 同时降噪；层数和通道数共同决定模型规模。"
       }
     },
     {
@@ -897,20 +897,20 @@
       "purposes": [
         "upscale"
       ],
-      "summary": "视觉小说与动画 2× 放大并降噪。",
-      "details": "固定 2×，CuNNy 原版，2 层／4 通道。DN 适合带噪声素材；干净线稿请与普通版比较纹理损失。作为主要缩放步骤；网络规格改变计算量，不代表画质排名。\n\nHDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。",
+      "summary": "动画 2× 放大并降噪，使用 2x4C 模型。",
+      "details": "放大动画与视觉小说画面，同时减轻颗粒和压缩噪声。适合轮廓清楚、带有噪声的素材，可直接作为主要放大步骤使用。采用 2 层、4 通道模型，固定放大 2×。",
       "level": "situational",
       "recommendation": "特定场景推荐",
-      "search": "CuNNy\\CuNNy-2x4C-NVL-DN CuNNy 2x4C NVL DN 放大与超分 通用 视觉小说与动画 2× 放大并降噪。 固定 2×，CuNNy 原版，2 层／4 通道。DN 适合带噪声素材；干净线稿请与普通版比较纹理损失。作为主要缩放步骤；网络规格改变计算量，不代表画质排名。  HDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。 CuNNy\\CuNNy-2x4C-NVL-DN CuNNy",
+      "search": "CuNNy\\CuNNy-2x4C-NVL-DN CuNNy 2x4C NVL DN 放大与超分 通用 CuNNy\\CuNNy-2x4C-NVL-DN CuNNy 动画 2× 放大并降噪，使用 2x4C 模型。 放大动画与视觉小说画面，同时减轻颗粒和压缩噪声。适合轮廓清楚、带有噪声的素材，可直接作为主要放大步骤使用。采用 2 层、4 通道模型，固定放大 2×。",
       "family": {
         "id": "cunny",
         "name": "CuNNy",
-        "summary": "面向动画和视觉小说的 2× 放大。原版 DN 同时降噪；CuNNy2 是另一代模型。按纹理与性能余量选规格。"
+        "summary": "动画与视觉小说的 2× 放大。原版 DN 同时降噪，CuNNy2 提供另一代模型；数字表示层数与通道数，较大模型需要更多计算。"
       },
       "subfamily": {
         "id": "original",
         "name": "CuNNy 原版",
-        "summary": "原版 2× 模型，按层数和通道数选择；DN 用于带噪声素材，干净线稿可比较普通版。"
+        "summary": "原版 2× 模型。普通版重建线条，DN 同时降噪；层数和通道数共同决定模型规模。"
       }
     },
     {
@@ -921,20 +921,20 @@
       "purposes": [
         "upscale"
       ],
-      "summary": "视觉小说与动画 2× 放大。",
-      "details": "固定 2×，CuNNy 原版，2 层／4 通道。普通模型侧重放大；噪声较重时可比较降噪方案。作为主要缩放步骤；网络规格改变计算量，不代表画质排名。\n\nHDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。",
+      "summary": "动画 2× 放大，使用 2x4C 模型。",
+      "details": "放大动画与视觉小说画面，重建线条和色块间的过渡。适合轮廓明确的素材，可直接作为主要放大步骤使用。采用 2 层、4 通道模型，固定放大 2×。",
       "level": "situational",
       "recommendation": "特定场景推荐",
-      "search": "CuNNy\\CuNNy-2x4C-NVL CuNNy 2x4C NVL 放大与超分 通用 视觉小说与动画 2× 放大。 固定 2×，CuNNy 原版，2 层／4 通道。普通模型侧重放大；噪声较重时可比较降噪方案。作为主要缩放步骤；网络规格改变计算量，不代表画质排名。  HDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。 CuNNy\\CuNNy-2x4C-NVL CuNNy",
+      "search": "CuNNy\\CuNNy-2x4C-NVL CuNNy 2x4C NVL 放大与超分 通用 CuNNy\\CuNNy-2x4C-NVL CuNNy 动画 2× 放大，使用 2x4C 模型。 放大动画与视觉小说画面，重建线条和色块间的过渡。适合轮廓明确的素材，可直接作为主要放大步骤使用。采用 2 层、4 通道模型，固定放大 2×。",
       "family": {
         "id": "cunny",
         "name": "CuNNy",
-        "summary": "面向动画和视觉小说的 2× 放大。原版 DN 同时降噪；CuNNy2 是另一代模型。按纹理与性能余量选规格。"
+        "summary": "动画与视觉小说的 2× 放大。原版 DN 同时降噪，CuNNy2 提供另一代模型；数字表示层数与通道数，较大模型需要更多计算。"
       },
       "subfamily": {
         "id": "original",
         "name": "CuNNy 原版",
-        "summary": "原版 2× 模型，按层数和通道数选择；DN 用于带噪声素材，干净线稿可比较普通版。"
+        "summary": "原版 2× 模型。普通版重建线条，DN 同时降噪；层数和通道数共同决定模型规模。"
       }
     },
     {
@@ -945,20 +945,20 @@
       "purposes": [
         "upscale"
       ],
-      "summary": "视觉小说与动画 2× 放大并降噪。",
-      "details": "固定 2×，CuNNy 原版，3 层／4 通道。DN 适合带噪声素材；干净线稿请与普通版比较纹理损失。作为主要缩放步骤；网络规格改变计算量，不代表画质排名。\n\nHDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。",
+      "summary": "动画 2× 放大并降噪，使用 3x4C 模型。",
+      "details": "放大动画与视觉小说画面，同时减轻颗粒和压缩噪声。适合轮廓清楚、带有噪声的素材，可直接作为主要放大步骤使用。采用 3 层、4 通道模型，固定放大 2×。",
       "level": "situational",
       "recommendation": "特定场景推荐",
-      "search": "CuNNy\\CuNNy-3x4C-NVL-DN CuNNy 3x4C NVL DN 放大与超分 通用 视觉小说与动画 2× 放大并降噪。 固定 2×，CuNNy 原版，3 层／4 通道。DN 适合带噪声素材；干净线稿请与普通版比较纹理损失。作为主要缩放步骤；网络规格改变计算量，不代表画质排名。  HDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。 CuNNy\\CuNNy-3x4C-NVL-DN CuNNy",
+      "search": "CuNNy\\CuNNy-3x4C-NVL-DN CuNNy 3x4C NVL DN 放大与超分 通用 CuNNy\\CuNNy-3x4C-NVL-DN CuNNy 动画 2× 放大并降噪，使用 3x4C 模型。 放大动画与视觉小说画面，同时减轻颗粒和压缩噪声。适合轮廓清楚、带有噪声的素材，可直接作为主要放大步骤使用。采用 3 层、4 通道模型，固定放大 2×。",
       "family": {
         "id": "cunny",
         "name": "CuNNy",
-        "summary": "面向动画和视觉小说的 2× 放大。原版 DN 同时降噪；CuNNy2 是另一代模型。按纹理与性能余量选规格。"
+        "summary": "动画与视觉小说的 2× 放大。原版 DN 同时降噪，CuNNy2 提供另一代模型；数字表示层数与通道数，较大模型需要更多计算。"
       },
       "subfamily": {
         "id": "original",
         "name": "CuNNy 原版",
-        "summary": "原版 2× 模型，按层数和通道数选择；DN 用于带噪声素材，干净线稿可比较普通版。"
+        "summary": "原版 2× 模型。普通版重建线条，DN 同时降噪；层数和通道数共同决定模型规模。"
       }
     },
     {
@@ -969,20 +969,20 @@
       "purposes": [
         "upscale"
       ],
-      "summary": "视觉小说与动画 2× 放大。",
-      "details": "固定 2×，CuNNy 原版，3 层／4 通道。普通模型侧重放大；噪声较重时可比较降噪方案。作为主要缩放步骤；网络规格改变计算量，不代表画质排名。\n\nHDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。",
+      "summary": "动画 2× 放大，使用 3x4C 模型。",
+      "details": "放大动画与视觉小说画面，重建线条和色块间的过渡。适合轮廓明确的素材，可直接作为主要放大步骤使用。采用 3 层、4 通道模型，固定放大 2×。",
       "level": "situational",
       "recommendation": "特定场景推荐",
-      "search": "CuNNy\\CuNNy-3x4C-NVL CuNNy 3x4C NVL 放大与超分 通用 视觉小说与动画 2× 放大。 固定 2×，CuNNy 原版，3 层／4 通道。普通模型侧重放大；噪声较重时可比较降噪方案。作为主要缩放步骤；网络规格改变计算量，不代表画质排名。  HDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。 CuNNy\\CuNNy-3x4C-NVL CuNNy",
+      "search": "CuNNy\\CuNNy-3x4C-NVL CuNNy 3x4C NVL 放大与超分 通用 CuNNy\\CuNNy-3x4C-NVL CuNNy 动画 2× 放大，使用 3x4C 模型。 放大动画与视觉小说画面，重建线条和色块间的过渡。适合轮廓明确的素材，可直接作为主要放大步骤使用。采用 3 层、4 通道模型，固定放大 2×。",
       "family": {
         "id": "cunny",
         "name": "CuNNy",
-        "summary": "面向动画和视觉小说的 2× 放大。原版 DN 同时降噪；CuNNy2 是另一代模型。按纹理与性能余量选规格。"
+        "summary": "动画与视觉小说的 2× 放大。原版 DN 同时降噪，CuNNy2 提供另一代模型；数字表示层数与通道数，较大模型需要更多计算。"
       },
       "subfamily": {
         "id": "original",
         "name": "CuNNy 原版",
-        "summary": "原版 2× 模型，按层数和通道数选择；DN 用于带噪声素材，干净线稿可比较普通版。"
+        "summary": "原版 2× 模型。普通版重建线条，DN 同时降噪；层数和通道数共同决定模型规模。"
       }
     },
     {
@@ -993,20 +993,20 @@
       "purposes": [
         "upscale"
       ],
-      "summary": "视觉小说与动画 2× 放大并降噪。",
-      "details": "固定 2×，CuNNy 原版，4 层／16 通道。DN 适合带噪声素材；干净线稿请与普通版比较纹理损失。作为主要缩放步骤；网络规格改变计算量，不代表画质排名。\n\nHDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。",
+      "summary": "动画 2× 放大并降噪，使用 4x16C 模型。",
+      "details": "放大动画与视觉小说画面，同时减轻颗粒和压缩噪声。适合轮廓清楚、带有噪声的素材，可直接作为主要放大步骤使用。采用 4 层、16 通道模型，固定放大 2×。",
       "level": "situational",
       "recommendation": "特定场景推荐",
-      "search": "CuNNy\\CuNNy-4x16C-NVL-DN CuNNy 4x16C NVL DN 放大与超分 通用 视觉小说与动画 2× 放大并降噪。 固定 2×，CuNNy 原版，4 层／16 通道。DN 适合带噪声素材；干净线稿请与普通版比较纹理损失。作为主要缩放步骤；网络规格改变计算量，不代表画质排名。  HDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。 CuNNy\\CuNNy-4x16C-NVL-DN CuNNy",
+      "search": "CuNNy\\CuNNy-4x16C-NVL-DN CuNNy 4x16C NVL DN 放大与超分 通用 CuNNy\\CuNNy-4x16C-NVL-DN CuNNy 动画 2× 放大并降噪，使用 4x16C 模型。 放大动画与视觉小说画面，同时减轻颗粒和压缩噪声。适合轮廓清楚、带有噪声的素材，可直接作为主要放大步骤使用。采用 4 层、16 通道模型，固定放大 2×。",
       "family": {
         "id": "cunny",
         "name": "CuNNy",
-        "summary": "面向动画和视觉小说的 2× 放大。原版 DN 同时降噪；CuNNy2 是另一代模型。按纹理与性能余量选规格。"
+        "summary": "动画与视觉小说的 2× 放大。原版 DN 同时降噪，CuNNy2 提供另一代模型；数字表示层数与通道数，较大模型需要更多计算。"
       },
       "subfamily": {
         "id": "original",
         "name": "CuNNy 原版",
-        "summary": "原版 2× 模型，按层数和通道数选择；DN 用于带噪声素材，干净线稿可比较普通版。"
+        "summary": "原版 2× 模型。普通版重建线条，DN 同时降噪；层数和通道数共同决定模型规模。"
       }
     },
     {
@@ -1017,20 +1017,20 @@
       "purposes": [
         "upscale"
       ],
-      "summary": "视觉小说与动画 2× 放大。",
-      "details": "固定 2×，CuNNy 原版，4 层／16 通道。普通模型侧重放大；噪声较重时可比较降噪方案。作为主要缩放步骤；网络规格改变计算量，不代表画质排名。\n\nHDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。",
+      "summary": "动画 2× 放大，使用 4x16C 模型。",
+      "details": "放大动画与视觉小说画面，重建线条和色块间的过渡。适合轮廓明确的素材，可直接作为主要放大步骤使用。采用 4 层、16 通道模型，固定放大 2×。",
       "level": "situational",
       "recommendation": "特定场景推荐",
-      "search": "CuNNy\\CuNNy-4x16C-NVL CuNNy 4x16C NVL 放大与超分 通用 视觉小说与动画 2× 放大。 固定 2×，CuNNy 原版，4 层／16 通道。普通模型侧重放大；噪声较重时可比较降噪方案。作为主要缩放步骤；网络规格改变计算量，不代表画质排名。  HDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。 CuNNy\\CuNNy-4x16C-NVL CuNNy",
+      "search": "CuNNy\\CuNNy-4x16C-NVL CuNNy 4x16C NVL 放大与超分 通用 CuNNy\\CuNNy-4x16C-NVL CuNNy 动画 2× 放大，使用 4x16C 模型。 放大动画与视觉小说画面，重建线条和色块间的过渡。适合轮廓明确的素材，可直接作为主要放大步骤使用。采用 4 层、16 通道模型，固定放大 2×。",
       "family": {
         "id": "cunny",
         "name": "CuNNy",
-        "summary": "面向动画和视觉小说的 2× 放大。原版 DN 同时降噪；CuNNy2 是另一代模型。按纹理与性能余量选规格。"
+        "summary": "动画与视觉小说的 2× 放大。原版 DN 同时降噪，CuNNy2 提供另一代模型；数字表示层数与通道数，较大模型需要更多计算。"
       },
       "subfamily": {
         "id": "original",
         "name": "CuNNy 原版",
-        "summary": "原版 2× 模型，按层数和通道数选择；DN 用于带噪声素材，干净线稿可比较普通版。"
+        "summary": "原版 2× 模型。普通版重建线条，DN 同时降噪；层数和通道数共同决定模型规模。"
       }
     },
     {
@@ -1041,20 +1041,20 @@
       "purposes": [
         "upscale"
       ],
-      "summary": "视觉小说与动画 2× 放大并降噪。",
-      "details": "固定 2×，CuNNy 原版，4 层／4 通道。DN 适合带噪声素材；干净线稿请与普通版比较纹理损失。作为主要缩放步骤；网络规格改变计算量，不代表画质排名。\n\nHDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。",
+      "summary": "动画 2× 放大并降噪，使用 4x4C 模型。",
+      "details": "放大动画与视觉小说画面，同时减轻颗粒和压缩噪声。适合轮廓清楚、带有噪声的素材，可直接作为主要放大步骤使用。采用 4 层、4 通道模型，固定放大 2×。",
       "level": "situational",
       "recommendation": "特定场景推荐",
-      "search": "CuNNy\\CuNNy-4x4C-NVL-DN CuNNy 4x4C NVL DN 放大与超分 通用 视觉小说与动画 2× 放大并降噪。 固定 2×，CuNNy 原版，4 层／4 通道。DN 适合带噪声素材；干净线稿请与普通版比较纹理损失。作为主要缩放步骤；网络规格改变计算量，不代表画质排名。  HDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。 CuNNy\\CuNNy-4x4C-NVL-DN CuNNy",
+      "search": "CuNNy\\CuNNy-4x4C-NVL-DN CuNNy 4x4C NVL DN 放大与超分 通用 CuNNy\\CuNNy-4x4C-NVL-DN CuNNy 动画 2× 放大并降噪，使用 4x4C 模型。 放大动画与视觉小说画面，同时减轻颗粒和压缩噪声。适合轮廓清楚、带有噪声的素材，可直接作为主要放大步骤使用。采用 4 层、4 通道模型，固定放大 2×。",
       "family": {
         "id": "cunny",
         "name": "CuNNy",
-        "summary": "面向动画和视觉小说的 2× 放大。原版 DN 同时降噪；CuNNy2 是另一代模型。按纹理与性能余量选规格。"
+        "summary": "动画与视觉小说的 2× 放大。原版 DN 同时降噪，CuNNy2 提供另一代模型；数字表示层数与通道数，较大模型需要更多计算。"
       },
       "subfamily": {
         "id": "original",
         "name": "CuNNy 原版",
-        "summary": "原版 2× 模型，按层数和通道数选择；DN 用于带噪声素材，干净线稿可比较普通版。"
+        "summary": "原版 2× 模型。普通版重建线条，DN 同时降噪；层数和通道数共同决定模型规模。"
       }
     },
     {
@@ -1065,20 +1065,20 @@
       "purposes": [
         "upscale"
       ],
-      "summary": "视觉小说与动画 2× 放大。",
-      "details": "固定 2×，CuNNy 原版，4 层／4 通道。普通模型侧重放大；噪声较重时可比较降噪方案。作为主要缩放步骤；网络规格改变计算量，不代表画质排名。\n\nHDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。",
+      "summary": "动画 2× 放大，使用 4x4C 模型。",
+      "details": "放大动画与视觉小说画面，重建线条和色块间的过渡。适合轮廓明确的素材，可直接作为主要放大步骤使用。采用 4 层、4 通道模型，固定放大 2×。",
       "level": "situational",
       "recommendation": "特定场景推荐",
-      "search": "CuNNy\\CuNNy-4x4C-NVL CuNNy 4x4C NVL 放大与超分 通用 视觉小说与动画 2× 放大。 固定 2×，CuNNy 原版，4 层／4 通道。普通模型侧重放大；噪声较重时可比较降噪方案。作为主要缩放步骤；网络规格改变计算量，不代表画质排名。  HDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。 CuNNy\\CuNNy-4x4C-NVL CuNNy",
+      "search": "CuNNy\\CuNNy-4x4C-NVL CuNNy 4x4C NVL 放大与超分 通用 CuNNy\\CuNNy-4x4C-NVL CuNNy 动画 2× 放大，使用 4x4C 模型。 放大动画与视觉小说画面，重建线条和色块间的过渡。适合轮廓明确的素材，可直接作为主要放大步骤使用。采用 4 层、4 通道模型，固定放大 2×。",
       "family": {
         "id": "cunny",
         "name": "CuNNy",
-        "summary": "面向动画和视觉小说的 2× 放大。原版 DN 同时降噪；CuNNy2 是另一代模型。按纹理与性能余量选规格。"
+        "summary": "动画与视觉小说的 2× 放大。原版 DN 同时降噪，CuNNy2 提供另一代模型；数字表示层数与通道数，较大模型需要更多计算。"
       },
       "subfamily": {
         "id": "original",
         "name": "CuNNy 原版",
-        "summary": "原版 2× 模型，按层数和通道数选择；DN 用于带噪声素材，干净线稿可比较普通版。"
+        "summary": "原版 2× 模型。普通版重建线条，DN 同时降噪；层数和通道数共同决定模型规模。"
       }
     },
     {
@@ -1089,20 +1089,20 @@
       "purposes": [
         "upscale"
       ],
-      "summary": "视觉小说与动画 2× 放大并降噪。",
-      "details": "固定 2×，CuNNy 原版，4 层／8 通道。DN 适合带噪声素材；干净线稿请与普通版比较纹理损失。作为主要缩放步骤；网络规格改变计算量，不代表画质排名。\n\nHDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。",
+      "summary": "动画 2× 放大并降噪，使用 4x8C 模型。",
+      "details": "放大动画与视觉小说画面，同时减轻颗粒和压缩噪声。适合轮廓清楚、带有噪声的素材，可直接作为主要放大步骤使用。采用 4 层、8 通道模型，固定放大 2×。",
       "level": "situational",
       "recommendation": "特定场景推荐",
-      "search": "CuNNy\\CuNNy-4x8C-NVL-DN CuNNy 4x8C NVL DN 放大与超分 通用 视觉小说与动画 2× 放大并降噪。 固定 2×，CuNNy 原版，4 层／8 通道。DN 适合带噪声素材；干净线稿请与普通版比较纹理损失。作为主要缩放步骤；网络规格改变计算量，不代表画质排名。  HDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。 CuNNy\\CuNNy-4x8C-NVL-DN CuNNy",
+      "search": "CuNNy\\CuNNy-4x8C-NVL-DN CuNNy 4x8C NVL DN 放大与超分 通用 CuNNy\\CuNNy-4x8C-NVL-DN CuNNy 动画 2× 放大并降噪，使用 4x8C 模型。 放大动画与视觉小说画面，同时减轻颗粒和压缩噪声。适合轮廓清楚、带有噪声的素材，可直接作为主要放大步骤使用。采用 4 层、8 通道模型，固定放大 2×。",
       "family": {
         "id": "cunny",
         "name": "CuNNy",
-        "summary": "面向动画和视觉小说的 2× 放大。原版 DN 同时降噪；CuNNy2 是另一代模型。按纹理与性能余量选规格。"
+        "summary": "动画与视觉小说的 2× 放大。原版 DN 同时降噪，CuNNy2 提供另一代模型；数字表示层数与通道数，较大模型需要更多计算。"
       },
       "subfamily": {
         "id": "original",
         "name": "CuNNy 原版",
-        "summary": "原版 2× 模型，按层数和通道数选择；DN 用于带噪声素材，干净线稿可比较普通版。"
+        "summary": "原版 2× 模型。普通版重建线条，DN 同时降噪；层数和通道数共同决定模型规模。"
       }
     },
     {
@@ -1113,20 +1113,20 @@
       "purposes": [
         "upscale"
       ],
-      "summary": "视觉小说与动画 2× 放大。",
-      "details": "固定 2×，CuNNy 原版，4 层／8 通道。普通模型侧重放大；噪声较重时可比较降噪方案。作为主要缩放步骤；网络规格改变计算量，不代表画质排名。\n\nHDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。",
+      "summary": "动画 2× 放大，使用 4x8C 模型。",
+      "details": "放大动画与视觉小说画面，重建线条和色块间的过渡。适合轮廓明确的素材，可直接作为主要放大步骤使用。采用 4 层、8 通道模型，固定放大 2×。",
       "level": "situational",
       "recommendation": "特定场景推荐",
-      "search": "CuNNy\\CuNNy-4x8C-NVL CuNNy 4x8C NVL 放大与超分 通用 视觉小说与动画 2× 放大。 固定 2×，CuNNy 原版，4 层／8 通道。普通模型侧重放大；噪声较重时可比较降噪方案。作为主要缩放步骤；网络规格改变计算量，不代表画质排名。  HDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。 CuNNy\\CuNNy-4x8C-NVL CuNNy",
+      "search": "CuNNy\\CuNNy-4x8C-NVL CuNNy 4x8C NVL 放大与超分 通用 CuNNy\\CuNNy-4x8C-NVL CuNNy 动画 2× 放大，使用 4x8C 模型。 放大动画与视觉小说画面，重建线条和色块间的过渡。适合轮廓明确的素材，可直接作为主要放大步骤使用。采用 4 层、8 通道模型，固定放大 2×。",
       "family": {
         "id": "cunny",
         "name": "CuNNy",
-        "summary": "面向动画和视觉小说的 2× 放大。原版 DN 同时降噪；CuNNy2 是另一代模型。按纹理与性能余量选规格。"
+        "summary": "动画与视觉小说的 2× 放大。原版 DN 同时降噪，CuNNy2 提供另一代模型；数字表示层数与通道数，较大模型需要更多计算。"
       },
       "subfamily": {
         "id": "original",
         "name": "CuNNy 原版",
-        "summary": "原版 2× 模型，按层数和通道数选择；DN 用于带噪声素材，干净线稿可比较普通版。"
+        "summary": "原版 2× 模型。普通版重建线条，DN 同时降噪；层数和通道数共同决定模型规模。"
       }
     },
     {
@@ -1137,20 +1137,20 @@
       "purposes": [
         "upscale"
       ],
-      "summary": "视觉小说与动画 2× 放大并降噪。",
-      "details": "固定 2×，CuNNy 原版，6 层／8 通道。DN 适合带噪声素材；干净线稿请与普通版比较纹理损失。作为主要缩放步骤；网络规格改变计算量，不代表画质排名。\n\nHDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。",
+      "summary": "动画 2× 放大并降噪，使用 6x8C 模型。",
+      "details": "放大动画与视觉小说画面，同时减轻颗粒和压缩噪声。适合轮廓清楚、带有噪声的素材，可直接作为主要放大步骤使用。采用 6 层、8 通道模型，固定放大 2×。",
       "level": "situational",
       "recommendation": "特定场景推荐",
-      "search": "CuNNy\\CuNNy-6x8C-NVL-DN CuNNy 6x8C NVL DN 放大与超分 通用 视觉小说与动画 2× 放大并降噪。 固定 2×，CuNNy 原版，6 层／8 通道。DN 适合带噪声素材；干净线稿请与普通版比较纹理损失。作为主要缩放步骤；网络规格改变计算量，不代表画质排名。  HDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。 CuNNy\\CuNNy-6x8C-NVL-DN CuNNy",
+      "search": "CuNNy\\CuNNy-6x8C-NVL-DN CuNNy 6x8C NVL DN 放大与超分 通用 CuNNy\\CuNNy-6x8C-NVL-DN CuNNy 动画 2× 放大并降噪，使用 6x8C 模型。 放大动画与视觉小说画面，同时减轻颗粒和压缩噪声。适合轮廓清楚、带有噪声的素材，可直接作为主要放大步骤使用。采用 6 层、8 通道模型，固定放大 2×。",
       "family": {
         "id": "cunny",
         "name": "CuNNy",
-        "summary": "面向动画和视觉小说的 2× 放大。原版 DN 同时降噪；CuNNy2 是另一代模型。按纹理与性能余量选规格。"
+        "summary": "动画与视觉小说的 2× 放大。原版 DN 同时降噪，CuNNy2 提供另一代模型；数字表示层数与通道数，较大模型需要更多计算。"
       },
       "subfamily": {
         "id": "original",
         "name": "CuNNy 原版",
-        "summary": "原版 2× 模型，按层数和通道数选择；DN 用于带噪声素材，干净线稿可比较普通版。"
+        "summary": "原版 2× 模型。普通版重建线条，DN 同时降噪；层数和通道数共同决定模型规模。"
       }
     },
     {
@@ -1161,20 +1161,20 @@
       "purposes": [
         "upscale"
       ],
-      "summary": "视觉小说与动画 2× 放大。",
-      "details": "固定 2×，CuNNy 原版，6 层／8 通道。普通模型侧重放大；噪声较重时可比较降噪方案。作为主要缩放步骤；网络规格改变计算量，不代表画质排名。\n\nHDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。",
+      "summary": "动画 2× 放大，使用 6x8C 模型。",
+      "details": "放大动画与视觉小说画面，重建线条和色块间的过渡。适合轮廓明确的素材，可直接作为主要放大步骤使用。采用 6 层、8 通道模型，固定放大 2×。",
       "level": "situational",
       "recommendation": "特定场景推荐",
-      "search": "CuNNy\\CuNNy-6x8C-NVL CuNNy 6x8C NVL 放大与超分 通用 视觉小说与动画 2× 放大。 固定 2×，CuNNy 原版，6 层／8 通道。普通模型侧重放大；噪声较重时可比较降噪方案。作为主要缩放步骤；网络规格改变计算量，不代表画质排名。  HDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。 CuNNy\\CuNNy-6x8C-NVL CuNNy",
+      "search": "CuNNy\\CuNNy-6x8C-NVL CuNNy 6x8C NVL 放大与超分 通用 CuNNy\\CuNNy-6x8C-NVL CuNNy 动画 2× 放大，使用 6x8C 模型。 放大动画与视觉小说画面，重建线条和色块间的过渡。适合轮廓明确的素材，可直接作为主要放大步骤使用。采用 6 层、8 通道模型，固定放大 2×。",
       "family": {
         "id": "cunny",
         "name": "CuNNy",
-        "summary": "面向动画和视觉小说的 2× 放大。原版 DN 同时降噪；CuNNy2 是另一代模型。按纹理与性能余量选规格。"
+        "summary": "动画与视觉小说的 2× 放大。原版 DN 同时降噪，CuNNy2 提供另一代模型；数字表示层数与通道数，较大模型需要更多计算。"
       },
       "subfamily": {
         "id": "original",
         "name": "CuNNy 原版",
-        "summary": "原版 2× 模型，按层数和通道数选择；DN 用于带噪声素材，干净线稿可比较普通版。"
+        "summary": "原版 2× 模型。普通版重建线条，DN 同时降噪；层数和通道数共同决定模型规模。"
       }
     },
     {
@@ -1185,20 +1185,20 @@
       "purposes": [
         "upscale"
       ],
-      "summary": "视觉小说与动画 2× 放大并降噪。",
-      "details": "固定 2×，CuNNy 原版，8 层／16 通道。DN 适合带噪声素材；干净线稿请与普通版比较纹理损失。作为主要缩放步骤；网络规格改变计算量，不代表画质排名。\n\nHDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。",
+      "summary": "动画 2× 放大并降噪，使用 8x16C 模型。",
+      "details": "放大动画与视觉小说画面，同时减轻颗粒和压缩噪声。适合轮廓清楚、带有噪声的素材，可直接作为主要放大步骤使用。采用 8 层、16 通道模型，固定放大 2×。",
       "level": "situational",
       "recommendation": "特定场景推荐",
-      "search": "CuNNy\\CuNNy-8x16C-NVL-DN CuNNy 8x16C NVL DN 放大与超分 通用 视觉小说与动画 2× 放大并降噪。 固定 2×，CuNNy 原版，8 层／16 通道。DN 适合带噪声素材；干净线稿请与普通版比较纹理损失。作为主要缩放步骤；网络规格改变计算量，不代表画质排名。  HDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。 CuNNy\\CuNNy-8x16C-NVL-DN CuNNy",
+      "search": "CuNNy\\CuNNy-8x16C-NVL-DN CuNNy 8x16C NVL DN 放大与超分 通用 CuNNy\\CuNNy-8x16C-NVL-DN CuNNy 动画 2× 放大并降噪，使用 8x16C 模型。 放大动画与视觉小说画面，同时减轻颗粒和压缩噪声。适合轮廓清楚、带有噪声的素材，可直接作为主要放大步骤使用。采用 8 层、16 通道模型，固定放大 2×。",
       "family": {
         "id": "cunny",
         "name": "CuNNy",
-        "summary": "面向动画和视觉小说的 2× 放大。原版 DN 同时降噪；CuNNy2 是另一代模型。按纹理与性能余量选规格。"
+        "summary": "动画与视觉小说的 2× 放大。原版 DN 同时降噪，CuNNy2 提供另一代模型；数字表示层数与通道数，较大模型需要更多计算。"
       },
       "subfamily": {
         "id": "original",
         "name": "CuNNy 原版",
-        "summary": "原版 2× 模型，按层数和通道数选择；DN 用于带噪声素材，干净线稿可比较普通版。"
+        "summary": "原版 2× 模型。普通版重建线条，DN 同时降噪；层数和通道数共同决定模型规模。"
       }
     },
     {
@@ -1209,20 +1209,20 @@
       "purposes": [
         "upscale"
       ],
-      "summary": "视觉小说与动画 2× 放大。",
-      "details": "固定 2×，CuNNy 原版，8 层／16 通道。普通模型侧重放大；噪声较重时可比较降噪方案。作为主要缩放步骤；网络规格改变计算量，不代表画质排名。\n\nHDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。",
+      "summary": "动画 2× 放大，使用 8x16C 模型。",
+      "details": "放大动画与视觉小说画面，重建线条和色块间的过渡。适合轮廓明确的素材，可直接作为主要放大步骤使用。采用 8 层、16 通道模型，固定放大 2×。",
       "level": "situational",
       "recommendation": "特定场景推荐",
-      "search": "CuNNy\\CuNNy-8x16C-NVL CuNNy 8x16C NVL 放大与超分 通用 视觉小说与动画 2× 放大。 固定 2×，CuNNy 原版，8 层／16 通道。普通模型侧重放大；噪声较重时可比较降噪方案。作为主要缩放步骤；网络规格改变计算量，不代表画质排名。  HDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。 CuNNy\\CuNNy-8x16C-NVL CuNNy",
+      "search": "CuNNy\\CuNNy-8x16C-NVL CuNNy 8x16C NVL 放大与超分 通用 CuNNy\\CuNNy-8x16C-NVL CuNNy 动画 2× 放大，使用 8x16C 模型。 放大动画与视觉小说画面，重建线条和色块间的过渡。适合轮廓明确的素材，可直接作为主要放大步骤使用。采用 8 层、16 通道模型，固定放大 2×。",
       "family": {
         "id": "cunny",
         "name": "CuNNy",
-        "summary": "面向动画和视觉小说的 2× 放大。原版 DN 同时降噪；CuNNy2 是另一代模型。按纹理与性能余量选规格。"
+        "summary": "动画与视觉小说的 2× 放大。原版 DN 同时降噪，CuNNy2 提供另一代模型；数字表示层数与通道数，较大模型需要更多计算。"
       },
       "subfamily": {
         "id": "original",
         "name": "CuNNy 原版",
-        "summary": "原版 2× 模型，按层数和通道数选择；DN 用于带噪声素材，干净线稿可比较普通版。"
+        "summary": "原版 2× 模型。普通版重建线条，DN 同时降噪；层数和通道数共同决定模型规模。"
       }
     },
     {
@@ -1233,20 +1233,20 @@
       "purposes": [
         "upscale"
       ],
-      "summary": "视觉小说与动画 2× 放大并降噪。",
-      "details": "固定 2×，CuNNy 原版，8 层／4 通道。DN 适合带噪声素材；干净线稿请与普通版比较纹理损失。作为主要缩放步骤；网络规格改变计算量，不代表画质排名。\n\nHDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。",
+      "summary": "动画 2× 放大并降噪，使用 8x4C 模型。",
+      "details": "放大动画与视觉小说画面，同时减轻颗粒和压缩噪声。适合轮廓清楚、带有噪声的素材，可直接作为主要放大步骤使用。采用 8 层、4 通道模型，固定放大 2×。",
       "level": "situational",
       "recommendation": "特定场景推荐",
-      "search": "CuNNy\\CuNNy-8x4C-NVL-DN CuNNy 8x4C NVL DN 放大与超分 通用 视觉小说与动画 2× 放大并降噪。 固定 2×，CuNNy 原版，8 层／4 通道。DN 适合带噪声素材；干净线稿请与普通版比较纹理损失。作为主要缩放步骤；网络规格改变计算量，不代表画质排名。  HDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。 CuNNy\\CuNNy-8x4C-NVL-DN CuNNy",
+      "search": "CuNNy\\CuNNy-8x4C-NVL-DN CuNNy 8x4C NVL DN 放大与超分 通用 CuNNy\\CuNNy-8x4C-NVL-DN CuNNy 动画 2× 放大并降噪，使用 8x4C 模型。 放大动画与视觉小说画面，同时减轻颗粒和压缩噪声。适合轮廓清楚、带有噪声的素材，可直接作为主要放大步骤使用。采用 8 层、4 通道模型，固定放大 2×。",
       "family": {
         "id": "cunny",
         "name": "CuNNy",
-        "summary": "面向动画和视觉小说的 2× 放大。原版 DN 同时降噪；CuNNy2 是另一代模型。按纹理与性能余量选规格。"
+        "summary": "动画与视觉小说的 2× 放大。原版 DN 同时降噪，CuNNy2 提供另一代模型；数字表示层数与通道数，较大模型需要更多计算。"
       },
       "subfamily": {
         "id": "original",
         "name": "CuNNy 原版",
-        "summary": "原版 2× 模型，按层数和通道数选择；DN 用于带噪声素材，干净线稿可比较普通版。"
+        "summary": "原版 2× 模型。普通版重建线条，DN 同时降噪；层数和通道数共同决定模型规模。"
       }
     },
     {
@@ -1257,20 +1257,20 @@
       "purposes": [
         "upscale"
       ],
-      "summary": "视觉小说与动画 2× 放大。",
-      "details": "固定 2×，CuNNy 原版，8 层／4 通道。普通模型侧重放大；噪声较重时可比较降噪方案。作为主要缩放步骤；网络规格改变计算量，不代表画质排名。\n\nHDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。",
+      "summary": "动画 2× 放大，使用 8x4C 模型。",
+      "details": "放大动画与视觉小说画面，重建线条和色块间的过渡。适合轮廓明确的素材，可直接作为主要放大步骤使用。采用 8 层、4 通道模型，固定放大 2×。",
       "level": "situational",
       "recommendation": "特定场景推荐",
-      "search": "CuNNy\\CuNNy-8x4C-NVL CuNNy 8x4C NVL 放大与超分 通用 视觉小说与动画 2× 放大。 固定 2×，CuNNy 原版，8 层／4 通道。普通模型侧重放大；噪声较重时可比较降噪方案。作为主要缩放步骤；网络规格改变计算量，不代表画质排名。  HDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。 CuNNy\\CuNNy-8x4C-NVL CuNNy",
+      "search": "CuNNy\\CuNNy-8x4C-NVL CuNNy 8x4C NVL 放大与超分 通用 CuNNy\\CuNNy-8x4C-NVL CuNNy 动画 2× 放大，使用 8x4C 模型。 放大动画与视觉小说画面，重建线条和色块间的过渡。适合轮廓明确的素材，可直接作为主要放大步骤使用。采用 8 层、4 通道模型，固定放大 2×。",
       "family": {
         "id": "cunny",
         "name": "CuNNy",
-        "summary": "面向动画和视觉小说的 2× 放大。原版 DN 同时降噪；CuNNy2 是另一代模型。按纹理与性能余量选规格。"
+        "summary": "动画与视觉小说的 2× 放大。原版 DN 同时降噪，CuNNy2 提供另一代模型；数字表示层数与通道数，较大模型需要更多计算。"
       },
       "subfamily": {
         "id": "original",
         "name": "CuNNy 原版",
-        "summary": "原版 2× 模型，按层数和通道数选择；DN 用于带噪声素材，干净线稿可比较普通版。"
+        "summary": "原版 2× 模型。普通版重建线条，DN 同时降噪；层数和通道数共同决定模型规模。"
       }
     },
     {
@@ -1281,20 +1281,20 @@
       "purposes": [
         "upscale"
       ],
-      "summary": "视觉小说与动画 2× 放大并降噪。",
-      "details": "固定 2×，CuNNy 原版，8 层／8 通道。DN 适合带噪声素材；干净线稿请与普通版比较纹理损失。作为主要缩放步骤；网络规格改变计算量，不代表画质排名。\n\nHDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。",
+      "summary": "动画 2× 放大并降噪，使用 8x8C 模型。",
+      "details": "放大动画与视觉小说画面，同时减轻颗粒和压缩噪声。适合轮廓清楚、带有噪声的素材，可直接作为主要放大步骤使用。采用 8 层、8 通道模型，固定放大 2×。",
       "level": "situational",
       "recommendation": "特定场景推荐",
-      "search": "CuNNy\\CuNNy-8x8C-NVL-DN CuNNy 8x8C NVL DN 放大与超分 通用 视觉小说与动画 2× 放大并降噪。 固定 2×，CuNNy 原版，8 层／8 通道。DN 适合带噪声素材；干净线稿请与普通版比较纹理损失。作为主要缩放步骤；网络规格改变计算量，不代表画质排名。  HDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。 CuNNy\\CuNNy-8x8C-NVL-DN CuNNy",
+      "search": "CuNNy\\CuNNy-8x8C-NVL-DN CuNNy 8x8C NVL DN 放大与超分 通用 CuNNy\\CuNNy-8x8C-NVL-DN CuNNy 动画 2× 放大并降噪，使用 8x8C 模型。 放大动画与视觉小说画面，同时减轻颗粒和压缩噪声。适合轮廓清楚、带有噪声的素材，可直接作为主要放大步骤使用。采用 8 层、8 通道模型，固定放大 2×。",
       "family": {
         "id": "cunny",
         "name": "CuNNy",
-        "summary": "面向动画和视觉小说的 2× 放大。原版 DN 同时降噪；CuNNy2 是另一代模型。按纹理与性能余量选规格。"
+        "summary": "动画与视觉小说的 2× 放大。原版 DN 同时降噪，CuNNy2 提供另一代模型；数字表示层数与通道数，较大模型需要更多计算。"
       },
       "subfamily": {
         "id": "original",
         "name": "CuNNy 原版",
-        "summary": "原版 2× 模型，按层数和通道数选择；DN 用于带噪声素材，干净线稿可比较普通版。"
+        "summary": "原版 2× 模型。普通版重建线条，DN 同时降噪；层数和通道数共同决定模型规模。"
       }
     },
     {
@@ -1305,20 +1305,20 @@
       "purposes": [
         "upscale"
       ],
-      "summary": "视觉小说与动画 2× 放大。",
-      "details": "固定 2×，CuNNy 原版，8 层／8 通道。普通模型侧重放大；噪声较重时可比较降噪方案。作为主要缩放步骤；网络规格改变计算量，不代表画质排名。\n\nHDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。",
+      "summary": "动画 2× 放大，使用 8x8C 模型。",
+      "details": "放大动画与视觉小说画面，重建线条和色块间的过渡。适合轮廓明确的素材，可直接作为主要放大步骤使用。采用 8 层、8 通道模型，固定放大 2×。",
       "level": "situational",
       "recommendation": "特定场景推荐",
-      "search": "CuNNy\\CuNNy-8x8C-NVL CuNNy 8x8C NVL 放大与超分 通用 视觉小说与动画 2× 放大。 固定 2×，CuNNy 原版，8 层／8 通道。普通模型侧重放大；噪声较重时可比较降噪方案。作为主要缩放步骤；网络规格改变计算量，不代表画质排名。  HDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。 CuNNy\\CuNNy-8x8C-NVL CuNNy",
+      "search": "CuNNy\\CuNNy-8x8C-NVL CuNNy 8x8C NVL 放大与超分 通用 CuNNy\\CuNNy-8x8C-NVL CuNNy 动画 2× 放大，使用 8x8C 模型。 放大动画与视觉小说画面，重建线条和色块间的过渡。适合轮廓明确的素材，可直接作为主要放大步骤使用。采用 8 层、8 通道模型，固定放大 2×。",
       "family": {
         "id": "cunny",
         "name": "CuNNy",
-        "summary": "面向动画和视觉小说的 2× 放大。原版 DN 同时降噪；CuNNy2 是另一代模型。按纹理与性能余量选规格。"
+        "summary": "动画与视觉小说的 2× 放大。原版 DN 同时降噪，CuNNy2 提供另一代模型；数字表示层数与通道数，较大模型需要更多计算。"
       },
       "subfamily": {
         "id": "original",
         "name": "CuNNy 原版",
-        "summary": "原版 2× 模型，按层数和通道数选择；DN 用于带噪声素材，干净线稿可比较普通版。"
+        "summary": "原版 2× 模型。普通版重建线条，DN 同时降噪；层数和通道数共同决定模型规模。"
       }
     },
     {
@@ -1329,20 +1329,20 @@
       "purposes": [
         "upscale"
       ],
-      "summary": "视觉小说与动画 2× 放大。",
-      "details": "固定 2×，CuNNy2，3 层／12 通道。普通模型侧重放大；噪声较重时可比较降噪方案。作为主要缩放步骤；网络规格改变计算量，不代表画质排名。\n\nHDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。",
+      "summary": "动画 2× 放大，使用 3x12 模型。",
+      "details": "放大动画与视觉小说画面，重建线条和色块间的过渡。适合轮廓明确的素材，可直接作为主要放大步骤使用。采用 3 层、12 通道模型，固定放大 2×。",
       "level": "situational",
       "recommendation": "特定场景推荐",
-      "search": "CuNNy2\\CuNNy-3x12-NVL CuNNy 3x12 NVL 放大与超分 通用 视觉小说与动画 2× 放大。 固定 2×，CuNNy2，3 层／12 通道。普通模型侧重放大；噪声较重时可比较降噪方案。作为主要缩放步骤；网络规格改变计算量，不代表画质排名。  HDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。 CuNNy2\\CuNNy-3x12-NVL CuNNy",
+      "search": "CuNNy2\\CuNNy-3x12-NVL CuNNy 3x12 NVL 放大与超分 通用 CuNNy2\\CuNNy-3x12-NVL CuNNy 动画 2× 放大，使用 3x12 模型。 放大动画与视觉小说画面，重建线条和色块间的过渡。适合轮廓明确的素材，可直接作为主要放大步骤使用。采用 3 层、12 通道模型，固定放大 2×。",
       "family": {
         "id": "cunny",
         "name": "CuNNy",
-        "summary": "面向动画和视觉小说的 2× 放大。原版 DN 同时降噪；CuNNy2 是另一代模型。按纹理与性能余量选规格。"
+        "summary": "动画与视觉小说的 2× 放大。原版 DN 同时降噪，CuNNy2 提供另一代模型；数字表示层数与通道数，较大模型需要更多计算。"
       },
       "subfamily": {
         "id": "v2",
         "name": "CuNNy2",
-        "summary": "CuNNy2 的 2× 模型；fast 系列偏向较少计算，数字规格按网络规模选择。"
+        "summary": "CuNNy2 的 2× 模型。fast 系列侧重减少计算，数字型号按层数与通道数提供不同规模。"
       }
     },
     {
@@ -1353,20 +1353,20 @@
       "purposes": [
         "upscale"
       ],
-      "summary": "视觉小说与动画 2× 放大。",
-      "details": "固定 2×，CuNNy2，4 层／12 通道。普通模型侧重放大；噪声较重时可比较降噪方案。作为主要缩放步骤；网络规格改变计算量，不代表画质排名。\n\nHDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。",
+      "summary": "动画 2× 放大，使用 4x12 模型。",
+      "details": "放大动画与视觉小说画面，重建线条和色块间的过渡。适合轮廓明确的素材，可直接作为主要放大步骤使用。采用 4 层、12 通道模型，固定放大 2×。",
       "level": "situational",
       "recommendation": "特定场景推荐",
-      "search": "CuNNy2\\CuNNy-4x12-NVL CuNNy 4x12 NVL 放大与超分 通用 视觉小说与动画 2× 放大。 固定 2×，CuNNy2，4 层／12 通道。普通模型侧重放大；噪声较重时可比较降噪方案。作为主要缩放步骤；网络规格改变计算量，不代表画质排名。  HDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。 CuNNy2\\CuNNy-4x12-NVL CuNNy",
+      "search": "CuNNy2\\CuNNy-4x12-NVL CuNNy 4x12 NVL 放大与超分 通用 CuNNy2\\CuNNy-4x12-NVL CuNNy 动画 2× 放大，使用 4x12 模型。 放大动画与视觉小说画面，重建线条和色块间的过渡。适合轮廓明确的素材，可直接作为主要放大步骤使用。采用 4 层、12 通道模型，固定放大 2×。",
       "family": {
         "id": "cunny",
         "name": "CuNNy",
-        "summary": "面向动画和视觉小说的 2× 放大。原版 DN 同时降噪；CuNNy2 是另一代模型。按纹理与性能余量选规格。"
+        "summary": "动画与视觉小说的 2× 放大。原版 DN 同时降噪，CuNNy2 提供另一代模型；数字表示层数与通道数，较大模型需要更多计算。"
       },
       "subfamily": {
         "id": "v2",
         "name": "CuNNy2",
-        "summary": "CuNNy2 的 2× 模型；fast 系列偏向较少计算，数字规格按网络规模选择。"
+        "summary": "CuNNy2 的 2× 模型。fast 系列侧重减少计算，数字型号按层数与通道数提供不同规模。"
       }
     },
     {
@@ -1377,20 +1377,20 @@
       "purposes": [
         "upscale"
       ],
-      "summary": "视觉小说与动画 2× 放大。",
-      "details": "固定 2×，CuNNy2，4 层／16 通道。普通模型侧重放大；噪声较重时可比较降噪方案。作为主要缩放步骤；网络规格改变计算量，不代表画质排名。\n\nHDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。",
+      "summary": "动画 2× 放大，使用 4x16 模型。",
+      "details": "放大动画与视觉小说画面，重建线条和色块间的过渡。适合轮廓明确的素材，可直接作为主要放大步骤使用。采用 4 层、16 通道模型，固定放大 2×。",
       "level": "situational",
       "recommendation": "特定场景推荐",
-      "search": "CuNNy2\\CuNNy-4x16-NVL CuNNy 4x16 NVL 放大与超分 通用 视觉小说与动画 2× 放大。 固定 2×，CuNNy2，4 层／16 通道。普通模型侧重放大；噪声较重时可比较降噪方案。作为主要缩放步骤；网络规格改变计算量，不代表画质排名。  HDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。 CuNNy2\\CuNNy-4x16-NVL CuNNy",
+      "search": "CuNNy2\\CuNNy-4x16-NVL CuNNy 4x16 NVL 放大与超分 通用 CuNNy2\\CuNNy-4x16-NVL CuNNy 动画 2× 放大，使用 4x16 模型。 放大动画与视觉小说画面，重建线条和色块间的过渡。适合轮廓明确的素材，可直接作为主要放大步骤使用。采用 4 层、16 通道模型，固定放大 2×。",
       "family": {
         "id": "cunny",
         "name": "CuNNy",
-        "summary": "面向动画和视觉小说的 2× 放大。原版 DN 同时降噪；CuNNy2 是另一代模型。按纹理与性能余量选规格。"
+        "summary": "动画与视觉小说的 2× 放大。原版 DN 同时降噪，CuNNy2 提供另一代模型；数字表示层数与通道数，较大模型需要更多计算。"
       },
       "subfamily": {
         "id": "v2",
         "name": "CuNNy2",
-        "summary": "CuNNy2 的 2× 模型；fast 系列偏向较少计算，数字规格按网络规模选择。"
+        "summary": "CuNNy2 的 2× 模型。fast 系列侧重减少计算，数字型号按层数与通道数提供不同规模。"
       }
     },
     {
@@ -1401,20 +1401,20 @@
       "purposes": [
         "upscale"
       ],
-      "summary": "视觉小说与动画 2× 放大。",
-      "details": "固定 2×，CuNNy2，4 层／24 通道。普通模型侧重放大；噪声较重时可比较降噪方案。作为主要缩放步骤；网络规格改变计算量，不代表画质排名。\n\nHDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。",
+      "summary": "动画 2× 放大，使用 4x24 模型。",
+      "details": "放大动画与视觉小说画面，重建线条和色块间的过渡。适合轮廓明确的素材，可直接作为主要放大步骤使用。采用 4 层、24 通道模型，固定放大 2×。",
       "level": "situational",
       "recommendation": "特定场景推荐",
-      "search": "CuNNy2\\CuNNy-4x24-NVL CuNNy 4x24 NVL 放大与超分 通用 视觉小说与动画 2× 放大。 固定 2×，CuNNy2，4 层／24 通道。普通模型侧重放大；噪声较重时可比较降噪方案。作为主要缩放步骤；网络规格改变计算量，不代表画质排名。  HDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。 CuNNy2\\CuNNy-4x24-NVL CuNNy",
+      "search": "CuNNy2\\CuNNy-4x24-NVL CuNNy 4x24 NVL 放大与超分 通用 CuNNy2\\CuNNy-4x24-NVL CuNNy 动画 2× 放大，使用 4x24 模型。 放大动画与视觉小说画面，重建线条和色块间的过渡。适合轮廓明确的素材，可直接作为主要放大步骤使用。采用 4 层、24 通道模型，固定放大 2×。",
       "family": {
         "id": "cunny",
         "name": "CuNNy",
-        "summary": "面向动画和视觉小说的 2× 放大。原版 DN 同时降噪；CuNNy2 是另一代模型。按纹理与性能余量选规格。"
+        "summary": "动画与视觉小说的 2× 放大。原版 DN 同时降噪，CuNNy2 提供另一代模型；数字表示层数与通道数，较大模型需要更多计算。"
       },
       "subfamily": {
         "id": "v2",
         "name": "CuNNy2",
-        "summary": "CuNNy2 的 2× 模型；fast 系列偏向较少计算，数字规格按网络规模选择。"
+        "summary": "CuNNy2 的 2× 模型。fast 系列侧重减少计算，数字型号按层数与通道数提供不同规模。"
       }
     },
     {
@@ -1425,20 +1425,20 @@
       "purposes": [
         "upscale"
       ],
-      "summary": "视觉小说与动画 2× 放大。",
-      "details": "固定 2×，CuNNy2，4 层／32 通道。普通模型侧重放大；噪声较重时可比较降噪方案。作为主要缩放步骤；网络规格改变计算量，不代表画质排名。\n\nHDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。",
+      "summary": "动画 2× 放大，使用 4x32 模型。",
+      "details": "放大动画与视觉小说画面，重建线条和色块间的过渡。适合轮廓明确的素材，可直接作为主要放大步骤使用。采用 4 层、32 通道模型，固定放大 2×。",
       "level": "situational",
       "recommendation": "特定场景推荐",
-      "search": "CuNNy2\\CuNNy-4x32-NVL CuNNy 4x32 NVL 放大与超分 通用 视觉小说与动画 2× 放大。 固定 2×，CuNNy2，4 层／32 通道。普通模型侧重放大；噪声较重时可比较降噪方案。作为主要缩放步骤；网络规格改变计算量，不代表画质排名。  HDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。 CuNNy2\\CuNNy-4x32-NVL CuNNy",
+      "search": "CuNNy2\\CuNNy-4x32-NVL CuNNy 4x32 NVL 放大与超分 通用 CuNNy2\\CuNNy-4x32-NVL CuNNy 动画 2× 放大，使用 4x32 模型。 放大动画与视觉小说画面，重建线条和色块间的过渡。适合轮廓明确的素材，可直接作为主要放大步骤使用。采用 4 层、32 通道模型，固定放大 2×。",
       "family": {
         "id": "cunny",
         "name": "CuNNy",
-        "summary": "面向动画和视觉小说的 2× 放大。原版 DN 同时降噪；CuNNy2 是另一代模型。按纹理与性能余量选规格。"
+        "summary": "动画与视觉小说的 2× 放大。原版 DN 同时降噪，CuNNy2 提供另一代模型；数字表示层数与通道数，较大模型需要更多计算。"
       },
       "subfamily": {
         "id": "v2",
         "name": "CuNNy2",
-        "summary": "CuNNy2 的 2× 模型；fast 系列偏向较少计算，数字规格按网络规模选择。"
+        "summary": "CuNNy2 的 2× 模型。fast 系列侧重减少计算，数字型号按层数与通道数提供不同规模。"
       }
     },
     {
@@ -1449,20 +1449,20 @@
       "purposes": [
         "upscale"
       ],
-      "summary": "视觉小说与动画 2× 放大。",
-      "details": "固定 2×，CuNNy2，8 层／32 通道。普通模型侧重放大；噪声较重时可比较降噪方案。作为主要缩放步骤；网络规格改变计算量，不代表画质排名。\n\nHDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。",
+      "summary": "动画 2× 放大，使用 8x32 模型。",
+      "details": "放大动画与视觉小说画面，重建线条和色块间的过渡。适合轮廓明确的素材，可直接作为主要放大步骤使用。采用 8 层、32 通道模型，固定放大 2×。",
       "level": "situational",
       "recommendation": "特定场景推荐",
-      "search": "CuNNy2\\CuNNy-8x32-NVL CuNNy 8x32 NVL 放大与超分 通用 视觉小说与动画 2× 放大。 固定 2×，CuNNy2，8 层／32 通道。普通模型侧重放大；噪声较重时可比较降噪方案。作为主要缩放步骤；网络规格改变计算量，不代表画质排名。  HDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。 CuNNy2\\CuNNy-8x32-NVL CuNNy",
+      "search": "CuNNy2\\CuNNy-8x32-NVL CuNNy 8x32 NVL 放大与超分 通用 CuNNy2\\CuNNy-8x32-NVL CuNNy 动画 2× 放大，使用 8x32 模型。 放大动画与视觉小说画面，重建线条和色块间的过渡。适合轮廓明确的素材，可直接作为主要放大步骤使用。采用 8 层、32 通道模型，固定放大 2×。",
       "family": {
         "id": "cunny",
         "name": "CuNNy",
-        "summary": "面向动画和视觉小说的 2× 放大。原版 DN 同时降噪；CuNNy2 是另一代模型。按纹理与性能余量选规格。"
+        "summary": "动画与视觉小说的 2× 放大。原版 DN 同时降噪，CuNNy2 提供另一代模型；数字表示层数与通道数，较大模型需要更多计算。"
       },
       "subfamily": {
         "id": "v2",
         "name": "CuNNy2",
-        "summary": "CuNNy2 的 2× 模型；fast 系列偏向较少计算，数字规格按网络规模选择。"
+        "summary": "CuNNy2 的 2× 模型。fast 系列侧重减少计算，数字型号按层数与通道数提供不同规模。"
       }
     },
     {
@@ -1473,20 +1473,20 @@
       "purposes": [
         "upscale"
       ],
-      "summary": "视觉小说与动画 2× 放大。",
-      "details": "固定 2×，CuNNy2，fast 预设。普通模型侧重放大；噪声较重时可比较降噪方案。作为主要缩放步骤；网络规格改变计算量，不代表画质排名。\n\nHDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。",
+      "summary": "动画 2× 放大，使用 fast 模型。",
+      "details": "放大动画与视觉小说画面，重建线条和色块间的过渡。适合轮廓明确的素材，可直接作为主要放大步骤使用。采用 fast 速度预设，固定放大 2×。",
       "level": "situational",
       "recommendation": "特定场景推荐",
-      "search": "CuNNy2\\CuNNy-fast-NVL CuNNy fast NVL 放大与超分 通用 视觉小说与动画 2× 放大。 固定 2×，CuNNy2，fast 预设。普通模型侧重放大；噪声较重时可比较降噪方案。作为主要缩放步骤；网络规格改变计算量，不代表画质排名。  HDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。 CuNNy2\\CuNNy-fast-NVL CuNNy",
+      "search": "CuNNy2\\CuNNy-fast-NVL CuNNy fast NVL 放大与超分 通用 CuNNy2\\CuNNy-fast-NVL CuNNy 动画 2× 放大，使用 fast 模型。 放大动画与视觉小说画面，重建线条和色块间的过渡。适合轮廓明确的素材，可直接作为主要放大步骤使用。采用 fast 速度预设，固定放大 2×。",
       "family": {
         "id": "cunny",
         "name": "CuNNy",
-        "summary": "面向动画和视觉小说的 2× 放大。原版 DN 同时降噪；CuNNy2 是另一代模型。按纹理与性能余量选规格。"
+        "summary": "动画与视觉小说的 2× 放大。原版 DN 同时降噪，CuNNy2 提供另一代模型；数字表示层数与通道数，较大模型需要更多计算。"
       },
       "subfamily": {
         "id": "v2",
         "name": "CuNNy2",
-        "summary": "CuNNy2 的 2× 模型；fast 系列偏向较少计算，数字规格按网络规模选择。"
+        "summary": "CuNNy2 的 2× 模型。fast 系列侧重减少计算，数字型号按层数与通道数提供不同规模。"
       }
     },
     {
@@ -1497,20 +1497,20 @@
       "purposes": [
         "upscale"
       ],
-      "summary": "视觉小说与动画 2× 放大。",
-      "details": "固定 2×，CuNNy2，faster 预设。普通模型侧重放大；噪声较重时可比较降噪方案。作为主要缩放步骤；网络规格改变计算量，不代表画质排名。\n\nHDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。",
+      "summary": "动画 2× 放大，使用 faster 模型。",
+      "details": "放大动画与视觉小说画面，重建线条和色块间的过渡。适合轮廓明确的素材，可直接作为主要放大步骤使用。采用 faster 速度预设，固定放大 2×。",
       "level": "situational",
       "recommendation": "特定场景推荐",
-      "search": "CuNNy2\\CuNNy-faster-NVL CuNNy faster NVL 放大与超分 通用 视觉小说与动画 2× 放大。 固定 2×，CuNNy2，faster 预设。普通模型侧重放大；噪声较重时可比较降噪方案。作为主要缩放步骤；网络规格改变计算量，不代表画质排名。  HDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。 CuNNy2\\CuNNy-faster-NVL CuNNy",
+      "search": "CuNNy2\\CuNNy-faster-NVL CuNNy faster NVL 放大与超分 通用 CuNNy2\\CuNNy-faster-NVL CuNNy 动画 2× 放大，使用 faster 模型。 放大动画与视觉小说画面，重建线条和色块间的过渡。适合轮廓明确的素材，可直接作为主要放大步骤使用。采用 faster 速度预设，固定放大 2×。",
       "family": {
         "id": "cunny",
         "name": "CuNNy",
-        "summary": "面向动画和视觉小说的 2× 放大。原版 DN 同时降噪；CuNNy2 是另一代模型。按纹理与性能余量选规格。"
+        "summary": "动画与视觉小说的 2× 放大。原版 DN 同时降噪，CuNNy2 提供另一代模型；数字表示层数与通道数，较大模型需要更多计算。"
       },
       "subfamily": {
         "id": "v2",
         "name": "CuNNy2",
-        "summary": "CuNNy2 的 2× 模型；fast 系列偏向较少计算，数字规格按网络规模选择。"
+        "summary": "CuNNy2 的 2× 模型。fast 系列侧重减少计算，数字型号按层数与通道数提供不同规模。"
       }
     },
     {
@@ -1521,20 +1521,20 @@
       "purposes": [
         "upscale"
       ],
-      "summary": "视觉小说与动画 2× 放大。",
-      "details": "固定 2×，CuNNy2，veryfast 预设。普通模型侧重放大；噪声较重时可比较降噪方案。作为主要缩放步骤；网络规格改变计算量，不代表画质排名。\n\nHDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。",
+      "summary": "动画 2× 放大，使用 veryfast 模型。",
+      "details": "放大动画与视觉小说画面，重建线条和色块间的过渡。适合轮廓明确的素材，可直接作为主要放大步骤使用。采用 veryfast 速度预设，固定放大 2×。",
       "level": "situational",
       "recommendation": "特定场景推荐",
-      "search": "CuNNy2\\CuNNy-veryfast-NVL CuNNy veryfast NVL 放大与超分 通用 视觉小说与动画 2× 放大。 固定 2×，CuNNy2，veryfast 预设。普通模型侧重放大；噪声较重时可比较降噪方案。作为主要缩放步骤；网络规格改变计算量，不代表画质排名。  HDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。 CuNNy2\\CuNNy-veryfast-NVL CuNNy",
+      "search": "CuNNy2\\CuNNy-veryfast-NVL CuNNy veryfast NVL 放大与超分 通用 CuNNy2\\CuNNy-veryfast-NVL CuNNy 动画 2× 放大，使用 veryfast 模型。 放大动画与视觉小说画面，重建线条和色块间的过渡。适合轮廓明确的素材，可直接作为主要放大步骤使用。采用 veryfast 速度预设，固定放大 2×。",
       "family": {
         "id": "cunny",
         "name": "CuNNy",
-        "summary": "面向动画和视觉小说的 2× 放大。原版 DN 同时降噪；CuNNy2 是另一代模型。按纹理与性能余量选规格。"
+        "summary": "动画与视觉小说的 2× 放大。原版 DN 同时降噪，CuNNy2 提供另一代模型；数字表示层数与通道数，较大模型需要更多计算。"
       },
       "subfamily": {
         "id": "v2",
         "name": "CuNNy2",
-        "summary": "CuNNy2 的 2× 模型；fast 系列偏向较少计算，数字规格按网络规模选择。"
+        "summary": "CuNNy2 的 2× 模型。fast 系列侧重减少计算，数字型号按层数与通道数提供不同规模。"
       }
     },
     {
@@ -1545,11 +1545,11 @@
       "purposes": [
         "cleanup"
       ],
-      "summary": "减轻天空和暗部渐变的色带。",
-      "details": "保持输入尺寸。通常放在主要缩放与锐化之前；逐步调节阈值和范围，检查细小纹理是否被抹去，颗粒参数会主动加入噪声。\n\nHDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。",
+      "summary": "平滑天空与暗部渐变，减轻色带。",
+      "details": "柔化渐变中可见的分层边界，适合天空、暗部或压缩视频中的色带。保持输入尺寸，通常在缩放前使用；先调整阈值与范围，再按需要加入少量颗粒。",
       "level": "situational",
       "recommendation": "特定场景推荐",
-      "search": "Deband Deband 清理修复 去色带 减轻天空和暗部渐变的色带。 保持输入尺寸。通常放在主要缩放与锐化之前；逐步调节阈值和范围，检查细小纹理是否被抹去，颗粒参数会主动加入噪声。  HDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。 Threshold Range Iterations Grain",
+      "search": "Deband Deband 清理修复 去色带 Threshold Range Iterations Grain 平滑天空与暗部渐变，减轻色带。 柔化渐变中可见的分层边界，适合天空、暗部或压缩视频中的色带。保持输入尺寸，通常在缩放前使用；先调整阈值与范围，再按需要加入少量颗粒。",
       "family": null,
       "subfamily": null
     },
@@ -1561,11 +1561,11 @@
       "purposes": [
         "diagnostic"
       ],
-      "summary": "查看捕获帧引导的置信度色图。",
-      "details": "保持输入尺寸。用于检查运动引导的可靠区域，配合运动色图定位遮挡、快速运动或低置信度区域。数值与颜色不代表画质分数。\n\n诊断时放在需要观察的位置，输出色图不作为正常图像继续处理，也不代表 HDR 观看效果。",
+      "summary": "用色图查看帧间运动估计的可靠程度。",
+      "details": "将运动估计的置信度显示为色图，帮助定位遮挡、快速运动和低可信区域。用于调试时序处理，保持输入尺寸；放在需要观察的位置查看诊断结果。",
       "level": "diagnostic",
       "recommendation": "调试用途",
-      "search": "Diagnostics\\FrameGuidance_Confidence FrameGuidance Confidence 诊断调试 诊断 查看捕获帧引导的置信度色图。 保持输入尺寸。用于检查运动引导的可靠区域，配合运动色图定位遮挡、快速运动或低置信度区域。数值与颜色不代表画质分数。  诊断时放在需要观察的位置，输出色图不作为正常图像继续处理，也不代表 HDR 观看效果。 Diagnostics\\FrameGuidance_Confidence Optical Flow Method OF Quality OF Quality",
+      "search": "Diagnostics\\FrameGuidance_Confidence FrameGuidance Confidence 诊断调试 诊断 Diagnostics\\FrameGuidance_Confidence Optical Flow Method OF Quality OF Quality 用色图查看帧间运动估计的可靠程度。 将运动估计的置信度显示为色图，帮助定位遮挡、快速运动和低可信区域。用于调试时序处理，保持输入尺寸；放在需要观察的位置查看诊断结果。",
       "family": null,
       "subfamily": null
     },
@@ -1577,11 +1577,11 @@
       "purposes": [
         "diagnostic"
       ],
-      "summary": "用色图查看捕获帧间运动。",
-      "details": "保持输入尺寸。方向以色相表示，位移强弱以亮度和饱和度表示；增益只改变显示色图。用于检查光流估计，选择的光流方式需可用。\n\n诊断时放在需要观察的位置，输出色图不作为正常图像继续处理，也不代表 HDR 观看效果。",
+      "summary": "用色图查看连续捕获帧的运动方向与幅度。",
+      "details": "以色相表示运动方向，以亮度和饱和度表示位移强弱，适合检查光流估计。保持输入尺寸；先选择可用的光流方式，再用增益调节色图的可见程度。",
       "level": "diagnostic",
       "recommendation": "调试用途",
-      "search": "Diagnostics\\FrameGuidance_Motion FrameGuidance Motion 诊断调试 诊断 用色图查看捕获帧间运动。 保持输入尺寸。方向以色相表示，位移强弱以亮度和饱和度表示；增益只改变显示色图。用于检查光流估计，选择的光流方式需可用。  诊断时放在需要观察的位置，输出色图不作为正常图像继续处理，也不代表 HDR 观看效果。 Diagnostics\\FrameGuidance_Motion Optical Flow Method OF Quality OF Quality Display Gain",
+      "search": "Diagnostics\\FrameGuidance_Motion FrameGuidance Motion 诊断调试 诊断 Diagnostics\\FrameGuidance_Motion Optical Flow Method OF Quality OF Quality Display Gain 用色图查看连续捕获帧的运动方向与幅度。 以色相表示运动方向，以亮度和饱和度表示位移强弱，适合检查光流估计。保持输入尺寸；先选择可用的光流方式，再用增益调节色图的可见程度。",
       "family": null,
       "subfamily": null
     },
@@ -1593,11 +1593,11 @@
       "purposes": [
         "upscale"
       ],
-      "summary": "DLSS 时序超分，利用连续帧放大。",
-      "details": "当前默认 Balanced／Preset J；未提供 L／M 模型选择。只用于放大，需要受支持的 NVIDIA RTX 显卡、驱动与随附 DLSS 运行库。\n\n作为主要放大步骤，再做少量锐化。运动由捕获图像估计，没有游戏内真实深度，效果不同于游戏内集成；请比较快速运动、遮挡和 HUD。\n\n光流方式与质量影响计算开销；修改后需重新缩放。HDR 下请比较高光与颜色。",
+      "summary": "DLSS 时序超分，结合连续帧重建放大细节。",
+      "details": "结合当前画面与帧历史重建细节，适合游戏和连续视频的放大。在效果组中设置放大尺寸，可通过光流选项加入从捕获画面估计的运动信息。需要受支持的 NVIDIA RTX 渲染 GPU 与配套 DLSS 运行库。",
       "level": "advanced",
       "recommendation": "进阶／实验",
-      "search": "DLSS\\DLSS_SR DLSS SR 放大与超分 时序重建 DLSS 时序超分，利用连续帧放大。 当前默认 Balanced／Preset J；未提供 L／M 模型选择。只用于放大，需要受支持的 NVIDIA RTX 显卡、驱动与随附 DLSS 运行库。  作为主要放大步骤，再做少量锐化。运动由捕获图像估计，没有游戏内真实深度，效果不同于游戏内集成；请比较快速运动、遮挡和 HUD。  光流方式与质量影响计算开销；修改后需重新缩放。HDR 下请比较高光与颜色。 DLSS\\DLSS_SR DLSS\\DLSS_ZeroMV DLSS\\DLSS_ZeroMV_Jitter DLSS\\DLSS_OpticalFlow Optical Flow Method OF Quality OF Quality",
+      "search": "DLSS\\DLSS_SR DLSS SR 放大与超分 时序重建 DLSS\\DLSS_SR DLSS\\DLSS_ZeroMV DLSS\\DLSS_ZeroMV_Jitter DLSS\\DLSS_OpticalFlow Optical Flow Method OF Quality OF Quality DLSS 时序超分，结合连续帧重建放大细节。 结合当前画面与帧历史重建细节，适合游戏和连续视频的放大。在效果组中设置放大尺寸，可通过光流选项加入从捕获画面估计的运动信息。需要受支持的 NVIDIA RTX 渲染 GPU 与配套 DLSS 运行库。",
       "family": null,
       "subfamily": null
     },
@@ -1609,11 +1609,11 @@
       "purposes": [
         "frame"
       ],
-      "summary": "在真实帧之间生成 2×～4× 显示帧。",
-      "details": "需要支持相应补帧能力的 NVIDIA 显卡、驱动与随附运行库；可用倍率由实际能力决定。同一效果组只使用一个补帧器。\n\n在“帧率与刷新”中设置内容基础帧率；理论显示帧率为基础帧率乘倍率，实际值仍受捕获、处理能力和显示节奏影响。不会提高游戏逻辑帧率。\n\n补帧在图像效果完成后执行，拖动条目不改变阶段。检查快速运动、遮挡、HUD、光标、切屏和 HDR 颜色；倍率及光流修改需重新缩放。",
+      "summary": "在连续画面之间补帧，可选 2×～4× 倍率。",
+      "details": "生成中间帧，让游戏与视频的运动呈现更连贯，保持画面尺寸。先选 2×，并在“帧率与刷新”中设置基础帧率。需要支持相应倍率的 NVIDIA 渲染 GPU、驱动与随附兼容运行库；切换渲染显卡后需重启喜鹊。",
       "level": "advanced",
       "recommendation": "进阶／实验",
-      "search": "DLSSFG\\DLSS_FrameGeneration DLSS FrameGeneration 补帧与帧率 补帧 在真实帧之间生成 2×～4× 显示帧。 需要支持相应补帧能力的 NVIDIA 显卡、驱动与随附运行库；可用倍率由实际能力决定。同一效果组只使用一个补帧器。  在“帧率与刷新”中设置内容基础帧率；理论显示帧率为基础帧率乘倍率，实际值仍受捕获、处理能力和显示节奏影响。不会提高游戏逻辑帧率。  补帧在图像效果完成后执行，拖动条目不改变阶段。检查快速运动、遮挡、HUD、光标、切屏和 HDR 颜色；倍率及光流修改需重新缩放。 DLSSFG\\DLSS_FrameGeneration Frame Multiplier Duplicate Frame Filtering Optical Flow Method OF Quality OF Quality",
+      "search": "DLSSFG\\DLSS_FrameGeneration DLSS FrameGeneration 在连续画面之间补帧，可选 2×～4× 倍率。 生成中间帧，让游戏与视频的运动呈现更连贯，保持画面尺寸。先选 2×，并在“帧率与刷新”中设置基础帧率。需要支持相应倍率的 NVIDIA 渲染 GPU、驱动与随附兼容运行库；切换渲染显卡后需重启喜鹊。",
       "family": null,
       "subfamily": null
     },
@@ -1625,11 +1625,11 @@
       "purposes": [
         "style"
       ],
-      "summary": "同尺寸 AI 纹理重塑，最多三次处理。",
-      "details": "用于改变纹理和细节组织，最终输出与输入同尺寸。可选择 1～3 次串行处理，各次有独立风格和强度；次数增加会提高开销，并可能累积纹理变化。通常先整理尺寸，再重塑，最后少量锐化。\n\nSDR 下启用“调整输入分辨率”后，可控制全部处理相对原图的总变化：总强度、色度、明暗及保护／频率范围；仅在全部处理结束后应用一次。降低输入百分比会改变工作尺寸与纹理表现。HDR 路径不支持这组输入尺寸与细节控制。\n\n需要可成功初始化该实验功能的 NVIDIA 显卡、驱动及随附运行库。单次初始化失败可能直通，多次失败会拒绝启动；启动成功不保证重塑功能已启用。\n\n风格与强度等可实时调整；处理次数、抗闪烁、输入尺寸与光流修改需重新缩放。抗闪烁用于缓和帧间变化，仍需检查运动重影、颜色与高光。",
+      "summary": "用 AI 重塑纹理与细节，保持画面尺寸。",
+      "details": "改变游戏与图像的纹理和细节风格，适合尝试不同画面质感。先用单次处理调节风格与强度，也可选择 1～3 次连续处理。SDR 下开启“调整输入分辨率”可进一步控制整体变化。需要能够初始化该实验功能的 NVIDIA 渲染 GPU 与配套运行库。",
       "level": "advanced",
       "recommendation": "进阶／实验",
-      "search": "DLSSNR\\DLSSNR_AI_Filter DLSSNR AI Filter 风格显示 AI 画面重塑 同尺寸 AI 纹理重塑，最多三次处理。 用于改变纹理和细节组织，最终输出与输入同尺寸。可选择 1～3 次串行处理，各次有独立风格和强度；次数增加会提高开销，并可能累积纹理变化。通常先整理尺寸，再重塑，最后少量锐化。  SDR 下启用“调整输入分辨率”后，可控制全部处理相对原图的总变化：总强度、色度、明暗及保护／频率范围；仅在全部处理结束后应用一次。降低输入百分比会改变工作尺寸与纹理表现。HDR 路径不支持这组输入尺寸与细节控制。  需要可成功初始化该实验功能的 NVIDIA 显卡、驱动及随附运行库。单次初始化失败可能直通，多次失败会拒绝启动；启动成功不保证重塑功能已启用。  风格与强度等可实时调整；处理次数、抗闪烁、输入尺寸与光流修改需重新缩放。抗闪烁用于缓和帧间变化，仍需检查运动重影、颜色与高光。 DLSSNR\\DLSSNR_AI_Filter Adjust Input Resolution Input Resolution (%) Overall Strength Chroma Strength Overall Lightness Strength Shadow / Structure Strength Highlight / Glow Strength Advanced Adjustments Optical Flow Method Optical Flow Quality Optical Flow Quality Hue Protection Shadow Protection Highlight Protection Overcorrection Suppression Low-frequency Range Strength High-frequency Range Strength Diagnostic View NR Style NR Intensity Local Tone Strength Local Structure Strength Skin Structure Strength Automatic Mask NR UI Correction Multi Pass Anti-flicker NR Style NR Intensity Local Tone Strength Local Structure Strength Skin Structure Strength Automatic Mask NR UI Correction NR Style NR Intensity Local Tone Strength Local Structure Strength Skin Structure Strength Automatic Mask NR UI Correction",
+      "search": "DLSSNR\\DLSSNR_AI_Filter DLSSNR AI Filter 风格显示 AI 画面重塑 DLSSNR\\DLSSNR_AI_Filter Adjust Input Resolution Input Resolution (%) Overall Strength Chroma Strength Overall Lightness Strength Shadow / Structure Strength Highlight / Glow Strength Advanced Adjustments Optical Flow Method Optical Flow Quality Optical Flow Quality Hue Protection Shadow Protection Highlight Protection Overcorrection Suppression Low-frequency Range Strength High-frequency Range Strength Diagnostic View NR Style NR Intensity Local Tone Strength Local Structure Strength Skin Structure Strength Automatic Mask NR UI Correction Multi Pass Anti-flicker NR Style NR Intensity Local Tone Strength Local Structure Strength Skin Structure Strength Automatic Mask NR UI Correction NR Style NR Intensity Local Tone Strength Local Structure Strength Skin Structure Strength Automatic Mask NR UI Correction 用 AI 重塑纹理与细节，保持画面尺寸。 改变游戏与图像的纹理和细节风格，适合尝试不同画面质感。先用单次处理调节风格与强度，也可选择 1～3 次连续处理。SDR 下开启“调整输入分辨率”可进一步控制整体变化。需要能够初始化该实验功能的 NVIDIA 渲染 GPU 与配套运行库。",
       "family": null,
       "subfamily": null
     },
@@ -1641,11 +1641,11 @@
       "purposes": [
         "frame"
       ],
-      "summary": "兼容旧效果组的基础帧率限制。",
-      "details": "限制捕获与处理的基础帧率，不改变画面尺寸。新配置优先在“帧率与刷新”中设置内容帧率；此项保留旧效果组的自定义限帧或跟随帧同步目标。\n\n拖动位置不改变限帧范围；多个有效限帧项取较低目标，并与其他帧率上限共同约束处理。启用帧同步时由统一目标管理节奏，不再叠加独立等待。\n\n使用补帧时，本项控制基础帧率；显示帧率还取决于补帧倍率和实际处理能力。",
+      "summary": "限制捕获与处理的基础帧率。",
+      "details": "按指定目标限制画面捕获与处理频率，保持输入尺寸。可自定义上限，或跟随帧同步目标；补帧时控制的是基础帧率。新效果组可直接在“帧率与刷新”中设置，此项便于沿用已有的限帧配置。",
       "level": "situational",
       "recommendation": "特定场景推荐",
-      "search": "FrameRate_Filter Frame Rate Filter 补帧与帧率 帧率调度 兼容旧效果组的基础帧率限制。 限制捕获与处理的基础帧率，不改变画面尺寸。新配置优先在“帧率与刷新”中设置内容帧率；此项保留旧效果组的自定义限帧或跟随帧同步目标。  拖动位置不改变限帧范围；多个有效限帧项取较低目标，并与其他帧率上限共同约束处理。启用帧同步时由统一目标管理节奏，不再叠加独立等待。  使用补帧时，本项控制基础帧率；显示帧率还取决于补帧倍率和实际处理能力。 Frame Rate Mode Custom Frame Rate",
+      "search": "FrameRate_Filter Frame Rate Filter 补帧与帧率 帧率调度 Frame Rate Mode Custom Frame Rate 限制捕获与处理的基础帧率。 按指定目标限制画面捕获与处理频率，保持输入尺寸。可自定义上限，或跟随帧同步目标；补帧时控制的是基础帧率。新效果组可直接在“帧率与刷新”中设置，此项便于沿用已有的限帧配置。",
       "family": null,
       "subfamily": null
     },
@@ -1657,15 +1657,15 @@
       "purposes": [
         "upscale"
       ],
-      "summary": "FSR 1 空间放大，重建边缘。",
-      "details": "用于一般游戏和视频的单帧放大，输出尺寸由效果组设置。不是 FSR2／3／4 时序超分；如需锐化，可在后面加入低强度 RCAS。\n\nHDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。",
+      "summary": "根据边缘方向重建细节，放大当前画面。",
+      "details": "识别边缘方向并重建放大后的轮廓，适合游戏、视频与一般图像。处理当前帧，在效果组中设置目标尺寸即可作为主要放大步骤使用。",
       "level": "first_try",
       "recommendation": "优先尝试",
-      "search": "FSR\\FSR_EASU FSR EASU 放大与超分 通用 FSR 1 空间放大，重建边缘。 用于一般游戏和视频的单帧放大，输出尺寸由效果组设置。不是 FSR2／3／4 时序超分；如需锐化，可在后面加入低强度 RCAS。  HDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。 FSR\\FSR_EASU FSR",
+      "search": "FSR\\FSR_EASU FSR EASU 放大与超分 通用 FSR\\FSR_EASU FSR 根据边缘方向重建细节，放大当前画面。 识别边缘方向并重建放大后的轮廓，适合游戏、视频与一般图像。处理当前帧，在效果组中设置目标尺寸即可作为主要放大步骤使用。",
       "family": {
         "id": "fsr1",
         "name": "FSR",
-        "summary": "FSR 1 的空间方案：EASU 放大，RCAS 同尺寸锐化；与 FSR2／3／4 时序超分分开选择。"
+        "summary": "FSR 1 的空间处理：EASU 放大，RCAS 保持尺寸锐化。可按需要分别使用，也可先放大再锐化。"
       },
       "subfamily": null
     },
@@ -1677,15 +1677,15 @@
       "purposes": [
         "sharpen"
       ],
-      "summary": "FSR 1 的同尺寸收尾锐化。",
-      "details": "保持输入尺寸，通常放在 EASU 或其他缩放器之后。降低强度可减少光晕与噪声放大；不必与其他锐化同时使用。\n\nHDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。",
+      "summary": "增强缩放后画面的边缘与局部细节。",
+      "details": "根据局部对比调节锐化，提升偏软图像的清晰度，保持输入尺寸。适合在缩放后为游戏、视频和一般图像收尾；从较低强度开始调整。",
       "level": "first_try",
       "recommendation": "优先尝试",
-      "search": "FSR\\FSR_RCAS FSR RCAS 锐化细节 通用锐化 FSR 1 的同尺寸收尾锐化。 保持输入尺寸，通常放在 EASU 或其他缩放器之后。降低强度可减少光晕与噪声放大；不必与其他锐化同时使用。  HDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。 FSR\\FSR_RCAS Sharpness FSR",
+      "search": "FSR\\FSR_RCAS FSR RCAS 锐化细节 通用锐化 FSR\\FSR_RCAS Sharpness FSR 增强缩放后画面的边缘与局部细节。 根据局部对比调节锐化，提升偏软图像的清晰度，保持输入尺寸。适合在缩放后为游戏、视频和一般图像收尾；从较低强度开始调整。",
       "family": {
         "id": "fsr1",
         "name": "FSR",
-        "summary": "FSR 1 的空间方案：EASU 放大，RCAS 同尺寸锐化；与 FSR2／3／4 时序超分分开选择。"
+        "summary": "FSR 1 的空间处理：EASU 放大，RCAS 保持尺寸锐化。可按需要分别使用，也可先放大再锐化。"
       },
       "subfamily": null
     },
@@ -1697,11 +1697,11 @@
       "purposes": [
         "upscale"
       ],
-      "summary": "FSR2 时序超分，利用连续帧放大。",
-      "details": "只用于放大，需要随附 FSR2 运行库及可初始化的显卡环境。当前适配器没有声明 3× 上限。\n\n作为主要放大步骤，再做少量锐化。运动由捕获图像估计，没有游戏内真实深度，效果不同于游戏内集成；请比较快速运动、遮挡和 HUD。\n\n光流方式与质量影响计算开销；修改后需重新缩放。HDR 下请比较高光与颜色。",
+      "summary": "FSR2 时序超分，结合连续帧重建放大细节。",
+      "details": "结合当前画面与帧历史重建细节，适合游戏和连续视频的放大。在效果组中设置放大尺寸，可通过光流选项加入从捕获画面估计的运动信息。需要受支持的渲染 GPU 与配套 FSR2 运行库。",
       "level": "advanced",
       "recommendation": "进阶／实验",
-      "search": "FSR2\\FSR2_SR FSR2 SR 放大与超分 时序重建 FSR2 时序超分，利用连续帧放大。 只用于放大，需要随附 FSR2 运行库及可初始化的显卡环境。当前适配器没有声明 3× 上限。  作为主要放大步骤，再做少量锐化。运动由捕获图像估计，没有游戏内真实深度，效果不同于游戏内集成；请比较快速运动、遮挡和 HUD。  光流方式与质量影响计算开销；修改后需重新缩放。HDR 下请比较高光与颜色。 FSR2\\FSR2_SR Optical Flow Method OF Quality OF Quality",
+      "search": "FSR2\\FSR2_SR FSR2 SR 放大与超分 时序重建 FSR2\\FSR2_SR Optical Flow Method OF Quality OF Quality FSR2 时序超分，结合连续帧重建放大细节。 结合当前画面与帧历史重建细节，适合游戏和连续视频的放大。在效果组中设置放大尺寸，可通过光流选项加入从捕获画面估计的运动信息。需要受支持的渲染 GPU 与配套 FSR2 运行库。",
       "family": null,
       "subfamily": null
     },
@@ -1713,11 +1713,11 @@
       "purposes": [
         "upscale"
       ],
-      "summary": "FSR3 时序超分，利用连续帧放大。",
-      "details": "每轴支持 1×～3× 放大，需要随附的 FSR3 运行库及通过能力检查的显卡。此项只做超分，不包含补帧。\n\n作为主要放大步骤，再做少量锐化。运动由捕获图像估计，没有游戏内真实深度，效果不同于游戏内集成；请比较快速运动、遮挡和 HUD。\n\n光流方式与质量影响计算开销；修改后需重新缩放。HDR 下请比较高光与颜色。",
+      "summary": "FSR3 时序超分，结合连续帧重建放大细节。",
+      "details": "结合当前画面与帧历史重建细节，适合游戏和连续视频的放大。在效果组中设置放大尺寸，可通过光流选项加入从捕获画面估计的运动信息。每轴支持 1×～3×，需要受支持的渲染 GPU 与配套 FSR3 运行库。",
       "level": "advanced",
       "recommendation": "进阶／实验",
-      "search": "FSR3\\FSR3_SR FSR3 SR 放大与超分 时序重建 FSR3 时序超分，利用连续帧放大。 每轴支持 1×～3× 放大，需要随附的 FSR3 运行库及通过能力检查的显卡。此项只做超分，不包含补帧。  作为主要放大步骤，再做少量锐化。运动由捕获图像估计，没有游戏内真实深度，效果不同于游戏内集成；请比较快速运动、遮挡和 HUD。  光流方式与质量影响计算开销；修改后需重新缩放。HDR 下请比较高光与颜色。 FSR3\\FSR3_SR Optical Flow Method OF Quality OF Quality",
+      "search": "FSR3\\FSR3_SR FSR3 SR 放大与超分 时序重建 FSR3\\FSR3_SR Optical Flow Method OF Quality OF Quality FSR3 时序超分，结合连续帧重建放大细节。 结合当前画面与帧历史重建细节，适合游戏和连续视频的放大。在效果组中设置放大尺寸，可通过光流选项加入从捕获画面估计的运动信息。每轴支持 1×～3×，需要受支持的渲染 GPU 与配套 FSR3 运行库。",
       "family": null,
       "subfamily": null
     },
@@ -1729,11 +1729,11 @@
       "purposes": [
         "upscale"
       ],
-      "summary": "FSR4 时序超分，利用连续帧放大。",
-      "details": "每轴支持 1×～3× 放大，需要随附的 FSR4 运行库及通过能力检查的显卡。此项只做超分，不包含补帧。\n\n作为主要放大步骤，再做少量锐化。运动由捕获图像估计，没有游戏内真实深度，效果不同于游戏内集成；请比较快速运动、遮挡和 HUD。\n\n光流方式与质量影响计算开销；修改后需重新缩放。HDR 下请比较高光与颜色。",
+      "summary": "FSR4 时序超分，结合连续帧重建放大细节。",
+      "details": "结合当前画面与帧历史重建细节，适合游戏和连续视频的放大。在效果组中设置放大尺寸，可通过光流选项加入从捕获画面估计的运动信息。每轴支持 1×～3×，需要受支持的渲染 GPU 与配套 FSR4 运行库。",
       "level": "advanced",
       "recommendation": "进阶／实验",
-      "search": "FSR4\\FSR4_SR FSR4 SR 放大与超分 时序重建 FSR4 时序超分，利用连续帧放大。 每轴支持 1×～3× 放大，需要随附的 FSR4 运行库及通过能力检查的显卡。此项只做超分，不包含补帧。  作为主要放大步骤，再做少量锐化。运动由捕获图像估计，没有游戏内真实深度，效果不同于游戏内集成；请比较快速运动、遮挡和 HUD。  光流方式与质量影响计算开销；修改后需重新缩放。HDR 下请比较高光与颜色。 FSR4\\FSR4_SR Optical Flow Method OF Quality OF Quality",
+      "search": "FSR4\\FSR4_SR FSR4 SR 放大与超分 时序重建 FSR4\\FSR4_SR Optical Flow Method OF Quality OF Quality FSR4 时序超分，结合连续帧重建放大细节。 结合当前画面与帧历史重建细节，适合游戏和连续视频的放大。在效果组中设置放大尺寸，可通过光流选项加入从捕获画面估计的运动信息。每轴支持 1×～3×，需要受支持的渲染 GPU 与配套 FSR4 运行库。",
       "family": null,
       "subfamily": null
     },
@@ -1745,15 +1745,15 @@
       "purposes": [
         "upscale"
       ],
-      "summary": "线稿与动画的 2× 神经网络放大。",
-      "details": "固定 2×，LineArt 训练权重适合线条素材。作为主要缩放步骤；检查细节、纹理变化与处理开销。两项的主要区别是训练权重。\n\nHDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。",
+      "summary": "使用神经网络将动画与线稿放大至 2×。",
+      "details": "使用面向线条的训练模型重建轮廓，适合动画、插画和线稿。固定放大 2×，可直接作为主要放大步骤使用。",
       "level": "situational",
       "recommendation": "特定场景推荐",
-      "search": "FSRCNNX\\FSRCNNX_LineArt FSRCNNX LineArt 放大与超分 动画线条 线稿与动画的 2× 神经网络放大。 固定 2×，LineArt 训练权重适合线条素材。作为主要缩放步骤；检查细节、纹理变化与处理开销。两项的主要区别是训练权重。  HDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。 FSRCNNX\\FSRCNNX_LineArt FSRCNNX",
+      "search": "FSRCNNX\\FSRCNNX_LineArt FSRCNNX LineArt 放大与超分 动画线条 FSRCNNX\\FSRCNNX_LineArt FSRCNNX 使用神经网络将动画与线稿放大至 2×。 使用面向线条的训练模型重建轮廓，适合动画、插画和线稿。固定放大 2×，可直接作为主要放大步骤使用。",
       "family": {
         "id": "fsrcnnx",
         "name": "FSRCNNX",
-        "summary": "固定 2× 神经网络放大。通用与 LineArt 使用不同训练权重；按素材比较，不按名称推断优劣。"
+        "summary": "固定 2× 神经网络放大。通用模型面向一般图像，LineArt 模型面向动画与线稿。"
       },
       "subfamily": null
     },
@@ -1765,15 +1765,15 @@
       "purposes": [
         "upscale"
       ],
-      "summary": "通用 2× 神经网络放大。",
-      "details": "固定 2×，通用训练权重，适合与 LineArt 比较不同素材。作为主要缩放步骤；检查细节、纹理变化与处理开销。两项的主要区别是训练权重。\n\nHDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。",
+      "summary": "使用神经网络将图像放大至 2×。",
+      "details": "使用通用训练模型重建放大后的细节，适合照片、视频和一般图像。固定放大 2×，可直接作为主要放大步骤使用。",
       "level": "situational",
       "recommendation": "特定场景推荐",
-      "search": "FSRCNNX\\FSRCNNX FSRCNNX 放大与超分 动画线条 通用 2× 神经网络放大。 固定 2×，通用训练权重，适合与 LineArt 比较不同素材。作为主要缩放步骤；检查细节、纹理变化与处理开销。两项的主要区别是训练权重。  HDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。 FSRCNNX\\FSRCNNX FSRCNNX",
+      "search": "FSRCNNX\\FSRCNNX FSRCNNX 放大与超分 动画线条 FSRCNNX\\FSRCNNX FSRCNNX 使用神经网络将图像放大至 2×。 使用通用训练模型重建放大后的细节，适合照片、视频和一般图像。固定放大 2×，可直接作为主要放大步骤使用。",
       "family": {
         "id": "fsrcnnx",
         "name": "FSRCNNX",
-        "summary": "固定 2× 神经网络放大。通用与 LineArt 使用不同训练权重；按素材比较，不按名称推断优劣。"
+        "summary": "固定 2× 神经网络放大。通用模型面向一般图像，LineArt 模型面向动画与线稿。"
       },
       "subfamily": null
     },
@@ -1785,15 +1785,15 @@
       "purposes": [
         "antialiasing"
       ],
-      "summary": "快速空间抗锯齿：High。",
-      "details": "保持输入尺寸，不使用帧历史。High 是边缘搜索预设；比较其他档位的边缘平滑度和开销。注意文字、细线与纹理变软，避免叠加多种抗锯齿。\n\nHDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。",
+      "summary": "平滑当前画面的锯齿，FXAA High 预设。",
+      "details": "识别并平滑当前帧的阶梯状边缘，适合游戏和 3D 画面的抗锯齿，保持输入尺寸。本项采用 High 边缘搜索预设，可直接用于需要平滑轮廓的图像。",
       "level": "first_try",
       "recommendation": "优先尝试",
-      "search": "FXAA\\FXAA_High FXAA High 抗锯齿 空间 快速空间抗锯齿：High。 保持输入尺寸，不使用帧历史。High 是边缘搜索预设；比较其他档位的边缘平滑度和开销。注意文字、细线与纹理变软，避免叠加多种抗锯齿。  HDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。 FXAA\\FXAA_High FXAA",
+      "search": "FXAA\\FXAA_High FXAA High 抗锯齿 空间 FXAA\\FXAA_High FXAA 平滑当前画面的锯齿，FXAA High 预设。 识别并平滑当前帧的阶梯状边缘，适合游戏和 3D 画面的抗锯齿，保持输入尺寸。本项采用 High 边缘搜索预设，可直接用于需要平滑轮廓的图像。",
       "family": {
         "id": "fxaa",
         "name": "FXAA",
-        "summary": "快速空间抗锯齿；Medium／High／Ultra 改变边缘搜索预设，注意文字和纹理变软。"
+        "summary": "当前帧的快速抗锯齿。Medium、High、Ultra 逐步增加边缘搜索量，可按处理余量选择。"
       },
       "subfamily": null
     },
@@ -1805,15 +1805,15 @@
       "purposes": [
         "antialiasing"
       ],
-      "summary": "快速空间抗锯齿：Medium。",
-      "details": "保持输入尺寸，不使用帧历史。Medium 是边缘搜索预设；比较其他档位的边缘平滑度和开销。注意文字、细线与纹理变软，避免叠加多种抗锯齿。\n\nHDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。",
+      "summary": "平滑当前画面的锯齿，FXAA Medium 预设。",
+      "details": "识别并平滑当前帧的阶梯状边缘，适合游戏和 3D 画面的抗锯齿，保持输入尺寸。本项采用 Medium 边缘搜索预设，可直接用于需要平滑轮廓的图像。",
       "level": "situational",
       "recommendation": "特定场景推荐",
-      "search": "FXAA\\FXAA_Medium FXAA Medium 抗锯齿 空间 快速空间抗锯齿：Medium。 保持输入尺寸，不使用帧历史。Medium 是边缘搜索预设；比较其他档位的边缘平滑度和开销。注意文字、细线与纹理变软，避免叠加多种抗锯齿。  HDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。 FXAA\\FXAA_Medium FXAA",
+      "search": "FXAA\\FXAA_Medium FXAA Medium 抗锯齿 空间 FXAA\\FXAA_Medium FXAA 平滑当前画面的锯齿，FXAA Medium 预设。 识别并平滑当前帧的阶梯状边缘，适合游戏和 3D 画面的抗锯齿，保持输入尺寸。本项采用 Medium 边缘搜索预设，可直接用于需要平滑轮廓的图像。",
       "family": {
         "id": "fxaa",
         "name": "FXAA",
-        "summary": "快速空间抗锯齿；Medium／High／Ultra 改变边缘搜索预设，注意文字和纹理变软。"
+        "summary": "当前帧的快速抗锯齿。Medium、High、Ultra 逐步增加边缘搜索量，可按处理余量选择。"
       },
       "subfamily": null
     },
@@ -1825,15 +1825,15 @@
       "purposes": [
         "antialiasing"
       ],
-      "summary": "快速空间抗锯齿：Ultra。",
-      "details": "保持输入尺寸，不使用帧历史。Ultra 是边缘搜索预设；比较其他档位的边缘平滑度和开销。注意文字、细线与纹理变软，避免叠加多种抗锯齿。\n\nHDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。",
+      "summary": "平滑当前画面的锯齿，FXAA Ultra 预设。",
+      "details": "识别并平滑当前帧的阶梯状边缘，适合游戏和 3D 画面的抗锯齿，保持输入尺寸。本项采用 Ultra 边缘搜索预设，可直接用于需要平滑轮廓的图像。",
       "level": "situational",
       "recommendation": "特定场景推荐",
-      "search": "FXAA\\FXAA_Ultra FXAA Ultra 抗锯齿 空间 快速空间抗锯齿：Ultra。 保持输入尺寸，不使用帧历史。Ultra 是边缘搜索预设；比较其他档位的边缘平滑度和开销。注意文字、细线与纹理变软，避免叠加多种抗锯齿。  HDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。 FXAA\\FXAA_Ultra FXAA",
+      "search": "FXAA\\FXAA_Ultra FXAA Ultra 抗锯齿 空间 FXAA\\FXAA_Ultra FXAA 平滑当前画面的锯齿，FXAA Ultra 预设。 识别并平滑当前帧的阶梯状边缘，适合游戏和 3D 画面的抗锯齿，保持输入尺寸。本项采用 Ultra 边缘搜索预设，可直接用于需要平滑轮廓的图像。",
       "family": {
         "id": "fxaa",
         "name": "FXAA",
-        "summary": "快速空间抗锯齿；Medium／High／Ultra 改变边缘搜索预设，注意文字和纹理变软。"
+        "summary": "当前帧的快速抗锯齿。Medium、High、Ultra 逐步增加边缘搜索量，可按处理余量选择。"
       },
       "subfamily": null
     },
@@ -1845,11 +1845,11 @@
       "purposes": [
         "style"
       ],
-      "summary": "调整亮度、对比度、Gamma 和颜色。",
-      "details": "保持输入尺寸，通常放在效果链后段。先逐项调节，避免同时改变多个参数而难以比较；高对比度或 Gamma 调整可能压缩高光和暗部。\n\nHDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。",
+      "summary": "调整图像的亮度、对比度、Gamma 和颜色。",
+      "details": "改变画面的明暗关系与颜色表现，适合按观看偏好调整视频、游戏和图像。保持输入尺寸，通常放在效果链后段；从亮度与对比度开始逐项调整。",
       "level": "situational",
       "recommendation": "特定场景推荐",
-      "search": "ImageAdjustment Image Adjustment 风格显示 图像调整 调整亮度、对比度、Gamma 和颜色。 保持输入尺寸，通常放在效果链后段。先逐项调节，避免同时改变多个参数而难以比较；高对比度或 Gamma 调整可能压缩高光和暗部。  HDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。 Target Gamma Monitor Gamma Saturation Luminance Contrast Brightness Boost Black Level Red Channel Green Channel Blue Channel",
+      "search": "ImageAdjustment Image Adjustment 风格显示 图像调整 Target Gamma Monitor Gamma Saturation Luminance Contrast Brightness Boost Black Level Red Channel Green Channel Blue Channel 调整图像的亮度、对比度、Gamma 和颜色。 改变画面的明暗关系与颜色表现，适合按观看偏好调整视频、游戏和图像。保持输入尺寸，通常放在效果链后段；从亮度与对比度开始逐项调整。",
       "family": null,
       "subfamily": null
     },
@@ -1861,11 +1861,11 @@
       "purposes": [
         "upscale"
       ],
-      "summary": "重采样，适合照片和一般视频。",
-      "details": "输出尺寸由效果组设置。适合与 Bicubic、Lanczos 比较细节和平滑度；高对比边缘可能出现振铃，不宜直接叠加强锐化。\n\nHDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。",
+      "summary": "重采样缩放图像，保留细节与平滑过渡。",
+      "details": "结合周围像素重建缩放后的细节，适合照片与一般视频。在效果组中设置目标尺寸即可使用；高对比边缘出现明暗光圈时，可降低后续锐化强度。",
       "level": "situational",
       "recommendation": "特定场景推荐",
-      "search": "Jinc Jinc 放大与超分 通用 重采样，适合照片和一般视频。 输出尺寸由效果组设置。适合与 Bicubic、Lanczos 比较细节和平滑度；高对比边缘可能出现振铃，不宜直接叠加强锐化。  HDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。 Window Sinc Param Sinc Param Anti-ringing Strength",
+      "search": "Jinc Jinc 放大与超分 通用 Window Sinc Param Sinc Param Anti-ringing Strength 重采样缩放图像，保留细节与平滑过渡。 结合周围像素重建缩放后的细节，适合照片与一般视频。在效果组中设置目标尺寸即可使用；高对比边缘出现明暗光圈时，可降低后续锐化强度。",
       "family": null,
       "subfamily": null
     },
@@ -1877,11 +1877,11 @@
       "purposes": [
         "upscale"
       ],
-      "summary": "面向全高清动画的 2× 模型。",
-      "details": "固定 2×，适合现代动画素材。作为主要放大步骤；真人、低清或噪声较重素材请与其他模型比较。网络处理开销随输入分辨率增长。\n\nHDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。",
+      "summary": "重建全高清动画的线条与细节，放大 2×。",
+      "details": "使用面向现代全高清动画的模型重建放大后的线条和纹理。适合轮廓清晰的动画素材，固定放大 2×，可直接作为主要放大步骤使用。",
       "level": "situational",
       "recommendation": "特定场景推荐",
-      "search": "k7_modernAnime_FHD_x2 k7 modernAnime FHD x2 放大与超分 动画线条 面向全高清动画的 2× 模型。 固定 2×，适合现代动画素材。作为主要放大步骤；真人、低清或噪声较重素材请与其他模型比较。网络处理开销随输入分辨率增长。  HDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。",
+      "search": "k7_modernAnime_FHD_x2 k7 modernAnime FHD x2 放大与超分 动画线条 重建全高清动画的线条与细节，放大 2×。 使用面向现代全高清动画的模型重建放大后的线条和纹理。适合轮廓清晰的动画素材，固定放大 2×，可直接作为主要放大步骤使用。",
       "family": null,
       "subfamily": null
     },
@@ -1893,11 +1893,11 @@
       "purposes": [
         "upscale"
       ],
-      "summary": "偏锐利的通用重采样。",
-      "details": "适合文字、界面和一般图像。输出尺寸由效果组设置；高对比边缘可能出现振铃，后续锐化宜从低强度开始。\n\nHDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。",
+      "summary": "以偏锐利的边缘表现缩放图像。",
+      "details": "重采样缩放图像，突出边缘清晰度，适合文字、界面和一般图像。在效果组中设置目标尺寸即可使用；高对比边缘出现明暗光圈时，可降低后续锐化强度。",
       "level": "first_try",
       "recommendation": "优先尝试",
-      "search": "Lanczos Lanczos 放大与超分 通用 偏锐利的通用重采样。 适合文字、界面和一般图像。输出尺寸由效果组设置；高对比边缘可能出现振铃，后续锐化宜从低强度开始。  HDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。 Anti-ringing Strength",
+      "search": "Lanczos Lanczos 放大与超分 通用 Anti-ringing Strength 以偏锐利的边缘表现缩放图像。 重采样缩放图像，突出边缘清晰度，适合文字、界面和一般图像。在效果组中设置目标尺寸即可使用；高对比边缘出现明暗光圈时，可降低后续锐化强度。",
       "family": null,
       "subfamily": null
     },
@@ -1909,11 +1909,11 @@
       "purposes": [
         "antialiasing"
       ],
-      "summary": "按边缘形状平滑当前帧锯齿。",
-      "details": "保持输入尺寸，不使用帧历史。适合与 FXAA、SMAA 比较；检查细小文字和纹理是否变软，避免叠加多种抗锯齿。\n\nHDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。",
+      "summary": "识别轮廓形状，平滑当前帧的边缘锯齿。",
+      "details": "根据边缘的形状混合相邻像素，柔化阶梯状轮廓，适合游戏与 3D 画面。保持输入尺寸，可直接用于需要抗锯齿的图像。",
       "level": "situational",
       "recommendation": "特定场景推荐",
-      "search": "MLAA\\MLAA MLAA 抗锯齿 空间 按边缘形状平滑当前帧锯齿。 保持输入尺寸，不使用帧历史。适合与 FXAA、SMAA 比较；检查细小文字和纹理是否变软，避免叠加多种抗锯齿。  HDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。 MLAA\\MLAA Edge threshold Strength",
+      "search": "MLAA\\MLAA MLAA 抗锯齿 空间 MLAA\\MLAA Edge threshold Strength 识别轮廓形状，平滑当前帧的边缘锯齿。 根据边缘的形状混合相邻像素，柔化阶梯状轮廓，适合游戏与 3D 画面。保持输入尺寸，可直接用于需要抗锯齿的图像。",
       "family": null,
       "subfamily": null
     },
@@ -1925,11 +1925,11 @@
       "purposes": [
         "upscale"
       ],
-      "summary": "保留像素块的最近邻缩放。",
-      "details": "适合像素游戏，或检查原始像素结构。输出尺寸由效果组设置；整数倍率更容易保持均匀网格，非整数倍率可能使像素宽度不一致。\n\nHDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。",
+      "summary": "直接复制像素颜色，保留清晰的像素块。",
+      "details": "用最近的源像素填充输出，适合像素游戏与查看原始像素结构。在效果组中设置目标尺寸；使用整数倍率可保持像素块大小均匀。",
       "level": "first_try",
       "recommendation": "优先尝试",
-      "search": "Nearest Nearest 放大与超分 像素画 保留像素块的最近邻缩放。 适合像素游戏，或检查原始像素结构。输出尺寸由效果组设置；整数倍率更容易保持均匀网格，非整数倍率可能使像素宽度不一致。  HDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。",
+      "search": "Nearest Nearest 放大与超分 像素画 直接复制像素颜色，保留清晰的像素块。 用最近的源像素填充输出，适合像素游戏与查看原始像素结构。在效果组中设置目标尺寸；使用整数倍率可保持像素块大小均匀。",
       "family": null,
       "subfamily": null
     },
@@ -1941,15 +1941,15 @@
       "purposes": [
         "upscale"
       ],
-      "summary": "NIS 空间缩放并锐化。",
-      "details": "输出尺寸由效果组设置，锐度可调。用于单帧放大；先尝试低锐度，检查文字、噪声和边缘光晕。无需再叠加强锐化。\n\nHDR 路径的颜色处理仍需目标画面验证，请重点比较高光与颜色。",
+      "summary": "缩放当前画面，同时增强边缘清晰度。",
+      "details": "在放大时重建边缘并进行锐化，适合游戏、视频与一般图像。在效果组中设置目标尺寸，再从较低锐度开始调节，可作为主要放大步骤使用。",
       "level": "first_try",
       "recommendation": "优先尝试",
-      "search": "NIS\\NIS NIS 放大与超分 通用 NIS 空间缩放并锐化。 输出尺寸由效果组设置，锐度可调。用于单帧放大；先尝试低锐度，检查文字、噪声和边缘光晕。无需再叠加强锐化。  HDR 路径的颜色处理仍需目标画面验证，请重点比较高光与颜色。 NIS\\NIS Sharpness NIS",
+      "search": "NIS\\NIS NIS 放大与超分 通用 NIS\\NIS Sharpness NIS 缩放当前画面，同时增强边缘清晰度。 在放大时重建边缘并进行锐化，适合游戏、视频与一般图像。在效果组中设置目标尺寸，再从较低锐度开始调节，可作为主要放大步骤使用。",
       "family": {
         "id": "nis",
         "name": "NIS",
-        "summary": "NIS 同时缩放与锐化，NVSharpen 只做同尺寸锐化；HDR 下请比较高光和颜色。"
+        "summary": "NIS 同时放大与锐化；NVSharpen 保持尺寸，只做锐化。按需要改变尺寸或收尾细节选择。"
       },
       "subfamily": null
     },
@@ -1961,15 +1961,15 @@
       "purposes": [
         "sharpen"
       ],
-      "summary": "NIS 的同尺寸锐化。",
-      "details": "保持输入尺寸，通常放在缩放之后。仅需锐化时选择本项；先降低强度，避免与缩放器自带锐化叠加。\n\nHDR 路径的颜色处理仍需目标画面验证，请重点比较高光与颜色。",
+      "summary": "增强边缘与局部细节，保持画面尺寸。",
+      "details": "锐化偏软的边缘和纹理，适合在缩放后为游戏、视频与图像收尾。保持输入尺寸，从较低锐度开始调整清晰程度。",
       "level": "first_try",
       "recommendation": "优先尝试",
-      "search": "NIS\\NVSharpen NVSharpen 锐化细节 通用锐化 NIS 的同尺寸锐化。 保持输入尺寸，通常放在缩放之后。仅需锐化时选择本项；先降低强度，避免与缩放器自带锐化叠加。  HDR 路径的颜色处理仍需目标画面验证，请重点比较高光与颜色。 NIS\\NVSharpen Sharpness NIS",
+      "search": "NIS\\NVSharpen NVSharpen 锐化细节 通用锐化 NIS\\NVSharpen Sharpness NIS 增强边缘与局部细节，保持画面尺寸。 锐化偏软的边缘和纹理，适合在缩放后为游戏、视频与图像收尾。保持输入尺寸，从较低锐度开始调整清晰程度。",
       "family": {
         "id": "nis",
         "name": "NIS",
-        "summary": "NIS 同时缩放与锐化，NVSharpen 只做同尺寸锐化；HDR 下请比较高光和颜色。"
+        "summary": "NIS 同时放大与锐化；NVSharpen 保持尺寸，只做锐化。按需要改变尺寸或收尾细节选择。"
       },
       "subfamily": null
     },
@@ -1981,15 +1981,15 @@
       "purposes": [
         "upscale"
       ],
-      "summary": "神经插值 2× 放大，重建方向性边缘。",
-      "details": "固定 2×，128 个神经元，8×4 采样窗口。适合动画、线稿或需要方向性插值的图像；作为主要缩放步骤。更大规格增加计算量，请结合纹理与帧率选择。\n\nHDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。",
+      "summary": "沿图像边缘插值放大 2×，128 神经元／8×4 窗口。",
+      "details": "根据周围像素推算放大后的细节，适合动画、线稿和斜线较多的图像。可直接作为主要放大步骤使用，固定放大 2×。本项使用 128 个神经元与 8×4 采样窗口。",
       "level": "situational",
       "recommendation": "特定场景推荐",
-      "search": "NNEDI3\\NNEDI3_nns128_win8x4 NNEDI3 nns128 win8x4 放大与超分 通用 神经插值 2× 放大，重建方向性边缘。 固定 2×，128 个神经元，8×4 采样窗口。适合动画、线稿或需要方向性插值的图像；作为主要缩放步骤。更大规格增加计算量，请结合纹理与帧率选择。  HDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。 NNEDI3\\NNEDI3_nns128_win8x4 NNEDI3",
+      "search": "NNEDI3\\NNEDI3_nns128_win8x4 NNEDI3 nns128 win8x4 放大与超分 通用 NNEDI3\\NNEDI3_nns128_win8x4 NNEDI3 沿图像边缘插值放大 2×，128 神经元／8×4 窗口。 根据周围像素推算放大后的细节，适合动画、线稿和斜线较多的图像。可直接作为主要放大步骤使用，固定放大 2×。本项使用 128 个神经元与 8×4 采样窗口。",
       "family": {
         "id": "nnedi3",
         "name": "NNEDI3",
-        "summary": "固定 2× 神经插值。nns 是神经元数量，win 是采样窗口；更大规格增加计算量，不保证更适合每种素材。"
+        "summary": "固定 2× 神经插值，适合动画与线稿。nns 表示神经元数量，win 表示采样窗口；较大规格使用更多采样与计算。"
       },
       "subfamily": null
     },
@@ -2001,15 +2001,15 @@
       "purposes": [
         "upscale"
       ],
-      "summary": "神经插值 2× 放大，重建方向性边缘。",
-      "details": "固定 2×，128 个神经元，8×6 采样窗口。适合动画、线稿或需要方向性插值的图像；作为主要缩放步骤。更大规格增加计算量，请结合纹理与帧率选择。\n\nHDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。",
+      "summary": "沿图像边缘插值放大 2×，128 神经元／8×6 窗口。",
+      "details": "根据周围像素推算放大后的细节，适合动画、线稿和斜线较多的图像。可直接作为主要放大步骤使用，固定放大 2×。本项使用 128 个神经元与 8×6 采样窗口。",
       "level": "situational",
       "recommendation": "特定场景推荐",
-      "search": "NNEDI3\\NNEDI3_nns128_win8x6 NNEDI3 nns128 win8x6 放大与超分 通用 神经插值 2× 放大，重建方向性边缘。 固定 2×，128 个神经元，8×6 采样窗口。适合动画、线稿或需要方向性插值的图像；作为主要缩放步骤。更大规格增加计算量，请结合纹理与帧率选择。  HDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。 NNEDI3\\NNEDI3_nns128_win8x6 NNEDI3",
+      "search": "NNEDI3\\NNEDI3_nns128_win8x6 NNEDI3 nns128 win8x6 放大与超分 通用 NNEDI3\\NNEDI3_nns128_win8x6 NNEDI3 沿图像边缘插值放大 2×，128 神经元／8×6 窗口。 根据周围像素推算放大后的细节，适合动画、线稿和斜线较多的图像。可直接作为主要放大步骤使用，固定放大 2×。本项使用 128 个神经元与 8×6 采样窗口。",
       "family": {
         "id": "nnedi3",
         "name": "NNEDI3",
-        "summary": "固定 2× 神经插值。nns 是神经元数量，win 是采样窗口；更大规格增加计算量，不保证更适合每种素材。"
+        "summary": "固定 2× 神经插值，适合动画与线稿。nns 表示神经元数量，win 表示采样窗口；较大规格使用更多采样与计算。"
       },
       "subfamily": null
     },
@@ -2021,15 +2021,15 @@
       "purposes": [
         "upscale"
       ],
-      "summary": "神经插值 2× 放大，重建方向性边缘。",
-      "details": "固定 2×，16 个神经元，8×4 采样窗口。适合动画、线稿或需要方向性插值的图像；作为主要缩放步骤。更大规格增加计算量，请结合纹理与帧率选择。\n\nHDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。",
+      "summary": "沿图像边缘插值放大 2×，16 神经元／8×4 窗口。",
+      "details": "根据周围像素推算放大后的细节，适合动画、线稿和斜线较多的图像。可直接作为主要放大步骤使用，固定放大 2×。本项使用 16 个神经元与 8×4 采样窗口。",
       "level": "situational",
       "recommendation": "特定场景推荐",
-      "search": "NNEDI3\\NNEDI3_nns16_win8x4 NNEDI3 nns16 win8x4 放大与超分 通用 神经插值 2× 放大，重建方向性边缘。 固定 2×，16 个神经元，8×4 采样窗口。适合动画、线稿或需要方向性插值的图像；作为主要缩放步骤。更大规格增加计算量，请结合纹理与帧率选择。  HDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。 NNEDI3\\NNEDI3_nns16_win8x4 NNEDI3",
+      "search": "NNEDI3\\NNEDI3_nns16_win8x4 NNEDI3 nns16 win8x4 放大与超分 通用 NNEDI3\\NNEDI3_nns16_win8x4 NNEDI3 沿图像边缘插值放大 2×，16 神经元／8×4 窗口。 根据周围像素推算放大后的细节，适合动画、线稿和斜线较多的图像。可直接作为主要放大步骤使用，固定放大 2×。本项使用 16 个神经元与 8×4 采样窗口。",
       "family": {
         "id": "nnedi3",
         "name": "NNEDI3",
-        "summary": "固定 2× 神经插值。nns 是神经元数量，win 是采样窗口；更大规格增加计算量，不保证更适合每种素材。"
+        "summary": "固定 2× 神经插值，适合动画与线稿。nns 表示神经元数量，win 表示采样窗口；较大规格使用更多采样与计算。"
       },
       "subfamily": null
     },
@@ -2041,15 +2041,15 @@
       "purposes": [
         "upscale"
       ],
-      "summary": "神经插值 2× 放大，重建方向性边缘。",
-      "details": "固定 2×，16 个神经元，8×6 采样窗口。适合动画、线稿或需要方向性插值的图像；作为主要缩放步骤。更大规格增加计算量，请结合纹理与帧率选择。\n\nHDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。",
+      "summary": "沿图像边缘插值放大 2×，16 神经元／8×6 窗口。",
+      "details": "根据周围像素推算放大后的细节，适合动画、线稿和斜线较多的图像。可直接作为主要放大步骤使用，固定放大 2×。本项使用 16 个神经元与 8×6 采样窗口。",
       "level": "situational",
       "recommendation": "特定场景推荐",
-      "search": "NNEDI3\\NNEDI3_nns16_win8x6 NNEDI3 nns16 win8x6 放大与超分 通用 神经插值 2× 放大，重建方向性边缘。 固定 2×，16 个神经元，8×6 采样窗口。适合动画、线稿或需要方向性插值的图像；作为主要缩放步骤。更大规格增加计算量，请结合纹理与帧率选择。  HDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。 NNEDI3\\NNEDI3_nns16_win8x6 NNEDI3",
+      "search": "NNEDI3\\NNEDI3_nns16_win8x6 NNEDI3 nns16 win8x6 放大与超分 通用 NNEDI3\\NNEDI3_nns16_win8x6 NNEDI3 沿图像边缘插值放大 2×，16 神经元／8×6 窗口。 根据周围像素推算放大后的细节，适合动画、线稿和斜线较多的图像。可直接作为主要放大步骤使用，固定放大 2×。本项使用 16 个神经元与 8×6 采样窗口。",
       "family": {
         "id": "nnedi3",
         "name": "NNEDI3",
-        "summary": "固定 2× 神经插值。nns 是神经元数量，win 是采样窗口；更大规格增加计算量，不保证更适合每种素材。"
+        "summary": "固定 2× 神经插值，适合动画与线稿。nns 表示神经元数量，win 表示采样窗口；较大规格使用更多采样与计算。"
       },
       "subfamily": null
     },
@@ -2061,15 +2061,15 @@
       "purposes": [
         "upscale"
       ],
-      "summary": "神经插值 2× 放大，重建方向性边缘。",
-      "details": "固定 2×，256 个神经元，8×4 采样窗口。适合动画、线稿或需要方向性插值的图像；作为主要缩放步骤。更大规格增加计算量，请结合纹理与帧率选择。\n\nHDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。",
+      "summary": "沿图像边缘插值放大 2×，256 神经元／8×4 窗口。",
+      "details": "根据周围像素推算放大后的细节，适合动画、线稿和斜线较多的图像。可直接作为主要放大步骤使用，固定放大 2×。本项使用 256 个神经元与 8×4 采样窗口。",
       "level": "situational",
       "recommendation": "特定场景推荐",
-      "search": "NNEDI3\\NNEDI3_nns256_win8x4 NNEDI3 nns256 win8x4 放大与超分 通用 神经插值 2× 放大，重建方向性边缘。 固定 2×，256 个神经元，8×4 采样窗口。适合动画、线稿或需要方向性插值的图像；作为主要缩放步骤。更大规格增加计算量，请结合纹理与帧率选择。  HDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。 NNEDI3\\NNEDI3_nns256_win8x4 NNEDI3",
+      "search": "NNEDI3\\NNEDI3_nns256_win8x4 NNEDI3 nns256 win8x4 放大与超分 通用 NNEDI3\\NNEDI3_nns256_win8x4 NNEDI3 沿图像边缘插值放大 2×，256 神经元／8×4 窗口。 根据周围像素推算放大后的细节，适合动画、线稿和斜线较多的图像。可直接作为主要放大步骤使用，固定放大 2×。本项使用 256 个神经元与 8×4 采样窗口。",
       "family": {
         "id": "nnedi3",
         "name": "NNEDI3",
-        "summary": "固定 2× 神经插值。nns 是神经元数量，win 是采样窗口；更大规格增加计算量，不保证更适合每种素材。"
+        "summary": "固定 2× 神经插值，适合动画与线稿。nns 表示神经元数量，win 表示采样窗口；较大规格使用更多采样与计算。"
       },
       "subfamily": null
     },
@@ -2081,15 +2081,15 @@
       "purposes": [
         "upscale"
       ],
-      "summary": "神经插值 2× 放大，重建方向性边缘。",
-      "details": "固定 2×，256 个神经元，8×6 采样窗口。适合动画、线稿或需要方向性插值的图像；作为主要缩放步骤。更大规格增加计算量，请结合纹理与帧率选择。\n\nHDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。",
+      "summary": "沿图像边缘插值放大 2×，256 神经元／8×6 窗口。",
+      "details": "根据周围像素推算放大后的细节，适合动画、线稿和斜线较多的图像。可直接作为主要放大步骤使用，固定放大 2×。本项使用 256 个神经元与 8×6 采样窗口。",
       "level": "situational",
       "recommendation": "特定场景推荐",
-      "search": "NNEDI3\\NNEDI3_nns256_win8x6 NNEDI3 nns256 win8x6 放大与超分 通用 神经插值 2× 放大，重建方向性边缘。 固定 2×，256 个神经元，8×6 采样窗口。适合动画、线稿或需要方向性插值的图像；作为主要缩放步骤。更大规格增加计算量，请结合纹理与帧率选择。  HDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。 NNEDI3\\NNEDI3_nns256_win8x6 NNEDI3",
+      "search": "NNEDI3\\NNEDI3_nns256_win8x6 NNEDI3 nns256 win8x6 放大与超分 通用 NNEDI3\\NNEDI3_nns256_win8x6 NNEDI3 沿图像边缘插值放大 2×，256 神经元／8×6 窗口。 根据周围像素推算放大后的细节，适合动画、线稿和斜线较多的图像。可直接作为主要放大步骤使用，固定放大 2×。本项使用 256 个神经元与 8×6 采样窗口。",
       "family": {
         "id": "nnedi3",
         "name": "NNEDI3",
-        "summary": "固定 2× 神经插值。nns 是神经元数量，win 是采样窗口；更大规格增加计算量，不保证更适合每种素材。"
+        "summary": "固定 2× 神经插值，适合动画与线稿。nns 表示神经元数量，win 表示采样窗口；较大规格使用更多采样与计算。"
       },
       "subfamily": null
     },
@@ -2101,15 +2101,15 @@
       "purposes": [
         "upscale"
       ],
-      "summary": "神经插值 2× 放大，重建方向性边缘。",
-      "details": "固定 2×，32 个神经元，8×4 采样窗口。适合动画、线稿或需要方向性插值的图像；作为主要缩放步骤。更大规格增加计算量，请结合纹理与帧率选择。\n\nHDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。",
+      "summary": "沿图像边缘插值放大 2×，32 神经元／8×4 窗口。",
+      "details": "根据周围像素推算放大后的细节，适合动画、线稿和斜线较多的图像。可直接作为主要放大步骤使用，固定放大 2×。本项使用 32 个神经元与 8×4 采样窗口。",
       "level": "situational",
       "recommendation": "特定场景推荐",
-      "search": "NNEDI3\\NNEDI3_nns32_win8x4 NNEDI3 nns32 win8x4 放大与超分 通用 神经插值 2× 放大，重建方向性边缘。 固定 2×，32 个神经元，8×4 采样窗口。适合动画、线稿或需要方向性插值的图像；作为主要缩放步骤。更大规格增加计算量，请结合纹理与帧率选择。  HDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。 NNEDI3\\NNEDI3_nns32_win8x4 NNEDI3",
+      "search": "NNEDI3\\NNEDI3_nns32_win8x4 NNEDI3 nns32 win8x4 放大与超分 通用 NNEDI3\\NNEDI3_nns32_win8x4 NNEDI3 沿图像边缘插值放大 2×，32 神经元／8×4 窗口。 根据周围像素推算放大后的细节，适合动画、线稿和斜线较多的图像。可直接作为主要放大步骤使用，固定放大 2×。本项使用 32 个神经元与 8×4 采样窗口。",
       "family": {
         "id": "nnedi3",
         "name": "NNEDI3",
-        "summary": "固定 2× 神经插值。nns 是神经元数量，win 是采样窗口；更大规格增加计算量，不保证更适合每种素材。"
+        "summary": "固定 2× 神经插值，适合动画与线稿。nns 表示神经元数量，win 表示采样窗口；较大规格使用更多采样与计算。"
       },
       "subfamily": null
     },
@@ -2121,15 +2121,15 @@
       "purposes": [
         "upscale"
       ],
-      "summary": "神经插值 2× 放大，重建方向性边缘。",
-      "details": "固定 2×，32 个神经元，8×6 采样窗口。适合动画、线稿或需要方向性插值的图像；作为主要缩放步骤。更大规格增加计算量，请结合纹理与帧率选择。\n\nHDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。",
+      "summary": "沿图像边缘插值放大 2×，32 神经元／8×6 窗口。",
+      "details": "根据周围像素推算放大后的细节，适合动画、线稿和斜线较多的图像。可直接作为主要放大步骤使用，固定放大 2×。本项使用 32 个神经元与 8×6 采样窗口。",
       "level": "situational",
       "recommendation": "特定场景推荐",
-      "search": "NNEDI3\\NNEDI3_nns32_win8x6 NNEDI3 nns32 win8x6 放大与超分 通用 神经插值 2× 放大，重建方向性边缘。 固定 2×，32 个神经元，8×6 采样窗口。适合动画、线稿或需要方向性插值的图像；作为主要缩放步骤。更大规格增加计算量，请结合纹理与帧率选择。  HDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。 NNEDI3\\NNEDI3_nns32_win8x6 NNEDI3",
+      "search": "NNEDI3\\NNEDI3_nns32_win8x6 NNEDI3 nns32 win8x6 放大与超分 通用 NNEDI3\\NNEDI3_nns32_win8x6 NNEDI3 沿图像边缘插值放大 2×，32 神经元／8×6 窗口。 根据周围像素推算放大后的细节，适合动画、线稿和斜线较多的图像。可直接作为主要放大步骤使用，固定放大 2×。本项使用 32 个神经元与 8×6 采样窗口。",
       "family": {
         "id": "nnedi3",
         "name": "NNEDI3",
-        "summary": "固定 2× 神经插值。nns 是神经元数量，win 是采样窗口；更大规格增加计算量，不保证更适合每种素材。"
+        "summary": "固定 2× 神经插值，适合动画与线稿。nns 表示神经元数量，win 表示采样窗口；较大规格使用更多采样与计算。"
       },
       "subfamily": null
     },
@@ -2141,15 +2141,15 @@
       "purposes": [
         "upscale"
       ],
-      "summary": "神经插值 2× 放大，重建方向性边缘。",
-      "details": "固定 2×，64 个神经元，8×4 采样窗口。适合动画、线稿或需要方向性插值的图像；作为主要缩放步骤。更大规格增加计算量，请结合纹理与帧率选择。\n\nHDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。",
+      "summary": "沿图像边缘插值放大 2×，64 神经元／8×4 窗口。",
+      "details": "根据周围像素推算放大后的细节，适合动画、线稿和斜线较多的图像。可直接作为主要放大步骤使用，固定放大 2×。本项使用 64 个神经元与 8×4 采样窗口。",
       "level": "situational",
       "recommendation": "特定场景推荐",
-      "search": "NNEDI3\\NNEDI3_nns64_win8x4 NNEDI3 nns64 win8x4 放大与超分 通用 神经插值 2× 放大，重建方向性边缘。 固定 2×，64 个神经元，8×4 采样窗口。适合动画、线稿或需要方向性插值的图像；作为主要缩放步骤。更大规格增加计算量，请结合纹理与帧率选择。  HDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。 NNEDI3\\NNEDI3_nns64_win8x4 NNEDI3",
+      "search": "NNEDI3\\NNEDI3_nns64_win8x4 NNEDI3 nns64 win8x4 放大与超分 通用 NNEDI3\\NNEDI3_nns64_win8x4 NNEDI3 沿图像边缘插值放大 2×，64 神经元／8×4 窗口。 根据周围像素推算放大后的细节，适合动画、线稿和斜线较多的图像。可直接作为主要放大步骤使用，固定放大 2×。本项使用 64 个神经元与 8×4 采样窗口。",
       "family": {
         "id": "nnedi3",
         "name": "NNEDI3",
-        "summary": "固定 2× 神经插值。nns 是神经元数量，win 是采样窗口；更大规格增加计算量，不保证更适合每种素材。"
+        "summary": "固定 2× 神经插值，适合动画与线稿。nns 表示神经元数量，win 表示采样窗口；较大规格使用更多采样与计算。"
       },
       "subfamily": null
     },
@@ -2161,15 +2161,15 @@
       "purposes": [
         "upscale"
       ],
-      "summary": "神经插值 2× 放大，重建方向性边缘。",
-      "details": "固定 2×，64 个神经元，8×6 采样窗口。适合动画、线稿或需要方向性插值的图像；作为主要缩放步骤。更大规格增加计算量，请结合纹理与帧率选择。\n\nHDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。",
+      "summary": "沿图像边缘插值放大 2×，64 神经元／8×6 窗口。",
+      "details": "根据周围像素推算放大后的细节，适合动画、线稿和斜线较多的图像。可直接作为主要放大步骤使用，固定放大 2×。本项使用 64 个神经元与 8×6 采样窗口。",
       "level": "situational",
       "recommendation": "特定场景推荐",
-      "search": "NNEDI3\\NNEDI3_nns64_win8x6 NNEDI3 nns64 win8x6 放大与超分 通用 神经插值 2× 放大，重建方向性边缘。 固定 2×，64 个神经元，8×6 采样窗口。适合动画、线稿或需要方向性插值的图像；作为主要缩放步骤。更大规格增加计算量，请结合纹理与帧率选择。  HDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。 NNEDI3\\NNEDI3_nns64_win8x6 NNEDI3",
+      "search": "NNEDI3\\NNEDI3_nns64_win8x6 NNEDI3 nns64 win8x6 放大与超分 通用 NNEDI3\\NNEDI3_nns64_win8x6 NNEDI3 沿图像边缘插值放大 2×，64 神经元／8×6 窗口。 根据周围像素推算放大后的细节，适合动画、线稿和斜线较多的图像。可直接作为主要放大步骤使用，固定放大 2×。本项使用 64 个神经元与 8×6 采样窗口。",
       "family": {
         "id": "nnedi3",
         "name": "NNEDI3",
-        "summary": "固定 2× 神经插值。nns 是神经元数量，win 是采样窗口；更大规格增加计算量，不保证更适合每种素材。"
+        "summary": "固定 2× 神经插值，适合动画与线稿。nns 表示神经元数量，win 表示采样窗口；较大规格使用更多采样与计算。"
       },
       "subfamily": null
     },
@@ -2181,11 +2181,11 @@
       "purposes": [
         "upscale"
       ],
-      "summary": "保留块面并修整斜线的 2× 放大。",
-      "details": "固定 2×，适合低分辨率像素图和像素游戏。作为主要缩放步骤；与最近邻比较轮廓是否符合原作，不宜再叠加强抗锯齿。\n\nHDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。",
+      "summary": "保留像素块面并修整斜线，放大 2×。",
+      "details": "根据相邻像素形状整理斜线与轮廓，同时保留像素画的块面感。适合低分辨率像素图和游戏，固定放大 2×，可直接作为主要放大步骤使用。",
       "level": "situational",
       "recommendation": "特定场景推荐",
-      "search": "Pixel Art\\MMPX MMPX 放大与超分 像素画 保留块面并修整斜线的 2× 放大。 固定 2×，适合低分辨率像素图和像素游戏。作为主要缩放步骤；与最近邻比较轮廓是否符合原作，不宜再叠加强抗锯齿。  HDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。 Art\\MMPX",
+      "search": "Pixel Art\\MMPX MMPX 放大与超分 像素画 Art\\MMPX 保留像素块面并修整斜线，放大 2×。 根据相邻像素形状整理斜线与轮廓，同时保留像素画的块面感。适合低分辨率像素图和游戏，固定放大 2×，可直接作为主要放大步骤使用。",
       "family": null,
       "subfamily": null
     },
@@ -2197,11 +2197,11 @@
       "purposes": [
         "upscale"
       ],
-      "summary": "按像素覆盖面积整理缩放。",
-      "details": "用于像素画，输出尺寸由效果组设置；这是重采样器，不是添加马赛克。非整数倍率会混合部分源像素，请检查颜色和网格。\n\nHDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。",
+      "summary": "按像素覆盖面积缩放像素画。",
+      "details": "按源像素对输出像素的覆盖比例混合颜色，适合将像素游戏调整到目标尺寸。在效果组中设置输出大小；非整数倍率的边界会形成柔和的颜色过渡。",
       "level": "situational",
       "recommendation": "特定场景推荐",
-      "search": "Pixel Art\\Pixellate Pixellate 放大与超分 像素画 按像素覆盖面积整理缩放。 用于像素画，输出尺寸由效果组设置；这是重采样器，不是添加马赛克。非整数倍率会混合部分源像素，请检查颜色和网格。  HDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。 Art\\Pixellate",
+      "search": "Pixel Art\\Pixellate Pixellate 放大与超分 像素画 Art\\Pixellate 按像素覆盖面积缩放像素画。 按源像素对输出像素的覆盖比例混合颜色，适合将像素游戏调整到目标尺寸。在效果组中设置输出大小；非整数倍率的边界会形成柔和的颜色过渡。",
       "family": null,
       "subfamily": null
     },
@@ -2213,11 +2213,11 @@
       "purposes": [
         "upscale"
       ],
-      "summary": "适合非整数倍率的像素画缩放。",
-      "details": "输出尺寸由效果组设置。保留较锐利的像素块，同时柔化非整数倍率的边界；追求完全硬边时可改用整数倍率最近邻。\n\nHDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。",
+      "summary": "按目标尺寸放大像素画，保留较清晰的像素块。",
+      "details": "保留像素块内部的清晰颜色，并柔化非整数倍率下的块面边界，适合适配窗口或屏幕的像素游戏。在效果组中设置目标尺寸即可使用。",
       "level": "situational",
       "recommendation": "特定场景推荐",
-      "search": "Pixel Art\\SharpBilinear SharpBilinear 放大与超分 像素画 适合非整数倍率的像素画缩放。 输出尺寸由效果组设置。保留较锐利的像素块，同时柔化非整数倍率的边界；追求完全硬边时可改用整数倍率最近邻。  HDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。 Art\\SharpBilinear",
+      "search": "Pixel Art\\SharpBilinear SharpBilinear 放大与超分 像素画 Art\\SharpBilinear 按目标尺寸放大像素画，保留较清晰的像素块。 保留像素块内部的清晰颜色，并柔化非整数倍率下的块面边界，适合适配窗口或屏幕的像素游戏。在效果组中设置目标尺寸即可使用。",
       "family": null,
       "subfamily": null
     },
@@ -2229,15 +2229,15 @@
       "purposes": [
         "upscale"
       ],
-      "summary": "视频与插画 3× 放大。",
-      "details": "固定 3×。R2 采样规格；RGB 重建颜色通道。作为主要缩放步骤；比较线条、彩色边缘与光晕，R 编号不代表画质排名。\n\nHDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。",
+      "summary": "放大 3× 并重建彩色边缘，R2 RGB。",
+      "details": "重建图像的彩色轮廓与过渡，适合动画、线稿与一般图像。可直接作为主要放大步骤使用，固定放大 3×。采用 R2 RGB 采样方案。",
       "level": "situational",
       "recommendation": "特定场景推荐",
-      "search": "RAVU\\RAVU_3x_R2_RGB RAVU 3x R2 RGB 放大与超分 通用 视频与插画 3× 放大。 固定 3×。R2 采样规格；RGB 重建颜色通道。作为主要缩放步骤；比较线条、彩色边缘与光晕，R 编号不代表画质排名。  HDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。 RAVU\\RAVU_3x_R2_RGB RAVU",
+      "search": "RAVU\\RAVU_3x_R2_RGB RAVU 3x R2 RGB 放大与超分 通用 RAVU\\RAVU_3x_R2_RGB RAVU 放大 3× 并重建彩色边缘，R2 RGB。 重建图像的彩色轮廓与过渡，适合动画、线稿与一般图像。可直接作为主要放大步骤使用，固定放大 3×。采用 R2 RGB 采样方案。",
       "family": {
         "id": "ravu",
         "name": "RAVU",
-        "summary": "普通／Lite 为 2×，3x 为 3×，Zoom 为自由尺寸。R 是采样规格，AR 抑制振铃，RGB 同时重建颜色通道。"
+        "summary": "普通／Lite 为 2×，3x 为 3×，Zoom 可设目标尺寸。R 表示采样规格；Lite 减少计算，AR 抑制边缘光圈，RGB 同时重建颜色通道。"
       },
       "subfamily": null
     },
@@ -2249,15 +2249,15 @@
       "purposes": [
         "upscale"
       ],
-      "summary": "视频与插画 3× 放大。",
-      "details": "固定 3×。R2 采样规格；主要重建亮度。作为主要缩放步骤；比较线条、彩色边缘与光晕，R 编号不代表画质排名。\n\nHDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。",
+      "summary": "放大 3× 并重建亮度细节，R2。",
+      "details": "沿图像边缘重建亮度细节，适合动画、线稿与一般图像。可直接作为主要放大步骤使用，固定放大 3×。采用 R2 采样方案。",
       "level": "situational",
       "recommendation": "特定场景推荐",
-      "search": "RAVU\\RAVU_3x_R2 RAVU 3x R2 放大与超分 通用 视频与插画 3× 放大。 固定 3×。R2 采样规格；主要重建亮度。作为主要缩放步骤；比较线条、彩色边缘与光晕，R 编号不代表画质排名。  HDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。 RAVU\\RAVU_3x_R2 RAVU",
+      "search": "RAVU\\RAVU_3x_R2 RAVU 3x R2 放大与超分 通用 RAVU\\RAVU_3x_R2 RAVU 放大 3× 并重建亮度细节，R2。 沿图像边缘重建亮度细节，适合动画、线稿与一般图像。可直接作为主要放大步骤使用，固定放大 3×。采用 R2 采样方案。",
       "family": {
         "id": "ravu",
         "name": "RAVU",
-        "summary": "普通／Lite 为 2×，3x 为 3×，Zoom 为自由尺寸。R 是采样规格，AR 抑制振铃，RGB 同时重建颜色通道。"
+        "summary": "普通／Lite 为 2×，3x 为 3×，Zoom 可设目标尺寸。R 表示采样规格；Lite 减少计算，AR 抑制边缘光圈，RGB 同时重建颜色通道。"
       },
       "subfamily": null
     },
@@ -2269,15 +2269,15 @@
       "purposes": [
         "upscale"
       ],
-      "summary": "视频与插画 3× 放大。",
-      "details": "固定 3×。R3 采样规格；RGB 重建颜色通道。作为主要缩放步骤；比较线条、彩色边缘与光晕，R 编号不代表画质排名。\n\nHDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。",
+      "summary": "放大 3× 并重建彩色边缘，R3 RGB。",
+      "details": "重建图像的彩色轮廓与过渡，适合动画、线稿与一般图像。可直接作为主要放大步骤使用，固定放大 3×。采用 R3 RGB 采样方案。",
       "level": "situational",
       "recommendation": "特定场景推荐",
-      "search": "RAVU\\RAVU_3x_R3_RGB RAVU 3x R3 RGB 放大与超分 通用 视频与插画 3× 放大。 固定 3×。R3 采样规格；RGB 重建颜色通道。作为主要缩放步骤；比较线条、彩色边缘与光晕，R 编号不代表画质排名。  HDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。 RAVU\\RAVU_3x_R3_RGB RAVU",
+      "search": "RAVU\\RAVU_3x_R3_RGB RAVU 3x R3 RGB 放大与超分 通用 RAVU\\RAVU_3x_R3_RGB RAVU 放大 3× 并重建彩色边缘，R3 RGB。 重建图像的彩色轮廓与过渡，适合动画、线稿与一般图像。可直接作为主要放大步骤使用，固定放大 3×。采用 R3 RGB 采样方案。",
       "family": {
         "id": "ravu",
         "name": "RAVU",
-        "summary": "普通／Lite 为 2×，3x 为 3×，Zoom 为自由尺寸。R 是采样规格，AR 抑制振铃，RGB 同时重建颜色通道。"
+        "summary": "普通／Lite 为 2×，3x 为 3×，Zoom 可设目标尺寸。R 表示采样规格；Lite 减少计算，AR 抑制边缘光圈，RGB 同时重建颜色通道。"
       },
       "subfamily": null
     },
@@ -2289,15 +2289,15 @@
       "purposes": [
         "upscale"
       ],
-      "summary": "视频与插画 3× 放大。",
-      "details": "固定 3×。R3 采样规格；主要重建亮度。作为主要缩放步骤；比较线条、彩色边缘与光晕，R 编号不代表画质排名。\n\nHDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。",
+      "summary": "放大 3× 并重建亮度细节，R3。",
+      "details": "沿图像边缘重建亮度细节，适合动画、线稿与一般图像。可直接作为主要放大步骤使用，固定放大 3×。采用 R3 采样方案。",
       "level": "situational",
       "recommendation": "特定场景推荐",
-      "search": "RAVU\\RAVU_3x_R3 RAVU 3x R3 放大与超分 通用 视频与插画 3× 放大。 固定 3×。R3 采样规格；主要重建亮度。作为主要缩放步骤；比较线条、彩色边缘与光晕，R 编号不代表画质排名。  HDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。 RAVU\\RAVU_3x_R3 RAVU",
+      "search": "RAVU\\RAVU_3x_R3 RAVU 3x R3 放大与超分 通用 RAVU\\RAVU_3x_R3 RAVU 放大 3× 并重建亮度细节，R3。 沿图像边缘重建亮度细节，适合动画、线稿与一般图像。可直接作为主要放大步骤使用，固定放大 3×。采用 R3 采样方案。",
       "family": {
         "id": "ravu",
         "name": "RAVU",
-        "summary": "普通／Lite 为 2×，3x 为 3×，Zoom 为自由尺寸。R 是采样规格，AR 抑制振铃，RGB 同时重建颜色通道。"
+        "summary": "普通／Lite 为 2×，3x 为 3×，Zoom 可设目标尺寸。R 表示采样规格；Lite 减少计算，AR 抑制边缘光圈，RGB 同时重建颜色通道。"
       },
       "subfamily": null
     },
@@ -2309,15 +2309,15 @@
       "purposes": [
         "upscale"
       ],
-      "summary": "视频与插画 3× 放大。",
-      "details": "固定 3×。R4 采样规格；RGB 重建颜色通道。作为主要缩放步骤；比较线条、彩色边缘与光晕，R 编号不代表画质排名。\n\nHDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。",
+      "summary": "放大 3× 并重建彩色边缘，R4 RGB。",
+      "details": "重建图像的彩色轮廓与过渡，适合动画、线稿与一般图像。可直接作为主要放大步骤使用，固定放大 3×。采用 R4 RGB 采样方案。",
       "level": "situational",
       "recommendation": "特定场景推荐",
-      "search": "RAVU\\RAVU_3x_R4_RGB RAVU 3x R4 RGB 放大与超分 通用 视频与插画 3× 放大。 固定 3×。R4 采样规格；RGB 重建颜色通道。作为主要缩放步骤；比较线条、彩色边缘与光晕，R 编号不代表画质排名。  HDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。 RAVU\\RAVU_3x_R4_RGB RAVU",
+      "search": "RAVU\\RAVU_3x_R4_RGB RAVU 3x R4 RGB 放大与超分 通用 RAVU\\RAVU_3x_R4_RGB RAVU 放大 3× 并重建彩色边缘，R4 RGB。 重建图像的彩色轮廓与过渡，适合动画、线稿与一般图像。可直接作为主要放大步骤使用，固定放大 3×。采用 R4 RGB 采样方案。",
       "family": {
         "id": "ravu",
         "name": "RAVU",
-        "summary": "普通／Lite 为 2×，3x 为 3×，Zoom 为自由尺寸。R 是采样规格，AR 抑制振铃，RGB 同时重建颜色通道。"
+        "summary": "普通／Lite 为 2×，3x 为 3×，Zoom 可设目标尺寸。R 表示采样规格；Lite 减少计算，AR 抑制边缘光圈，RGB 同时重建颜色通道。"
       },
       "subfamily": null
     },
@@ -2329,15 +2329,15 @@
       "purposes": [
         "upscale"
       ],
-      "summary": "视频与插画 3× 放大。",
-      "details": "固定 3×。R4 采样规格；主要重建亮度。作为主要缩放步骤；比较线条、彩色边缘与光晕，R 编号不代表画质排名。\n\nHDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。",
+      "summary": "放大 3× 并重建亮度细节，R4。",
+      "details": "沿图像边缘重建亮度细节，适合动画、线稿与一般图像。可直接作为主要放大步骤使用，固定放大 3×。采用 R4 采样方案。",
       "level": "situational",
       "recommendation": "特定场景推荐",
-      "search": "RAVU\\RAVU_3x_R4 RAVU 3x R4 放大与超分 通用 视频与插画 3× 放大。 固定 3×。R4 采样规格；主要重建亮度。作为主要缩放步骤；比较线条、彩色边缘与光晕，R 编号不代表画质排名。  HDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。 RAVU\\RAVU_3x_R4 RAVU",
+      "search": "RAVU\\RAVU_3x_R4 RAVU 3x R4 放大与超分 通用 RAVU\\RAVU_3x_R4 RAVU 放大 3× 并重建亮度细节，R4。 沿图像边缘重建亮度细节，适合动画、线稿与一般图像。可直接作为主要放大步骤使用，固定放大 3×。采用 R4 采样方案。",
       "family": {
         "id": "ravu",
         "name": "RAVU",
-        "summary": "普通／Lite 为 2×，3x 为 3×，Zoom 为自由尺寸。R 是采样规格，AR 抑制振铃，RGB 同时重建颜色通道。"
+        "summary": "普通／Lite 为 2×，3x 为 3×，Zoom 可设目标尺寸。R 表示采样规格；Lite 减少计算，AR 抑制边缘光圈，RGB 同时重建颜色通道。"
       },
       "subfamily": null
     },
@@ -2349,15 +2349,15 @@
       "purposes": [
         "upscale"
       ],
-      "summary": "视频与插画 2× 放大。",
-      "details": "固定 2×。R2 采样规格；Lite；AR 抑制振铃；主要重建亮度。作为主要缩放步骤；比较线条、彩色边缘与光晕，R 编号不代表画质排名。\n\nHDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。",
+      "summary": "放大 2× 并重建亮度细节，Lite AR R2。",
+      "details": "沿图像边缘重建亮度细节，适合动画、线稿与一般图像。同时抑制高对比边缘的明暗光圈。可直接作为主要放大步骤使用，固定放大 2×。采用 Lite AR R2 轻量方案。",
       "level": "situational",
       "recommendation": "特定场景推荐",
-      "search": "RAVU\\RAVU_Lite_AR_R2 RAVU Lite AR R2 放大与超分 通用 视频与插画 2× 放大。 固定 2×。R2 采样规格；Lite；AR 抑制振铃；主要重建亮度。作为主要缩放步骤；比较线条、彩色边缘与光晕，R 编号不代表画质排名。  HDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。 RAVU\\RAVU_Lite_AR_R2 RAVU",
+      "search": "RAVU\\RAVU_Lite_AR_R2 RAVU Lite AR R2 放大与超分 通用 RAVU\\RAVU_Lite_AR_R2 RAVU 放大 2× 并重建亮度细节，Lite AR R2。 沿图像边缘重建亮度细节，适合动画、线稿与一般图像。同时抑制高对比边缘的明暗光圈。可直接作为主要放大步骤使用，固定放大 2×。采用 Lite AR R2 轻量方案。",
       "family": {
         "id": "ravu",
         "name": "RAVU",
-        "summary": "普通／Lite 为 2×，3x 为 3×，Zoom 为自由尺寸。R 是采样规格，AR 抑制振铃，RGB 同时重建颜色通道。"
+        "summary": "普通／Lite 为 2×，3x 为 3×，Zoom 可设目标尺寸。R 表示采样规格；Lite 减少计算，AR 抑制边缘光圈，RGB 同时重建颜色通道。"
       },
       "subfamily": null
     },
@@ -2369,15 +2369,15 @@
       "purposes": [
         "upscale"
       ],
-      "summary": "视频与插画 2× 放大。",
-      "details": "固定 2×。R3 采样规格；Lite；AR 抑制振铃；主要重建亮度。作为主要缩放步骤；比较线条、彩色边缘与光晕，R 编号不代表画质排名。\n\nHDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。",
+      "summary": "放大 2× 并重建亮度细节，Lite AR R3。",
+      "details": "沿图像边缘重建亮度细节，适合动画、线稿与一般图像。同时抑制高对比边缘的明暗光圈。可直接作为主要放大步骤使用，固定放大 2×。采用 Lite AR R3 轻量方案。",
       "level": "situational",
       "recommendation": "特定场景推荐",
-      "search": "RAVU\\RAVU_Lite_AR_R3 RAVU Lite AR R3 放大与超分 通用 视频与插画 2× 放大。 固定 2×。R3 采样规格；Lite；AR 抑制振铃；主要重建亮度。作为主要缩放步骤；比较线条、彩色边缘与光晕，R 编号不代表画质排名。  HDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。 RAVU\\RAVU_Lite_AR_R3 RAVU",
+      "search": "RAVU\\RAVU_Lite_AR_R3 RAVU Lite AR R3 放大与超分 通用 RAVU\\RAVU_Lite_AR_R3 RAVU 放大 2× 并重建亮度细节，Lite AR R3。 沿图像边缘重建亮度细节，适合动画、线稿与一般图像。同时抑制高对比边缘的明暗光圈。可直接作为主要放大步骤使用，固定放大 2×。采用 Lite AR R3 轻量方案。",
       "family": {
         "id": "ravu",
         "name": "RAVU",
-        "summary": "普通／Lite 为 2×，3x 为 3×，Zoom 为自由尺寸。R 是采样规格，AR 抑制振铃，RGB 同时重建颜色通道。"
+        "summary": "普通／Lite 为 2×，3x 为 3×，Zoom 可设目标尺寸。R 表示采样规格；Lite 减少计算，AR 抑制边缘光圈，RGB 同时重建颜色通道。"
       },
       "subfamily": null
     },
@@ -2389,15 +2389,15 @@
       "purposes": [
         "upscale"
       ],
-      "summary": "视频与插画 2× 放大。",
-      "details": "固定 2×。R4 采样规格；Lite；AR 抑制振铃；主要重建亮度。作为主要缩放步骤；比较线条、彩色边缘与光晕，R 编号不代表画质排名。\n\nHDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。",
+      "summary": "放大 2× 并重建亮度细节，Lite AR R4。",
+      "details": "沿图像边缘重建亮度细节，适合动画、线稿与一般图像。同时抑制高对比边缘的明暗光圈。可直接作为主要放大步骤使用，固定放大 2×。采用 Lite AR R4 轻量方案。",
       "level": "situational",
       "recommendation": "特定场景推荐",
-      "search": "RAVU\\RAVU_Lite_AR_R4 RAVU Lite AR R4 放大与超分 通用 视频与插画 2× 放大。 固定 2×。R4 采样规格；Lite；AR 抑制振铃；主要重建亮度。作为主要缩放步骤；比较线条、彩色边缘与光晕，R 编号不代表画质排名。  HDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。 RAVU\\RAVU_Lite_AR_R4 RAVU",
+      "search": "RAVU\\RAVU_Lite_AR_R4 RAVU Lite AR R4 放大与超分 通用 RAVU\\RAVU_Lite_AR_R4 RAVU 放大 2× 并重建亮度细节，Lite AR R4。 沿图像边缘重建亮度细节，适合动画、线稿与一般图像。同时抑制高对比边缘的明暗光圈。可直接作为主要放大步骤使用，固定放大 2×。采用 Lite AR R4 轻量方案。",
       "family": {
         "id": "ravu",
         "name": "RAVU",
-        "summary": "普通／Lite 为 2×，3x 为 3×，Zoom 为自由尺寸。R 是采样规格，AR 抑制振铃，RGB 同时重建颜色通道。"
+        "summary": "普通／Lite 为 2×，3x 为 3×，Zoom 可设目标尺寸。R 表示采样规格；Lite 减少计算，AR 抑制边缘光圈，RGB 同时重建颜色通道。"
       },
       "subfamily": null
     },
@@ -2409,15 +2409,15 @@
       "purposes": [
         "upscale"
       ],
-      "summary": "视频与插画 2× 放大。",
-      "details": "固定 2×。R2 采样规格；Lite；主要重建亮度。作为主要缩放步骤；比较线条、彩色边缘与光晕，R 编号不代表画质排名。\n\nHDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。",
+      "summary": "放大 2× 并重建亮度细节，Lite R2。",
+      "details": "沿图像边缘重建亮度细节，适合动画、线稿与一般图像。可直接作为主要放大步骤使用，固定放大 2×。采用 Lite R2 轻量方案。",
       "level": "situational",
       "recommendation": "特定场景推荐",
-      "search": "RAVU\\RAVU_Lite_R2 RAVU Lite R2 放大与超分 通用 视频与插画 2× 放大。 固定 2×。R2 采样规格；Lite；主要重建亮度。作为主要缩放步骤；比较线条、彩色边缘与光晕，R 编号不代表画质排名。  HDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。 RAVU\\RAVU_Lite_R2 RAVU",
+      "search": "RAVU\\RAVU_Lite_R2 RAVU Lite R2 放大与超分 通用 RAVU\\RAVU_Lite_R2 RAVU 放大 2× 并重建亮度细节，Lite R2。 沿图像边缘重建亮度细节，适合动画、线稿与一般图像。可直接作为主要放大步骤使用，固定放大 2×。采用 Lite R2 轻量方案。",
       "family": {
         "id": "ravu",
         "name": "RAVU",
-        "summary": "普通／Lite 为 2×，3x 为 3×，Zoom 为自由尺寸。R 是采样规格，AR 抑制振铃，RGB 同时重建颜色通道。"
+        "summary": "普通／Lite 为 2×，3x 为 3×，Zoom 可设目标尺寸。R 表示采样规格；Lite 减少计算，AR 抑制边缘光圈，RGB 同时重建颜色通道。"
       },
       "subfamily": null
     },
@@ -2429,15 +2429,15 @@
       "purposes": [
         "upscale"
       ],
-      "summary": "视频与插画 2× 放大。",
-      "details": "固定 2×。R3 采样规格；Lite；主要重建亮度。作为主要缩放步骤；比较线条、彩色边缘与光晕，R 编号不代表画质排名。\n\nHDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。",
+      "summary": "放大 2× 并重建亮度细节，Lite R3。",
+      "details": "沿图像边缘重建亮度细节，适合动画、线稿与一般图像。可直接作为主要放大步骤使用，固定放大 2×。采用 Lite R3 轻量方案。",
       "level": "situational",
       "recommendation": "特定场景推荐",
-      "search": "RAVU\\RAVU_Lite_R3 RAVU Lite R3 放大与超分 通用 视频与插画 2× 放大。 固定 2×。R3 采样规格；Lite；主要重建亮度。作为主要缩放步骤；比较线条、彩色边缘与光晕，R 编号不代表画质排名。  HDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。 RAVU\\RAVU_Lite_R3 RAVU",
+      "search": "RAVU\\RAVU_Lite_R3 RAVU Lite R3 放大与超分 通用 RAVU\\RAVU_Lite_R3 RAVU 放大 2× 并重建亮度细节，Lite R3。 沿图像边缘重建亮度细节，适合动画、线稿与一般图像。可直接作为主要放大步骤使用，固定放大 2×。采用 Lite R3 轻量方案。",
       "family": {
         "id": "ravu",
         "name": "RAVU",
-        "summary": "普通／Lite 为 2×，3x 为 3×，Zoom 为自由尺寸。R 是采样规格，AR 抑制振铃，RGB 同时重建颜色通道。"
+        "summary": "普通／Lite 为 2×，3x 为 3×，Zoom 可设目标尺寸。R 表示采样规格；Lite 减少计算，AR 抑制边缘光圈，RGB 同时重建颜色通道。"
       },
       "subfamily": null
     },
@@ -2449,15 +2449,15 @@
       "purposes": [
         "upscale"
       ],
-      "summary": "视频与插画 2× 放大。",
-      "details": "固定 2×。R4 采样规格；Lite；主要重建亮度。作为主要缩放步骤；比较线条、彩色边缘与光晕，R 编号不代表画质排名。\n\nHDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。",
+      "summary": "放大 2× 并重建亮度细节，Lite R4。",
+      "details": "沿图像边缘重建亮度细节，适合动画、线稿与一般图像。可直接作为主要放大步骤使用，固定放大 2×。采用 Lite R4 轻量方案。",
       "level": "situational",
       "recommendation": "特定场景推荐",
-      "search": "RAVU\\RAVU_Lite_R4 RAVU Lite R4 放大与超分 通用 视频与插画 2× 放大。 固定 2×。R4 采样规格；Lite；主要重建亮度。作为主要缩放步骤；比较线条、彩色边缘与光晕，R 编号不代表画质排名。  HDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。 RAVU\\RAVU_Lite_R4 RAVU",
+      "search": "RAVU\\RAVU_Lite_R4 RAVU Lite R4 放大与超分 通用 RAVU\\RAVU_Lite_R4 RAVU 放大 2× 并重建亮度细节，Lite R4。 沿图像边缘重建亮度细节，适合动画、线稿与一般图像。可直接作为主要放大步骤使用，固定放大 2×。采用 Lite R4 轻量方案。",
       "family": {
         "id": "ravu",
         "name": "RAVU",
-        "summary": "普通／Lite 为 2×，3x 为 3×，Zoom 为自由尺寸。R 是采样规格，AR 抑制振铃，RGB 同时重建颜色通道。"
+        "summary": "普通／Lite 为 2×，3x 为 3×，Zoom 可设目标尺寸。R 表示采样规格；Lite 减少计算，AR 抑制边缘光圈，RGB 同时重建颜色通道。"
       },
       "subfamily": null
     },
@@ -2469,15 +2469,15 @@
       "purposes": [
         "upscale"
       ],
-      "summary": "视频与插画 2× 放大。",
-      "details": "固定 2×。R2 采样规格；RGB 重建颜色通道。作为主要缩放步骤；比较线条、彩色边缘与光晕，R 编号不代表画质排名。\n\nHDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。",
+      "summary": "放大 2× 并重建彩色边缘，R2 RGB。",
+      "details": "重建图像的彩色轮廓与过渡，适合动画、线稿与一般图像。可直接作为主要放大步骤使用，固定放大 2×。采用 R2 RGB 采样方案。",
       "level": "situational",
       "recommendation": "特定场景推荐",
-      "search": "RAVU\\RAVU_R2_RGB RAVU R2 RGB 放大与超分 通用 视频与插画 2× 放大。 固定 2×。R2 采样规格；RGB 重建颜色通道。作为主要缩放步骤；比较线条、彩色边缘与光晕，R 编号不代表画质排名。  HDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。 RAVU\\RAVU_R2_RGB RAVU",
+      "search": "RAVU\\RAVU_R2_RGB RAVU R2 RGB 放大与超分 通用 RAVU\\RAVU_R2_RGB RAVU 放大 2× 并重建彩色边缘，R2 RGB。 重建图像的彩色轮廓与过渡，适合动画、线稿与一般图像。可直接作为主要放大步骤使用，固定放大 2×。采用 R2 RGB 采样方案。",
       "family": {
         "id": "ravu",
         "name": "RAVU",
-        "summary": "普通／Lite 为 2×，3x 为 3×，Zoom 为自由尺寸。R 是采样规格，AR 抑制振铃，RGB 同时重建颜色通道。"
+        "summary": "普通／Lite 为 2×，3x 为 3×，Zoom 可设目标尺寸。R 表示采样规格；Lite 减少计算，AR 抑制边缘光圈，RGB 同时重建颜色通道。"
       },
       "subfamily": null
     },
@@ -2489,15 +2489,15 @@
       "purposes": [
         "upscale"
       ],
-      "summary": "视频与插画 2× 放大。",
-      "details": "固定 2×。R2 采样规格；主要重建亮度。作为主要缩放步骤；比较线条、彩色边缘与光晕，R 编号不代表画质排名。\n\nHDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。",
+      "summary": "放大 2× 并重建亮度细节，R2。",
+      "details": "沿图像边缘重建亮度细节，适合动画、线稿与一般图像。可直接作为主要放大步骤使用，固定放大 2×。采用 R2 采样方案。",
       "level": "situational",
       "recommendation": "特定场景推荐",
-      "search": "RAVU\\RAVU_R2 RAVU R2 放大与超分 通用 视频与插画 2× 放大。 固定 2×。R2 采样规格；主要重建亮度。作为主要缩放步骤；比较线条、彩色边缘与光晕，R 编号不代表画质排名。  HDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。 RAVU\\RAVU_R2 RAVU",
+      "search": "RAVU\\RAVU_R2 RAVU R2 放大与超分 通用 RAVU\\RAVU_R2 RAVU 放大 2× 并重建亮度细节，R2。 沿图像边缘重建亮度细节，适合动画、线稿与一般图像。可直接作为主要放大步骤使用，固定放大 2×。采用 R2 采样方案。",
       "family": {
         "id": "ravu",
         "name": "RAVU",
-        "summary": "普通／Lite 为 2×，3x 为 3×，Zoom 为自由尺寸。R 是采样规格，AR 抑制振铃，RGB 同时重建颜色通道。"
+        "summary": "普通／Lite 为 2×，3x 为 3×，Zoom 可设目标尺寸。R 表示采样规格；Lite 减少计算，AR 抑制边缘光圈，RGB 同时重建颜色通道。"
       },
       "subfamily": null
     },
@@ -2509,15 +2509,15 @@
       "purposes": [
         "upscale"
       ],
-      "summary": "视频与插画 2× 放大。",
-      "details": "固定 2×。R3 采样规格；RGB 重建颜色通道。作为主要缩放步骤；比较线条、彩色边缘与光晕，R 编号不代表画质排名。\n\nHDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。",
+      "summary": "放大 2× 并重建彩色边缘，R3 RGB。",
+      "details": "重建图像的彩色轮廓与过渡，适合动画、线稿与一般图像。可直接作为主要放大步骤使用，固定放大 2×。采用 R3 RGB 采样方案。",
       "level": "situational",
       "recommendation": "特定场景推荐",
-      "search": "RAVU\\RAVU_R3_RGB RAVU R3 RGB 放大与超分 通用 视频与插画 2× 放大。 固定 2×。R3 采样规格；RGB 重建颜色通道。作为主要缩放步骤；比较线条、彩色边缘与光晕，R 编号不代表画质排名。  HDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。 RAVU\\RAVU_R3_RGB RAVU",
+      "search": "RAVU\\RAVU_R3_RGB RAVU R3 RGB 放大与超分 通用 RAVU\\RAVU_R3_RGB RAVU 放大 2× 并重建彩色边缘，R3 RGB。 重建图像的彩色轮廓与过渡，适合动画、线稿与一般图像。可直接作为主要放大步骤使用，固定放大 2×。采用 R3 RGB 采样方案。",
       "family": {
         "id": "ravu",
         "name": "RAVU",
-        "summary": "普通／Lite 为 2×，3x 为 3×，Zoom 为自由尺寸。R 是采样规格，AR 抑制振铃，RGB 同时重建颜色通道。"
+        "summary": "普通／Lite 为 2×，3x 为 3×，Zoom 可设目标尺寸。R 表示采样规格；Lite 减少计算，AR 抑制边缘光圈，RGB 同时重建颜色通道。"
       },
       "subfamily": null
     },
@@ -2529,15 +2529,15 @@
       "purposes": [
         "upscale"
       ],
-      "summary": "视频与插画 2× 放大。",
-      "details": "固定 2×。R3 采样规格；主要重建亮度。作为主要缩放步骤；比较线条、彩色边缘与光晕，R 编号不代表画质排名。\n\nHDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。",
+      "summary": "放大 2× 并重建亮度细节，R3。",
+      "details": "沿图像边缘重建亮度细节，适合动画、线稿与一般图像。可直接作为主要放大步骤使用，固定放大 2×。采用 R3 采样方案。",
       "level": "situational",
       "recommendation": "特定场景推荐",
-      "search": "RAVU\\RAVU_R3 RAVU R3 放大与超分 通用 视频与插画 2× 放大。 固定 2×。R3 采样规格；主要重建亮度。作为主要缩放步骤；比较线条、彩色边缘与光晕，R 编号不代表画质排名。  HDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。 RAVU\\RAVU_R3 RAVU",
+      "search": "RAVU\\RAVU_R3 RAVU R3 放大与超分 通用 RAVU\\RAVU_R3 RAVU 放大 2× 并重建亮度细节，R3。 沿图像边缘重建亮度细节，适合动画、线稿与一般图像。可直接作为主要放大步骤使用，固定放大 2×。采用 R3 采样方案。",
       "family": {
         "id": "ravu",
         "name": "RAVU",
-        "summary": "普通／Lite 为 2×，3x 为 3×，Zoom 为自由尺寸。R 是采样规格，AR 抑制振铃，RGB 同时重建颜色通道。"
+        "summary": "普通／Lite 为 2×，3x 为 3×，Zoom 可设目标尺寸。R 表示采样规格；Lite 减少计算，AR 抑制边缘光圈，RGB 同时重建颜色通道。"
       },
       "subfamily": null
     },
@@ -2549,15 +2549,15 @@
       "purposes": [
         "upscale"
       ],
-      "summary": "视频与插画 2× 放大。",
-      "details": "固定 2×。R4 采样规格；RGB 重建颜色通道。作为主要缩放步骤；比较线条、彩色边缘与光晕，R 编号不代表画质排名。\n\nHDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。",
+      "summary": "放大 2× 并重建彩色边缘，R4 RGB。",
+      "details": "重建图像的彩色轮廓与过渡，适合动画、线稿与一般图像。可直接作为主要放大步骤使用，固定放大 2×。采用 R4 RGB 采样方案。",
       "level": "situational",
       "recommendation": "特定场景推荐",
-      "search": "RAVU\\RAVU_R4_RGB RAVU R4 RGB 放大与超分 通用 视频与插画 2× 放大。 固定 2×。R4 采样规格；RGB 重建颜色通道。作为主要缩放步骤；比较线条、彩色边缘与光晕，R 编号不代表画质排名。  HDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。 RAVU\\RAVU_R4_RGB RAVU",
+      "search": "RAVU\\RAVU_R4_RGB RAVU R4 RGB 放大与超分 通用 RAVU\\RAVU_R4_RGB RAVU 放大 2× 并重建彩色边缘，R4 RGB。 重建图像的彩色轮廓与过渡，适合动画、线稿与一般图像。可直接作为主要放大步骤使用，固定放大 2×。采用 R4 RGB 采样方案。",
       "family": {
         "id": "ravu",
         "name": "RAVU",
-        "summary": "普通／Lite 为 2×，3x 为 3×，Zoom 为自由尺寸。R 是采样规格，AR 抑制振铃，RGB 同时重建颜色通道。"
+        "summary": "普通／Lite 为 2×，3x 为 3×，Zoom 可设目标尺寸。R 表示采样规格；Lite 减少计算，AR 抑制边缘光圈，RGB 同时重建颜色通道。"
       },
       "subfamily": null
     },
@@ -2569,15 +2569,15 @@
       "purposes": [
         "upscale"
       ],
-      "summary": "视频与插画 2× 放大。",
-      "details": "固定 2×。R4 采样规格；主要重建亮度。作为主要缩放步骤；比较线条、彩色边缘与光晕，R 编号不代表画质排名。\n\nHDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。",
+      "summary": "放大 2× 并重建亮度细节，R4。",
+      "details": "沿图像边缘重建亮度细节，适合动画、线稿与一般图像。可直接作为主要放大步骤使用，固定放大 2×。采用 R4 采样方案。",
       "level": "situational",
       "recommendation": "特定场景推荐",
-      "search": "RAVU\\RAVU_R4 RAVU R4 放大与超分 通用 视频与插画 2× 放大。 固定 2×。R4 采样规格；主要重建亮度。作为主要缩放步骤；比较线条、彩色边缘与光晕，R 编号不代表画质排名。  HDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。 RAVU\\RAVU_R4 RAVU",
+      "search": "RAVU\\RAVU_R4 RAVU R4 放大与超分 通用 RAVU\\RAVU_R4 RAVU 放大 2× 并重建亮度细节，R4。 沿图像边缘重建亮度细节，适合动画、线稿与一般图像。可直接作为主要放大步骤使用，固定放大 2×。采用 R4 采样方案。",
       "family": {
         "id": "ravu",
         "name": "RAVU",
-        "summary": "普通／Lite 为 2×，3x 为 3×，Zoom 为自由尺寸。R 是采样规格，AR 抑制振铃，RGB 同时重建颜色通道。"
+        "summary": "普通／Lite 为 2×，3x 为 3×，Zoom 可设目标尺寸。R 表示采样规格；Lite 减少计算，AR 抑制边缘光圈，RGB 同时重建颜色通道。"
       },
       "subfamily": null
     },
@@ -2589,15 +2589,15 @@
       "purposes": [
         "upscale"
       ],
-      "summary": "视频与插画自由尺寸放大。",
-      "details": "输出尺寸由效果组设置。R2 采样规格；AR 抑制振铃；RGB 重建颜色通道。作为主要缩放步骤；比较线条、彩色边缘与光晕，R 编号不代表画质排名。\n\nHDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。",
+      "summary": "按目标尺寸放大并重建彩色边缘，AR R2 RGB。",
+      "details": "重建图像的彩色轮廓与过渡，适合动画、线稿与一般图像。同时抑制高对比边缘的明暗光圈。在效果组中设置目标尺寸，作为主要放大步骤使用。采用 AR R2 RGB 采样方案。",
       "level": "situational",
       "recommendation": "特定场景推荐",
-      "search": "RAVU\\RAVU_Zoom_AR_R2_RGB RAVU Zoom AR R2 RGB 放大与超分 通用 视频与插画自由尺寸放大。 输出尺寸由效果组设置。R2 采样规格；AR 抑制振铃；RGB 重建颜色通道。作为主要缩放步骤；比较线条、彩色边缘与光晕，R 编号不代表画质排名。  HDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。 RAVU\\RAVU_Zoom_AR_R2_RGB RAVU",
+      "search": "RAVU\\RAVU_Zoom_AR_R2_RGB RAVU Zoom AR R2 RGB 放大与超分 通用 RAVU\\RAVU_Zoom_AR_R2_RGB RAVU 按目标尺寸放大并重建彩色边缘，AR R2 RGB。 重建图像的彩色轮廓与过渡，适合动画、线稿与一般图像。同时抑制高对比边缘的明暗光圈。在效果组中设置目标尺寸，作为主要放大步骤使用。采用 AR R2 RGB 采样方案。",
       "family": {
         "id": "ravu",
         "name": "RAVU",
-        "summary": "普通／Lite 为 2×，3x 为 3×，Zoom 为自由尺寸。R 是采样规格，AR 抑制振铃，RGB 同时重建颜色通道。"
+        "summary": "普通／Lite 为 2×，3x 为 3×，Zoom 可设目标尺寸。R 表示采样规格；Lite 减少计算，AR 抑制边缘光圈，RGB 同时重建颜色通道。"
       },
       "subfamily": null
     },
@@ -2609,15 +2609,15 @@
       "purposes": [
         "upscale"
       ],
-      "summary": "视频与插画自由尺寸放大。",
-      "details": "输出尺寸由效果组设置。R2 采样规格；AR 抑制振铃；主要重建亮度。作为主要缩放步骤；比较线条、彩色边缘与光晕，R 编号不代表画质排名。\n\nHDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。",
+      "summary": "按目标尺寸放大并重建亮度细节，AR R2。",
+      "details": "沿图像边缘重建亮度细节，适合动画、线稿与一般图像。同时抑制高对比边缘的明暗光圈。在效果组中设置目标尺寸，作为主要放大步骤使用。采用 AR R2 采样方案。",
       "level": "situational",
       "recommendation": "特定场景推荐",
-      "search": "RAVU\\RAVU_Zoom_AR_R2 RAVU Zoom AR R2 放大与超分 通用 视频与插画自由尺寸放大。 输出尺寸由效果组设置。R2 采样规格；AR 抑制振铃；主要重建亮度。作为主要缩放步骤；比较线条、彩色边缘与光晕，R 编号不代表画质排名。  HDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。 RAVU\\RAVU_Zoom_AR_R2 RAVU",
+      "search": "RAVU\\RAVU_Zoom_AR_R2 RAVU Zoom AR R2 放大与超分 通用 RAVU\\RAVU_Zoom_AR_R2 RAVU 按目标尺寸放大并重建亮度细节，AR R2。 沿图像边缘重建亮度细节，适合动画、线稿与一般图像。同时抑制高对比边缘的明暗光圈。在效果组中设置目标尺寸，作为主要放大步骤使用。采用 AR R2 采样方案。",
       "family": {
         "id": "ravu",
         "name": "RAVU",
-        "summary": "普通／Lite 为 2×，3x 为 3×，Zoom 为自由尺寸。R 是采样规格，AR 抑制振铃，RGB 同时重建颜色通道。"
+        "summary": "普通／Lite 为 2×，3x 为 3×，Zoom 可设目标尺寸。R 表示采样规格；Lite 减少计算，AR 抑制边缘光圈，RGB 同时重建颜色通道。"
       },
       "subfamily": null
     },
@@ -2629,15 +2629,15 @@
       "purposes": [
         "upscale"
       ],
-      "summary": "视频与插画自由尺寸放大。",
-      "details": "输出尺寸由效果组设置。R3 采样规格；AR 抑制振铃；RGB 重建颜色通道。作为主要缩放步骤；比较线条、彩色边缘与光晕，R 编号不代表画质排名。\n\nHDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。",
+      "summary": "按目标尺寸放大并重建彩色边缘，AR R3 RGB。",
+      "details": "重建图像的彩色轮廓与过渡，适合动画、线稿与一般图像。同时抑制高对比边缘的明暗光圈。在效果组中设置目标尺寸，作为主要放大步骤使用。采用 AR R3 RGB 采样方案。",
       "level": "situational",
       "recommendation": "特定场景推荐",
-      "search": "RAVU\\RAVU_Zoom_AR_R3_RGB RAVU Zoom AR R3 RGB 放大与超分 通用 视频与插画自由尺寸放大。 输出尺寸由效果组设置。R3 采样规格；AR 抑制振铃；RGB 重建颜色通道。作为主要缩放步骤；比较线条、彩色边缘与光晕，R 编号不代表画质排名。  HDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。 RAVU\\RAVU_Zoom_AR_R3_RGB RAVU",
+      "search": "RAVU\\RAVU_Zoom_AR_R3_RGB RAVU Zoom AR R3 RGB 放大与超分 通用 RAVU\\RAVU_Zoom_AR_R3_RGB RAVU 按目标尺寸放大并重建彩色边缘，AR R3 RGB。 重建图像的彩色轮廓与过渡，适合动画、线稿与一般图像。同时抑制高对比边缘的明暗光圈。在效果组中设置目标尺寸，作为主要放大步骤使用。采用 AR R3 RGB 采样方案。",
       "family": {
         "id": "ravu",
         "name": "RAVU",
-        "summary": "普通／Lite 为 2×，3x 为 3×，Zoom 为自由尺寸。R 是采样规格，AR 抑制振铃，RGB 同时重建颜色通道。"
+        "summary": "普通／Lite 为 2×，3x 为 3×，Zoom 可设目标尺寸。R 表示采样规格；Lite 减少计算，AR 抑制边缘光圈，RGB 同时重建颜色通道。"
       },
       "subfamily": null
     },
@@ -2649,15 +2649,15 @@
       "purposes": [
         "upscale"
       ],
-      "summary": "视频与插画自由尺寸放大。",
-      "details": "输出尺寸由效果组设置。R3 采样规格；AR 抑制振铃；主要重建亮度。作为主要缩放步骤；比较线条、彩色边缘与光晕，R 编号不代表画质排名。\n\nHDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。",
+      "summary": "按目标尺寸放大并重建亮度细节，AR R3。",
+      "details": "沿图像边缘重建亮度细节，适合动画、线稿与一般图像。同时抑制高对比边缘的明暗光圈。在效果组中设置目标尺寸，作为主要放大步骤使用。采用 AR R3 采样方案。",
       "level": "situational",
       "recommendation": "特定场景推荐",
-      "search": "RAVU\\RAVU_Zoom_AR_R3 RAVU Zoom AR R3 放大与超分 通用 视频与插画自由尺寸放大。 输出尺寸由效果组设置。R3 采样规格；AR 抑制振铃；主要重建亮度。作为主要缩放步骤；比较线条、彩色边缘与光晕，R 编号不代表画质排名。  HDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。 RAVU\\RAVU_Zoom_AR_R3 RAVU",
+      "search": "RAVU\\RAVU_Zoom_AR_R3 RAVU Zoom AR R3 放大与超分 通用 RAVU\\RAVU_Zoom_AR_R3 RAVU 按目标尺寸放大并重建亮度细节，AR R3。 沿图像边缘重建亮度细节，适合动画、线稿与一般图像。同时抑制高对比边缘的明暗光圈。在效果组中设置目标尺寸，作为主要放大步骤使用。采用 AR R3 采样方案。",
       "family": {
         "id": "ravu",
         "name": "RAVU",
-        "summary": "普通／Lite 为 2×，3x 为 3×，Zoom 为自由尺寸。R 是采样规格，AR 抑制振铃，RGB 同时重建颜色通道。"
+        "summary": "普通／Lite 为 2×，3x 为 3×，Zoom 可设目标尺寸。R 表示采样规格；Lite 减少计算，AR 抑制边缘光圈，RGB 同时重建颜色通道。"
       },
       "subfamily": null
     },
@@ -2669,15 +2669,15 @@
       "purposes": [
         "upscale"
       ],
-      "summary": "视频与插画自由尺寸放大。",
-      "details": "输出尺寸由效果组设置。R2 采样规格；RGB 重建颜色通道。作为主要缩放步骤；比较线条、彩色边缘与光晕，R 编号不代表画质排名。\n\nHDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。",
+      "summary": "按目标尺寸放大并重建彩色边缘，R2 RGB。",
+      "details": "重建图像的彩色轮廓与过渡，适合动画、线稿与一般图像。在效果组中设置目标尺寸，作为主要放大步骤使用。采用 R2 RGB 采样方案。",
       "level": "situational",
       "recommendation": "特定场景推荐",
-      "search": "RAVU\\RAVU_Zoom_R2_RGB RAVU Zoom R2 RGB 放大与超分 通用 视频与插画自由尺寸放大。 输出尺寸由效果组设置。R2 采样规格；RGB 重建颜色通道。作为主要缩放步骤；比较线条、彩色边缘与光晕，R 编号不代表画质排名。  HDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。 RAVU\\RAVU_Zoom_R2_RGB RAVU",
+      "search": "RAVU\\RAVU_Zoom_R2_RGB RAVU Zoom R2 RGB 放大与超分 通用 RAVU\\RAVU_Zoom_R2_RGB RAVU 按目标尺寸放大并重建彩色边缘，R2 RGB。 重建图像的彩色轮廓与过渡，适合动画、线稿与一般图像。在效果组中设置目标尺寸，作为主要放大步骤使用。采用 R2 RGB 采样方案。",
       "family": {
         "id": "ravu",
         "name": "RAVU",
-        "summary": "普通／Lite 为 2×，3x 为 3×，Zoom 为自由尺寸。R 是采样规格，AR 抑制振铃，RGB 同时重建颜色通道。"
+        "summary": "普通／Lite 为 2×，3x 为 3×，Zoom 可设目标尺寸。R 表示采样规格；Lite 减少计算，AR 抑制边缘光圈，RGB 同时重建颜色通道。"
       },
       "subfamily": null
     },
@@ -2689,15 +2689,15 @@
       "purposes": [
         "upscale"
       ],
-      "summary": "视频与插画自由尺寸放大。",
-      "details": "输出尺寸由效果组设置。R2 采样规格；主要重建亮度。作为主要缩放步骤；比较线条、彩色边缘与光晕，R 编号不代表画质排名。\n\nHDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。",
+      "summary": "按目标尺寸放大并重建亮度细节，R2。",
+      "details": "沿图像边缘重建亮度细节，适合动画、线稿与一般图像。在效果组中设置目标尺寸，作为主要放大步骤使用。采用 R2 采样方案。",
       "level": "situational",
       "recommendation": "特定场景推荐",
-      "search": "RAVU\\RAVU_Zoom_R2 RAVU Zoom R2 放大与超分 通用 视频与插画自由尺寸放大。 输出尺寸由效果组设置。R2 采样规格；主要重建亮度。作为主要缩放步骤；比较线条、彩色边缘与光晕，R 编号不代表画质排名。  HDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。 RAVU\\RAVU_Zoom_R2 RAVU",
+      "search": "RAVU\\RAVU_Zoom_R2 RAVU Zoom R2 放大与超分 通用 RAVU\\RAVU_Zoom_R2 RAVU 按目标尺寸放大并重建亮度细节，R2。 沿图像边缘重建亮度细节，适合动画、线稿与一般图像。在效果组中设置目标尺寸，作为主要放大步骤使用。采用 R2 采样方案。",
       "family": {
         "id": "ravu",
         "name": "RAVU",
-        "summary": "普通／Lite 为 2×，3x 为 3×，Zoom 为自由尺寸。R 是采样规格，AR 抑制振铃，RGB 同时重建颜色通道。"
+        "summary": "普通／Lite 为 2×，3x 为 3×，Zoom 可设目标尺寸。R 表示采样规格；Lite 减少计算，AR 抑制边缘光圈，RGB 同时重建颜色通道。"
       },
       "subfamily": null
     },
@@ -2709,15 +2709,15 @@
       "purposes": [
         "upscale"
       ],
-      "summary": "视频与插画自由尺寸放大。",
-      "details": "输出尺寸由效果组设置。R3 采样规格；RGB 重建颜色通道。作为主要缩放步骤；比较线条、彩色边缘与光晕，R 编号不代表画质排名。\n\nHDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。",
+      "summary": "按目标尺寸放大并重建彩色边缘，R3 RGB。",
+      "details": "重建图像的彩色轮廓与过渡，适合动画、线稿与一般图像。在效果组中设置目标尺寸，作为主要放大步骤使用。采用 R3 RGB 采样方案。",
       "level": "situational",
       "recommendation": "特定场景推荐",
-      "search": "RAVU\\RAVU_Zoom_R3_RGB RAVU Zoom R3 RGB 放大与超分 通用 视频与插画自由尺寸放大。 输出尺寸由效果组设置。R3 采样规格；RGB 重建颜色通道。作为主要缩放步骤；比较线条、彩色边缘与光晕，R 编号不代表画质排名。  HDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。 RAVU\\RAVU_Zoom_R3_RGB RAVU",
+      "search": "RAVU\\RAVU_Zoom_R3_RGB RAVU Zoom R3 RGB 放大与超分 通用 RAVU\\RAVU_Zoom_R3_RGB RAVU 按目标尺寸放大并重建彩色边缘，R3 RGB。 重建图像的彩色轮廓与过渡，适合动画、线稿与一般图像。在效果组中设置目标尺寸，作为主要放大步骤使用。采用 R3 RGB 采样方案。",
       "family": {
         "id": "ravu",
         "name": "RAVU",
-        "summary": "普通／Lite 为 2×，3x 为 3×，Zoom 为自由尺寸。R 是采样规格，AR 抑制振铃，RGB 同时重建颜色通道。"
+        "summary": "普通／Lite 为 2×，3x 为 3×，Zoom 可设目标尺寸。R 表示采样规格；Lite 减少计算，AR 抑制边缘光圈，RGB 同时重建颜色通道。"
       },
       "subfamily": null
     },
@@ -2729,15 +2729,15 @@
       "purposes": [
         "upscale"
       ],
-      "summary": "视频与插画自由尺寸放大。",
-      "details": "输出尺寸由效果组设置。R3 采样规格；主要重建亮度。作为主要缩放步骤；比较线条、彩色边缘与光晕，R 编号不代表画质排名。\n\nHDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。",
+      "summary": "按目标尺寸放大并重建亮度细节，R3。",
+      "details": "沿图像边缘重建亮度细节，适合动画、线稿与一般图像。在效果组中设置目标尺寸，作为主要放大步骤使用。采用 R3 采样方案。",
       "level": "situational",
       "recommendation": "特定场景推荐",
-      "search": "RAVU\\RAVU_Zoom_R3 RAVU Zoom R3 放大与超分 通用 视频与插画自由尺寸放大。 输出尺寸由效果组设置。R3 采样规格；主要重建亮度。作为主要缩放步骤；比较线条、彩色边缘与光晕，R 编号不代表画质排名。  HDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。 RAVU\\RAVU_Zoom_R3 RAVU",
+      "search": "RAVU\\RAVU_Zoom_R3 RAVU Zoom R3 放大与超分 通用 RAVU\\RAVU_Zoom_R3 RAVU 按目标尺寸放大并重建亮度细节，R3。 沿图像边缘重建亮度细节，适合动画、线稿与一般图像。在效果组中设置目标尺寸，作为主要放大步骤使用。采用 R3 采样方案。",
       "family": {
         "id": "ravu",
         "name": "RAVU",
-        "summary": "普通／Lite 为 2×，3x 为 3×，Zoom 为自由尺寸。R 是采样规格，AR 抑制振铃，RGB 同时重建颜色通道。"
+        "summary": "普通／Lite 为 2×，3x 为 3×，Zoom 可设目标尺寸。R 表示采样规格；Lite 减少计算，AR 抑制边缘光圈，RGB 同时重建颜色通道。"
       },
       "subfamily": null
     },
@@ -2749,11 +2749,11 @@
       "purposes": [
         "upscale"
       ],
-      "summary": "单帧空间放大与细节重建。",
-      "details": "适合游戏或一般图像的空间放大。输出尺寸由效果组设置，不使用帧历史；作为主要缩放步骤，比较细线、噪声与边缘光晕。\n\nHDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。",
+      "summary": "重建当前画面的边缘与细节，实现空间放大。",
+      "details": "通过当前帧的像素信息重建放大后的细线和边缘，适合游戏与一般图像。在效果组中设置目标尺寸，可直接作为主要放大步骤使用。",
       "level": "first_try",
       "recommendation": "优先尝试",
-      "search": "SGSR SGSR 放大与超分 通用 单帧空间放大与细节重建。 适合游戏或一般图像的空间放大。输出尺寸由效果组设置，不使用帧历史；作为主要缩放步骤，比较细线、噪声与边缘光晕。  HDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。 Edge Sharpness Edge Threshold",
+      "search": "SGSR SGSR 放大与超分 通用 Edge Sharpness Edge Threshold 重建当前画面的边缘与细节，实现空间放大。 通过当前帧的像素信息重建放大后的细线和边缘，适合游戏与一般图像。在效果组中设置目标尺寸，可直接作为主要放大步骤使用。",
       "family": null,
       "subfamily": null
     },
@@ -2765,11 +2765,11 @@
       "purposes": [
         "sharpen"
       ],
-      "summary": "随局部边缘变化的自适应锐化。",
-      "details": "保持输入尺寸，通常用于缩放后的细节收尾。先从低强度尝试，留意噪声和光晕；不同锐化算法的参数数值不能直接比较。\n\nHDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。",
+      "summary": "根据局部边缘特征自适应增强清晰度。",
+      "details": "按画面不同区域的边缘特征调整锐化，适合增强缩放后偏软的纹理。保持输入尺寸，通常放在缩放后，从较低强度开始调节。",
       "level": "first_try",
       "recommendation": "优先尝试",
-      "search": "Sharpen\\AdaptiveSharpen AdaptiveSharpen 锐化细节 通用锐化 随局部边缘变化的自适应锐化。 保持输入尺寸，通常用于缩放后的细节收尾。先从低强度尝试，留意噪声和光晕；不同锐化算法的参数数值不能直接比较。  HDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。 Sharpen\\AdaptiveSharpen Sharpness",
+      "search": "Sharpen\\AdaptiveSharpen AdaptiveSharpen 锐化细节 通用锐化 Sharpen\\AdaptiveSharpen Sharpness 根据局部边缘特征自适应增强清晰度。 按画面不同区域的边缘特征调整锐化，适合增强缩放后偏软的纹理。保持输入尺寸，通常放在缩放后，从较低强度开始调节。",
       "family": null,
       "subfamily": null
     },
@@ -2781,11 +2781,11 @@
       "purposes": [
         "sharpen"
       ],
-      "summary": "多阶段细节增强与光晕控制。",
-      "details": "保持输入尺寸，适合需要细调纹理的素材。通常放在缩放后；与简单锐化相比包含更多处理步骤，请同时观察纹理、噪声和帧率。\n\nHDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。",
+      "summary": "增强细小纹理，并控制边缘光圈。",
+      "details": "通过多阶段处理增强细节，并抑制锐化带来的边缘光圈，适合需要细调纹理的图像和视频。保持输入尺寸，通常放在缩放后；先调节锐化量，再细调光圈控制。",
       "level": "situational",
       "recommendation": "特定场景推荐",
-      "search": "Sharpen\\FineSharp FineSharp 锐化细节 通用锐化 多阶段细节增强与光晕控制。 保持输入尺寸，适合需要细调纹理的素材。通常放在缩放后；与简单锐化相比包含更多处理步骤，请同时观察纹理、噪声和帧率。  HDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。 Sharpen\\FineSharp sstr cstr xstr xrep",
+      "search": "Sharpen\\FineSharp FineSharp 锐化细节 通用锐化 Sharpen\\FineSharp sstr cstr xstr xrep 增强细小纹理，并控制边缘光圈。 通过多阶段处理增强细节，并抑制锐化带来的边缘光圈，适合需要细调纹理的图像和视频。保持输入尺寸，通常放在缩放后；先调节锐化量，再细调光圈控制。",
       "family": null,
       "subfamily": null
     },
@@ -2797,11 +2797,11 @@
       "purposes": [
         "upscale"
       ],
-      "summary": "线性缩放并增强局部对比。",
-      "details": "输出尺寸由效果组设置，同时进行轻量 CAS 风格锐化。可作为主要缩放步骤，也可在保持尺寸时收尾；注意重复锐化引起的光晕。\n\nHDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。",
+      "summary": "线性缩放图像，同时增强局部对比。",
+      "details": "结合线性缩放与轻量锐化，让放大后的边缘更清楚，适合一般图像和视频。在效果组中设置目标尺寸，再调节锐度；也可保持尺寸用于细节收尾。",
       "level": "first_try",
       "recommendation": "优先尝试",
-      "search": "Sharpen\\LCAS LCAS 放大与超分 通用 线性缩放并增强局部对比。 输出尺寸由效果组设置，同时进行轻量 CAS 风格锐化。可作为主要缩放步骤，也可在保持尺寸时收尾；注意重复锐化引起的光晕。  HDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。 Sharpen\\LCAS Sharpness",
+      "search": "Sharpen\\LCAS LCAS 放大与超分 通用 Sharpen\\LCAS Sharpness 线性缩放图像，同时增强局部对比。 结合线性缩放与轻量锐化，让放大后的边缘更清楚，适合一般图像和视频。在效果组中设置目标尺寸，再调节锐度；也可保持尺寸用于细节收尾。",
       "family": null,
       "subfamily": null
     },
@@ -2813,11 +2813,11 @@
       "purposes": [
         "sharpen"
       ],
-      "summary": "在亮度通道增强边缘细节。",
-      "details": "保持输入尺寸，通常放在缩放后。强度和限制参数共同影响锐化结果；逐步调节，比较文字边缘、噪声和光晕。\n\nHDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。",
+      "summary": "通过亮度变化增强画面边缘与纹理。",
+      "details": "在亮度通道增强局部细节，适合为偏软的图像与视频收尾。保持输入尺寸，通常放在缩放后；用强度调整清晰程度，用限制参数控制锐化幅度。",
       "level": "first_try",
       "recommendation": "优先尝试",
-      "search": "Sharpen\\LumaSharpen LumaSharpen 锐化细节 通用锐化 在亮度通道增强边缘细节。 保持输入尺寸，通常放在缩放后。强度和限制参数共同影响锐化结果；逐步调节，比较文字边缘、噪声和光晕。  HDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。 Sharpen\\LumaSharpen Sharpening Strength Sharpening Limit Sample Pattern Offset Bias",
+      "search": "Sharpen\\LumaSharpen LumaSharpen 锐化细节 通用锐化 Sharpen\\LumaSharpen Sharpening Strength Sharpening Limit Sample Pattern Offset Bias 通过亮度变化增强画面边缘与纹理。 在亮度通道增强局部细节，适合为偏软的图像与视频收尾。保持输入尺寸，通常放在缩放后；用强度调整清晰程度，用限制参数控制锐化幅度。",
       "family": null,
       "subfamily": null
     },
@@ -2829,15 +2829,15 @@
       "purposes": [
         "antialiasing"
       ],
-      "summary": "SMAA 4x 时序近似抗锯齿。",
-      "details": "保持输入尺寸。4x 利用捕获帧历史，不等同游戏内集成。包含额外采样抖动，检查细线闪烁与文字稳定性。重点比较运动重影、遮挡和切屏后的恢复。避免重复叠加抗锯齿。\n\nHDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。",
+      "summary": "结合连续帧平滑锯齿，SMAA 4x。",
+      "details": "结合当前画面与帧历史平滑物体边缘，适合游戏中的细线与斜线抗锯齿，保持输入尺寸。本项通过额外采样抖动获取边缘信息。采用实验性时序处理，运动边缘可能产生重影。",
       "level": "advanced",
       "recommendation": "进阶／实验",
-      "search": "SMAA\\SMAA_4x_Experimental SMAA 4x Experimental 抗锯齿 时序 SMAA 4x 时序近似抗锯齿。 保持输入尺寸。4x 利用捕获帧历史，不等同游戏内集成。包含额外采样抖动，检查细线闪烁与文字稳定性。重点比较运动重影、遮挡和切屏后的恢复。避免重复叠加抗锯齿。  HDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。 SMAA\\SMAA_4x_Experimental History weight History rejection SMAA",
+      "search": "SMAA\\SMAA_4x_Experimental SMAA 4x Experimental 抗锯齿 时序 SMAA\\SMAA_4x_Experimental History weight History rejection SMAA 结合连续帧平滑锯齿，SMAA 4x。 结合当前画面与帧历史平滑物体边缘，适合游戏中的细线与斜线抗锯齿，保持输入尺寸。本项通过额外采样抖动获取边缘信息。采用实验性时序处理，运动边缘可能产生重影。",
       "family": {
         "id": "smaa",
         "name": "SMAA",
-        "summary": "Low～Ultra 是空间预设；T2x／4x 使用捕获帧历史，NoJitter 去掉额外采样抖动。时序变体需检查重影。"
+        "summary": "Low～Ultra 对当前帧做边缘搜索；T2x／4x 结合帧历史。NoJitter 取消额外采样抖动并保留时序处理，适合希望保持采样位置稳定时尝试。"
       },
       "subfamily": null
     },
@@ -2849,15 +2849,15 @@
       "purposes": [
         "antialiasing"
       ],
-      "summary": "SMAA 4x 时序近似抗锯齿。",
-      "details": "保持输入尺寸。4x 利用捕获帧历史，不等同游戏内集成。NoJitter 去掉额外采样抖动；仍会使用帧历史，并非空间版本。重点比较运动重影、遮挡和切屏后的恢复。避免重复叠加抗锯齿。\n\nHDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。",
+      "summary": "结合连续帧平滑锯齿，SMAA 4x 无额外采样抖动。",
+      "details": "结合当前画面与帧历史平滑物体边缘，适合游戏中的细线与斜线抗锯齿，保持输入尺寸。本项取消额外采样抖动，继续使用帧历史。采用实验性时序处理，运动边缘可能产生重影。",
       "level": "advanced",
       "recommendation": "进阶／实验",
-      "search": "SMAA\\SMAA_4x_NoJitter_Experimental SMAA 4x NoJitter Experimental 抗锯齿 时序 SMAA 4x 时序近似抗锯齿。 保持输入尺寸。4x 利用捕获帧历史，不等同游戏内集成。NoJitter 去掉额外采样抖动；仍会使用帧历史，并非空间版本。重点比较运动重影、遮挡和切屏后的恢复。避免重复叠加抗锯齿。  HDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。 SMAA\\SMAA_4x_NoJitter_Experimental History weight History rejection SMAA",
+      "search": "SMAA\\SMAA_4x_NoJitter_Experimental SMAA 4x NoJitter Experimental 抗锯齿 时序 SMAA\\SMAA_4x_NoJitter_Experimental History weight History rejection SMAA 结合连续帧平滑锯齿，SMAA 4x 无额外采样抖动。 结合当前画面与帧历史平滑物体边缘，适合游戏中的细线与斜线抗锯齿，保持输入尺寸。本项取消额外采样抖动，继续使用帧历史。采用实验性时序处理，运动边缘可能产生重影。",
       "family": {
         "id": "smaa",
         "name": "SMAA",
-        "summary": "Low～Ultra 是空间预设；T2x／4x 使用捕获帧历史，NoJitter 去掉额外采样抖动。时序变体需检查重影。"
+        "summary": "Low～Ultra 对当前帧做边缘搜索；T2x／4x 结合帧历史。NoJitter 取消额外采样抖动并保留时序处理，适合希望保持采样位置稳定时尝试。"
       },
       "subfamily": null
     },
@@ -2869,15 +2869,15 @@
       "purposes": [
         "antialiasing"
       ],
-      "summary": "SMAA High 空间抗锯齿。",
-      "details": "保持输入尺寸。High 是空间搜索预设，不使用帧历史；与其他档位比较边缘平滑度与细节保留。避免重复叠加抗锯齿。\n\nHDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。",
+      "summary": "平滑当前画面的锯齿，SMAA High 预设。",
+      "details": "识别并平滑当前帧的阶梯状边缘，适合游戏和 3D 画面的抗锯齿，保持输入尺寸。本项采用 High 边缘搜索预设，可直接用于需要平滑轮廓的图像。",
       "level": "first_try",
       "recommendation": "优先尝试",
-      "search": "SMAA\\SMAA_High SMAA High 抗锯齿 空间 SMAA High 空间抗锯齿。 保持输入尺寸。High 是空间搜索预设，不使用帧历史；与其他档位比较边缘平滑度与细节保留。避免重复叠加抗锯齿。  HDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。 SMAA\\SMAA_High SMAA",
+      "search": "SMAA\\SMAA_High SMAA High 抗锯齿 空间 SMAA\\SMAA_High SMAA 平滑当前画面的锯齿，SMAA High 预设。 识别并平滑当前帧的阶梯状边缘，适合游戏和 3D 画面的抗锯齿，保持输入尺寸。本项采用 High 边缘搜索预设，可直接用于需要平滑轮廓的图像。",
       "family": {
         "id": "smaa",
         "name": "SMAA",
-        "summary": "Low～Ultra 是空间预设；T2x／4x 使用捕获帧历史，NoJitter 去掉额外采样抖动。时序变体需检查重影。"
+        "summary": "Low～Ultra 对当前帧做边缘搜索；T2x／4x 结合帧历史。NoJitter 取消额外采样抖动并保留时序处理，适合希望保持采样位置稳定时尝试。"
       },
       "subfamily": null
     },
@@ -2889,15 +2889,15 @@
       "purposes": [
         "antialiasing"
       ],
-      "summary": "SMAA Low 空间抗锯齿。",
-      "details": "保持输入尺寸。Low 是空间搜索预设，不使用帧历史；与其他档位比较边缘平滑度与细节保留。避免重复叠加抗锯齿。\n\nHDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。",
+      "summary": "平滑当前画面的锯齿，SMAA Low 预设。",
+      "details": "识别并平滑当前帧的阶梯状边缘，适合游戏和 3D 画面的抗锯齿，保持输入尺寸。本项采用 Low 边缘搜索预设，可直接用于需要平滑轮廓的图像。",
       "level": "situational",
       "recommendation": "特定场景推荐",
-      "search": "SMAA\\SMAA_Low SMAA Low 抗锯齿 空间 SMAA Low 空间抗锯齿。 保持输入尺寸。Low 是空间搜索预设，不使用帧历史；与其他档位比较边缘平滑度与细节保留。避免重复叠加抗锯齿。  HDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。 SMAA\\SMAA_Low SMAA",
+      "search": "SMAA\\SMAA_Low SMAA Low 抗锯齿 空间 SMAA\\SMAA_Low SMAA 平滑当前画面的锯齿，SMAA Low 预设。 识别并平滑当前帧的阶梯状边缘，适合游戏和 3D 画面的抗锯齿，保持输入尺寸。本项采用 Low 边缘搜索预设，可直接用于需要平滑轮廓的图像。",
       "family": {
         "id": "smaa",
         "name": "SMAA",
-        "summary": "Low～Ultra 是空间预设；T2x／4x 使用捕获帧历史，NoJitter 去掉额外采样抖动。时序变体需检查重影。"
+        "summary": "Low～Ultra 对当前帧做边缘搜索；T2x／4x 结合帧历史。NoJitter 取消额外采样抖动并保留时序处理，适合希望保持采样位置稳定时尝试。"
       },
       "subfamily": null
     },
@@ -2909,15 +2909,15 @@
       "purposes": [
         "antialiasing"
       ],
-      "summary": "SMAA Medium 空间抗锯齿。",
-      "details": "保持输入尺寸。Medium 是空间搜索预设，不使用帧历史；与其他档位比较边缘平滑度与细节保留。避免重复叠加抗锯齿。\n\nHDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。",
+      "summary": "平滑当前画面的锯齿，SMAA Medium 预设。",
+      "details": "识别并平滑当前帧的阶梯状边缘，适合游戏和 3D 画面的抗锯齿，保持输入尺寸。本项采用 Medium 边缘搜索预设，可直接用于需要平滑轮廓的图像。",
       "level": "situational",
       "recommendation": "特定场景推荐",
-      "search": "SMAA\\SMAA_Medium SMAA Medium 抗锯齿 空间 SMAA Medium 空间抗锯齿。 保持输入尺寸。Medium 是空间搜索预设，不使用帧历史；与其他档位比较边缘平滑度与细节保留。避免重复叠加抗锯齿。  HDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。 SMAA\\SMAA_Medium SMAA",
+      "search": "SMAA\\SMAA_Medium SMAA Medium 抗锯齿 空间 SMAA\\SMAA_Medium SMAA 平滑当前画面的锯齿，SMAA Medium 预设。 识别并平滑当前帧的阶梯状边缘，适合游戏和 3D 画面的抗锯齿，保持输入尺寸。本项采用 Medium 边缘搜索预设，可直接用于需要平滑轮廓的图像。",
       "family": {
         "id": "smaa",
         "name": "SMAA",
-        "summary": "Low～Ultra 是空间预设；T2x／4x 使用捕获帧历史，NoJitter 去掉额外采样抖动。时序变体需检查重影。"
+        "summary": "Low～Ultra 对当前帧做边缘搜索；T2x／4x 结合帧历史。NoJitter 取消额外采样抖动并保留时序处理，适合希望保持采样位置稳定时尝试。"
       },
       "subfamily": null
     },
@@ -2929,15 +2929,15 @@
       "purposes": [
         "antialiasing"
       ],
-      "summary": "SMAA T2x 时序近似抗锯齿。",
-      "details": "保持输入尺寸。T2x 利用捕获帧历史，不等同游戏内集成。包含额外采样抖动，检查细线闪烁与文字稳定性。重点比较运动重影、遮挡和切屏后的恢复。避免重复叠加抗锯齿。\n\nHDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。",
+      "summary": "结合连续帧平滑锯齿，SMAA T2x。",
+      "details": "结合当前画面与帧历史平滑物体边缘，适合游戏中的细线与斜线抗锯齿，保持输入尺寸。本项通过额外采样抖动获取边缘信息。采用实验性时序处理，运动边缘可能产生重影。",
       "level": "advanced",
       "recommendation": "进阶／实验",
-      "search": "SMAA\\SMAA_T2x_Experimental SMAA T2x Experimental 抗锯齿 时序 SMAA T2x 时序近似抗锯齿。 保持输入尺寸。T2x 利用捕获帧历史，不等同游戏内集成。包含额外采样抖动，检查细线闪烁与文字稳定性。重点比较运动重影、遮挡和切屏后的恢复。避免重复叠加抗锯齿。  HDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。 SMAA\\SMAA_T2x_Experimental History weight History rejection SMAA",
+      "search": "SMAA\\SMAA_T2x_Experimental SMAA T2x Experimental 抗锯齿 时序 SMAA\\SMAA_T2x_Experimental History weight History rejection SMAA 结合连续帧平滑锯齿，SMAA T2x。 结合当前画面与帧历史平滑物体边缘，适合游戏中的细线与斜线抗锯齿，保持输入尺寸。本项通过额外采样抖动获取边缘信息。采用实验性时序处理，运动边缘可能产生重影。",
       "family": {
         "id": "smaa",
         "name": "SMAA",
-        "summary": "Low～Ultra 是空间预设；T2x／4x 使用捕获帧历史，NoJitter 去掉额外采样抖动。时序变体需检查重影。"
+        "summary": "Low～Ultra 对当前帧做边缘搜索；T2x／4x 结合帧历史。NoJitter 取消额外采样抖动并保留时序处理，适合希望保持采样位置稳定时尝试。"
       },
       "subfamily": null
     },
@@ -2949,15 +2949,15 @@
       "purposes": [
         "antialiasing"
       ],
-      "summary": "SMAA T2x 时序近似抗锯齿。",
-      "details": "保持输入尺寸。T2x 利用捕获帧历史，不等同游戏内集成。NoJitter 去掉额外采样抖动；仍会使用帧历史，并非空间版本。重点比较运动重影、遮挡和切屏后的恢复。避免重复叠加抗锯齿。\n\nHDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。",
+      "summary": "结合连续帧平滑锯齿，SMAA T2x 无额外采样抖动。",
+      "details": "结合当前画面与帧历史平滑物体边缘，适合游戏中的细线与斜线抗锯齿，保持输入尺寸。本项取消额外采样抖动，继续使用帧历史。采用实验性时序处理，运动边缘可能产生重影。",
       "level": "advanced",
       "recommendation": "进阶／实验",
-      "search": "SMAA\\SMAA_T2x_NoJitter_Experimental SMAA T2x NoJitter Experimental 抗锯齿 时序 SMAA T2x 时序近似抗锯齿。 保持输入尺寸。T2x 利用捕获帧历史，不等同游戏内集成。NoJitter 去掉额外采样抖动；仍会使用帧历史，并非空间版本。重点比较运动重影、遮挡和切屏后的恢复。避免重复叠加抗锯齿。  HDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。 SMAA\\SMAA_T2x_NoJitter_Experimental History weight History rejection SMAA",
+      "search": "SMAA\\SMAA_T2x_NoJitter_Experimental SMAA T2x NoJitter Experimental 抗锯齿 时序 SMAA\\SMAA_T2x_NoJitter_Experimental History weight History rejection SMAA 结合连续帧平滑锯齿，SMAA T2x 无额外采样抖动。 结合当前画面与帧历史平滑物体边缘，适合游戏中的细线与斜线抗锯齿，保持输入尺寸。本项取消额外采样抖动，继续使用帧历史。采用实验性时序处理，运动边缘可能产生重影。",
       "family": {
         "id": "smaa",
         "name": "SMAA",
-        "summary": "Low～Ultra 是空间预设；T2x／4x 使用捕获帧历史，NoJitter 去掉额外采样抖动。时序变体需检查重影。"
+        "summary": "Low～Ultra 对当前帧做边缘搜索；T2x／4x 结合帧历史。NoJitter 取消额外采样抖动并保留时序处理，适合希望保持采样位置稳定时尝试。"
       },
       "subfamily": null
     },
@@ -2969,15 +2969,15 @@
       "purposes": [
         "antialiasing"
       ],
-      "summary": "SMAA Ultra 空间抗锯齿。",
-      "details": "保持输入尺寸。Ultra 是空间搜索预设，不使用帧历史；与其他档位比较边缘平滑度与细节保留。避免重复叠加抗锯齿。\n\nHDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。",
+      "summary": "平滑当前画面的锯齿，SMAA Ultra 预设。",
+      "details": "识别并平滑当前帧的阶梯状边缘，适合游戏和 3D 画面的抗锯齿，保持输入尺寸。本项采用 Ultra 边缘搜索预设，可直接用于需要平滑轮廓的图像。",
       "level": "situational",
       "recommendation": "特定场景推荐",
-      "search": "SMAA\\SMAA_Ultra SMAA Ultra 抗锯齿 空间 SMAA Ultra 空间抗锯齿。 保持输入尺寸。Ultra 是空间搜索预设，不使用帧历史；与其他档位比较边缘平滑度与细节保留。避免重复叠加抗锯齿。  HDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。 SMAA\\SMAA_Ultra SMAA",
+      "search": "SMAA\\SMAA_Ultra SMAA Ultra 抗锯齿 空间 SMAA\\SMAA_Ultra SMAA 平滑当前画面的锯齿，SMAA Ultra 预设。 识别并平滑当前帧的阶梯状边缘，适合游戏和 3D 画面的抗锯齿，保持输入尺寸。本项采用 Ultra 边缘搜索预设，可直接用于需要平滑轮廓的图像。",
       "family": {
         "id": "smaa",
         "name": "SMAA",
-        "summary": "Low～Ultra 是空间预设；T2x／4x 使用捕获帧历史，NoJitter 去掉额外采样抖动。时序变体需检查重影。"
+        "summary": "Low～Ultra 对当前帧做边缘搜索；T2x／4x 结合帧历史。NoJitter 取消额外采样抖动并保留时序处理，适合希望保持采样位置稳定时尝试。"
       },
       "subfamily": null
     },
@@ -2989,11 +2989,11 @@
       "purposes": [
         "upscale"
       ],
-      "summary": "面向缩小的感知重采样。",
-      "details": "用于输出小于输入的场景，或固定倍率放大后整理最终尺寸。先缩小再做必要锐化；Oversharp 增大可能带来光晕，多阶段处理会增加开销。\n\nHDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。",
+      "summary": "缩小图像，保留细节与局部对比。",
+      "details": "在降低分辨率时重采样细节与对比，适合高分辨率图像缩小或放大后的尺寸整理。在效果组中设置较小的输出尺寸，再按需调整 Oversharp 以改变锐利程度。",
       "level": "situational",
       "recommendation": "特定场景推荐",
-      "search": "SSimDownscaler SSimDownscaler 放大与超分 缩小与尺寸整理 面向缩小的感知重采样。 用于输出小于输入的场景，或固定倍率放大后整理最终尺寸。先缩小再做必要锐化；Oversharp 增大可能带来光晕，多阶段处理会增加开销。  HDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。 Oversharp",
+      "search": "SSimDownscaler SSimDownscaler 放大与超分 缩小与尺寸整理 Oversharp 缩小图像，保留细节与局部对比。 在降低分辨率时重采样细节与对比，适合高分辨率图像缩小或放大后的尺寸整理。在效果组中设置较小的输出尺寸，再按需调整 Oversharp 以改变锐利程度。",
       "family": null,
       "subfamily": null
     },
@@ -3005,15 +3005,15 @@
       "purposes": [
         "upscale"
       ],
-      "summary": "xBR 2× 像素画边缘平滑。",
-      "details": "固定 2×，LV2 混合版本，会改变部分边缘颜色。可调颜色差异、边缘系数与小细节保护；作为主要缩放步骤，请与最近邻比较原作轮廓。HDR 会经过 SDR 兼容转换，请检查颜色。",
+      "summary": "像素画 2× 放大，平滑斜线与轮廓。",
+      "details": "识别像素画中的斜线和边缘，通过颜色混合平滑轮廓，适合复古游戏与像素插画。固定放大 2×，可直接作为主要放大步骤；小细节保护用于保留孤立像素和细线。",
       "level": "situational",
       "recommendation": "特定场景推荐",
-      "search": "xBR\\xBR_2x xBR 2x 放大与超分 像素画 xBR 2× 像素画边缘平滑。 固定 2×，LV2 混合版本，会改变部分边缘颜色。可调颜色差异、边缘系数与小细节保护；作为主要缩放步骤，请与最近邻比较原作轮廓。HDR 会经过 SDR 兼容转换，请检查颜色。 xBR\\xBR_2x Y Weight Eq Threshold Lv2 Coefficient Preserve Small Details xBR",
+      "search": "xBR\\xBR_2x xBR 2x 放大与超分 像素画 xBR\\xBR_2x Y Weight Eq Threshold Lv2 Coefficient Preserve Small Details xBR 像素画 2× 放大，平滑斜线与轮廓。 识别像素画中的斜线和边缘，通过颜色混合平滑轮廓，适合复古游戏与像素插画。固定放大 2×，可直接作为主要放大步骤；小细节保护用于保留孤立像素和细线。",
       "family": {
         "id": "xbr",
         "name": "xBR",
-        "summary": "平滑像素画轮廓：LV2 为 2×～4×；NoBlend 3× 保留输入调色板；Hybrid 2× 用于已抗锯齿的 SDR 素材。"
+        "summary": "平滑像素画轮廓。LV2 提供 2×～4×；NoBlend 3× 保留收到的 SDR 调色板；Hybrid 2× 处理已有抗锯齿的 SDR 素材，HDR 时采用最近邻放大。"
       },
       "subfamily": null
     },
@@ -3025,15 +3025,15 @@
       "purposes": [
         "upscale"
       ],
-      "summary": "xBR 3× 像素画边缘平滑。",
-      "details": "固定 3×，LV2 混合版本，会改变部分边缘颜色。可调颜色差异、边缘系数与小细节保护；作为主要缩放步骤，请与最近邻比较原作轮廓。HDR 会经过 SDR 兼容转换，请检查颜色。",
+      "summary": "像素画 3× 放大，平滑斜线与轮廓。",
+      "details": "识别像素画中的斜线和边缘，通过颜色混合平滑轮廓，适合复古游戏与像素插画。固定放大 3×，可直接作为主要放大步骤；小细节保护用于保留孤立像素和细线。",
       "level": "situational",
       "recommendation": "特定场景推荐",
-      "search": "xBR\\xBR_3x xBR 3x 放大与超分 像素画 xBR 3× 像素画边缘平滑。 固定 3×，LV2 混合版本，会改变部分边缘颜色。可调颜色差异、边缘系数与小细节保护；作为主要缩放步骤，请与最近邻比较原作轮廓。HDR 会经过 SDR 兼容转换，请检查颜色。 xBR\\xBR_3x Y Weight Eq Threshold Lv2 Coefficient Preserve Small Details xBR",
+      "search": "xBR\\xBR_3x xBR 3x 放大与超分 像素画 xBR\\xBR_3x Y Weight Eq Threshold Lv2 Coefficient Preserve Small Details xBR 像素画 3× 放大，平滑斜线与轮廓。 识别像素画中的斜线和边缘，通过颜色混合平滑轮廓，适合复古游戏与像素插画。固定放大 3×，可直接作为主要放大步骤；小细节保护用于保留孤立像素和细线。",
       "family": {
         "id": "xbr",
         "name": "xBR",
-        "summary": "平滑像素画轮廓：LV2 为 2×～4×；NoBlend 3× 保留输入调色板；Hybrid 2× 用于已抗锯齿的 SDR 素材。"
+        "summary": "平滑像素画轮廓。LV2 提供 2×～4×；NoBlend 3× 保留收到的 SDR 调色板；Hybrid 2× 处理已有抗锯齿的 SDR 素材，HDR 时采用最近邻放大。"
       },
       "subfamily": null
     },
@@ -3045,15 +3045,15 @@
       "purposes": [
         "upscale"
       ],
-      "summary": "xBR 4× 像素画边缘平滑。",
-      "details": "固定 4×，LV2 混合版本，会改变部分边缘颜色。可调颜色差异、边缘系数与小细节保护；作为主要缩放步骤，请与最近邻比较原作轮廓。HDR 会经过 SDR 兼容转换，请检查颜色。",
+      "summary": "像素画 4× 放大，平滑斜线与轮廓。",
+      "details": "识别像素画中的斜线和边缘，通过颜色混合平滑轮廓，适合复古游戏与像素插画。固定放大 4×，可直接作为主要放大步骤；小细节保护用于保留孤立像素和细线。",
       "level": "situational",
       "recommendation": "特定场景推荐",
-      "search": "xBR\\xBR_4x xBR 4x 放大与超分 像素画 xBR 4× 像素画边缘平滑。 固定 4×，LV2 混合版本，会改变部分边缘颜色。可调颜色差异、边缘系数与小细节保护；作为主要缩放步骤，请与最近邻比较原作轮廓。HDR 会经过 SDR 兼容转换，请检查颜色。 xBR\\xBR_4x Y Weight Eq Threshold Lv2 Coefficient Preserve Small Details xBR",
+      "search": "xBR\\xBR_4x xBR 4x 放大与超分 像素画 xBR\\xBR_4x Y Weight Eq Threshold Lv2 Coefficient Preserve Small Details xBR 像素画 4× 放大，平滑斜线与轮廓。 识别像素画中的斜线和边缘，通过颜色混合平滑轮廓，适合复古游戏与像素插画。固定放大 4×，可直接作为主要放大步骤；小细节保护用于保留孤立像素和细线。",
       "family": {
         "id": "xbr",
         "name": "xBR",
-        "summary": "平滑像素画轮廓：LV2 为 2×～4×；NoBlend 3× 保留输入调色板；Hybrid 2× 用于已抗锯齿的 SDR 素材。"
+        "summary": "平滑像素画轮廓。LV2 提供 2×～4×；NoBlend 3× 保留收到的 SDR 调色板；Hybrid 2× 处理已有抗锯齿的 SDR 素材，HDR 时采用最近邻放大。"
       },
       "subfamily": null
     },
@@ -3065,15 +3065,15 @@
       "purposes": [
         "upscale"
       ],
-      "summary": "保留输入调色板的 xBR 3× 放大。",
-      "details": "固定 3×，不混合生成新颜色，适合像素图和有限调色板素材。仅可调 Lv2 边缘系数；作为主要缩放步骤。HDR 转换会改变输入颜色，调色板保持仅指本项收到的 SDR 颜色。",
+      "summary": "像素画 3× 放大，保留输入调色板。",
+      "details": "沿像素画轮廓选择已有颜色，形成更连贯的斜线，适合有限调色板游戏与图像。固定放大 3×，可通过边缘系数调整轮廓判定。保留的调色板以收到的 SDR 颜色为准。",
       "level": "situational",
       "recommendation": "特定场景推荐",
-      "search": "xBR\\xBR_NoBlend_3x xBR NoBlend 3x 放大与超分 像素画 保留输入调色板的 xBR 3× 放大。 固定 3×，不混合生成新颜色，适合像素图和有限调色板素材。仅可调 Lv2 边缘系数；作为主要缩放步骤。HDR 转换会改变输入颜色，调色板保持仅指本项收到的 SDR 颜色。 xBR\\xBR_NoBlend_3x Lv2 Coefficient xBR",
+      "search": "xBR\\xBR_NoBlend_3x xBR NoBlend 3x 放大与超分 像素画 xBR\\xBR_NoBlend_3x Lv2 Coefficient xBR 像素画 3× 放大，保留输入调色板。 沿像素画轮廓选择已有颜色，形成更连贯的斜线，适合有限调色板游戏与图像。固定放大 3×，可通过边缘系数调整轮廓判定。保留的调色板以收到的 SDR 颜色为准。",
       "family": {
         "id": "xbr",
         "name": "xBR",
-        "summary": "平滑像素画轮廓：LV2 为 2×～4×；NoBlend 3× 保留输入调色板；Hybrid 2× 用于已抗锯齿的 SDR 素材。"
+        "summary": "平滑像素画轮廓。LV2 提供 2×～4×；NoBlend 3× 保留收到的 SDR 调色板；Hybrid 2× 处理已有抗锯齿的 SDR 素材，HDR 时采用最近邻放大。"
       },
       "subfamily": null
     },
@@ -3085,15 +3085,15 @@
       "purposes": [
         "upscale"
       ],
-      "summary": "已抗锯齿像素画的 2× 混合放大。",
-      "details": "固定 2×，组合 Reverse-AA 与 xBR，用于已抗锯齿的 SDR 素材。HDR 兼容模式仅回退为最近邻 2×，不执行 Hybrid 重建。作为主要缩放步骤，比较线条和文字。",
+      "summary": "为已抗锯齿的 SDR 像素画重建轮廓，放大 2×。",
+      "details": "重建已有平滑边缘的像素画轮廓，再放大为 2×，适合经过抗锯齿处理的 SDR 游戏与图像。可直接作为主要放大步骤使用。HDR 兼容模式改用最近邻 2× 放大。",
       "level": "situational",
       "recommendation": "特定场景推荐",
-      "search": "xBR\\xBR_Hybrid_2x xBR Hybrid 2x 放大与超分 像素画 已抗锯齿像素画的 2× 混合放大。 固定 2×，组合 Reverse-AA 与 xBR，用于已抗锯齿的 SDR 素材。HDR 兼容模式仅回退为最近邻 2×，不执行 Hybrid 重建。作为主要缩放步骤，比较线条和文字。 xBR\\xBR_Hybrid_2x xBR",
+      "search": "xBR\\xBR_Hybrid_2x xBR Hybrid 2x 放大与超分 像素画 xBR\\xBR_Hybrid_2x xBR 为已抗锯齿的 SDR 像素画重建轮廓，放大 2×。 重建已有平滑边缘的像素画轮廓，再放大为 2×，适合经过抗锯齿处理的 SDR 游戏与图像。可直接作为主要放大步骤使用。HDR 兼容模式改用最近邻 2× 放大。",
       "family": {
         "id": "xbr",
         "name": "xBR",
-        "summary": "平滑像素画轮廓：LV2 为 2×～4×；NoBlend 3× 保留输入调色板；Hybrid 2× 用于已抗锯齿的 SDR 素材。"
+        "summary": "平滑像素画轮廓。LV2 提供 2×～4×；NoBlend 3× 保留收到的 SDR 调色板；Hybrid 2× 处理已有抗锯齿的 SDR 素材，HDR 时采用最近邻放大。"
       },
       "subfamily": null
     },
@@ -3105,15 +3105,15 @@
       "purposes": [
         "upscale"
       ],
-      "summary": "xBRZ 2× 像素画轮廓平滑。",
-      "details": "固定 2×，倍率越高输出像素越多。适合希望平滑斜线的像素画；作为主要缩放步骤。会改变像素网格，请与最近邻比较轮廓和颜色。\n\nHDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。",
+      "summary": "平滑像素画轮廓，固定放大 2×。",
+      "details": "重建像素画中的斜线、曲线与色块边缘，适合希望获得平滑轮廓的复古游戏和图像。固定放大 2×，可直接作为主要放大步骤使用。",
       "level": "situational",
       "recommendation": "特定场景推荐",
-      "search": "xBRZ\\xBRZ_2x xBRZ 2x 放大与超分 像素画 xBRZ 2× 像素画轮廓平滑。 固定 2×，倍率越高输出像素越多。适合希望平滑斜线的像素画；作为主要缩放步骤。会改变像素网格，请与最近邻比较轮廓和颜色。  HDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。 xBRZ\\xBRZ_2x xBRZ",
+      "search": "xBRZ\\xBRZ_2x xBRZ 2x 放大与超分 像素画 xBRZ\\xBRZ_2x xBRZ 平滑像素画轮廓，固定放大 2×。 重建像素画中的斜线、曲线与色块边缘，适合希望获得平滑轮廓的复古游戏和图像。固定放大 2×，可直接作为主要放大步骤使用。",
       "family": {
         "id": "xbrz",
         "name": "xBRZ",
-        "summary": "2×～6× 为固定整数倍率，Freescale 可设置目标尺寸。平滑轮廓会改变像素网格，请与最近邻比较。"
+        "summary": "平滑像素画的斜线与曲线。2×～6× 为固定倍率，Freescale 用于将画面适配到目标尺寸。"
       },
       "subfamily": null
     },
@@ -3125,15 +3125,15 @@
       "purposes": [
         "upscale"
       ],
-      "summary": "xBRZ 3× 像素画轮廓平滑。",
-      "details": "固定 3×，倍率越高输出像素越多。适合希望平滑斜线的像素画；作为主要缩放步骤。会改变像素网格，请与最近邻比较轮廓和颜色。\n\nHDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。",
+      "summary": "平滑像素画轮廓，固定放大 3×。",
+      "details": "重建像素画中的斜线、曲线与色块边缘，适合希望获得平滑轮廓的复古游戏和图像。固定放大 3×，可直接作为主要放大步骤使用。",
       "level": "situational",
       "recommendation": "特定场景推荐",
-      "search": "xBRZ\\xBRZ_3x xBRZ 3x 放大与超分 像素画 xBRZ 3× 像素画轮廓平滑。 固定 3×，倍率越高输出像素越多。适合希望平滑斜线的像素画；作为主要缩放步骤。会改变像素网格，请与最近邻比较轮廓和颜色。  HDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。 xBRZ\\xBRZ_3x xBRZ",
+      "search": "xBRZ\\xBRZ_3x xBRZ 3x 放大与超分 像素画 xBRZ\\xBRZ_3x xBRZ 平滑像素画轮廓，固定放大 3×。 重建像素画中的斜线、曲线与色块边缘，适合希望获得平滑轮廓的复古游戏和图像。固定放大 3×，可直接作为主要放大步骤使用。",
       "family": {
         "id": "xbrz",
         "name": "xBRZ",
-        "summary": "2×～6× 为固定整数倍率，Freescale 可设置目标尺寸。平滑轮廓会改变像素网格，请与最近邻比较。"
+        "summary": "平滑像素画的斜线与曲线。2×～6× 为固定倍率，Freescale 用于将画面适配到目标尺寸。"
       },
       "subfamily": null
     },
@@ -3145,15 +3145,15 @@
       "purposes": [
         "upscale"
       ],
-      "summary": "xBRZ 4× 像素画轮廓平滑。",
-      "details": "固定 4×，倍率越高输出像素越多。适合希望平滑斜线的像素画；作为主要缩放步骤。会改变像素网格，请与最近邻比较轮廓和颜色。\n\nHDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。",
+      "summary": "平滑像素画轮廓，固定放大 4×。",
+      "details": "重建像素画中的斜线、曲线与色块边缘，适合希望获得平滑轮廓的复古游戏和图像。固定放大 4×，可直接作为主要放大步骤使用。",
       "level": "situational",
       "recommendation": "特定场景推荐",
-      "search": "xBRZ\\xBRZ_4x xBRZ 4x 放大与超分 像素画 xBRZ 4× 像素画轮廓平滑。 固定 4×，倍率越高输出像素越多。适合希望平滑斜线的像素画；作为主要缩放步骤。会改变像素网格，请与最近邻比较轮廓和颜色。  HDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。 xBRZ\\xBRZ_4x xBRZ",
+      "search": "xBRZ\\xBRZ_4x xBRZ 4x 放大与超分 像素画 xBRZ\\xBRZ_4x xBRZ 平滑像素画轮廓，固定放大 4×。 重建像素画中的斜线、曲线与色块边缘，适合希望获得平滑轮廓的复古游戏和图像。固定放大 4×，可直接作为主要放大步骤使用。",
       "family": {
         "id": "xbrz",
         "name": "xBRZ",
-        "summary": "2×～6× 为固定整数倍率，Freescale 可设置目标尺寸。平滑轮廓会改变像素网格，请与最近邻比较。"
+        "summary": "平滑像素画的斜线与曲线。2×～6× 为固定倍率，Freescale 用于将画面适配到目标尺寸。"
       },
       "subfamily": null
     },
@@ -3165,15 +3165,15 @@
       "purposes": [
         "upscale"
       ],
-      "summary": "xBRZ 5× 像素画轮廓平滑。",
-      "details": "固定 5×，倍率越高输出像素越多。适合希望平滑斜线的像素画；作为主要缩放步骤。会改变像素网格，请与最近邻比较轮廓和颜色。\n\nHDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。",
+      "summary": "平滑像素画轮廓，固定放大 5×。",
+      "details": "重建像素画中的斜线、曲线与色块边缘，适合希望获得平滑轮廓的复古游戏和图像。固定放大 5×，可直接作为主要放大步骤使用。",
       "level": "situational",
       "recommendation": "特定场景推荐",
-      "search": "xBRZ\\xBRZ_5x xBRZ 5x 放大与超分 像素画 xBRZ 5× 像素画轮廓平滑。 固定 5×，倍率越高输出像素越多。适合希望平滑斜线的像素画；作为主要缩放步骤。会改变像素网格，请与最近邻比较轮廓和颜色。  HDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。 xBRZ\\xBRZ_5x xBRZ",
+      "search": "xBRZ\\xBRZ_5x xBRZ 5x 放大与超分 像素画 xBRZ\\xBRZ_5x xBRZ 平滑像素画轮廓，固定放大 5×。 重建像素画中的斜线、曲线与色块边缘，适合希望获得平滑轮廓的复古游戏和图像。固定放大 5×，可直接作为主要放大步骤使用。",
       "family": {
         "id": "xbrz",
         "name": "xBRZ",
-        "summary": "2×～6× 为固定整数倍率，Freescale 可设置目标尺寸。平滑轮廓会改变像素网格，请与最近邻比较。"
+        "summary": "平滑像素画的斜线与曲线。2×～6× 为固定倍率，Freescale 用于将画面适配到目标尺寸。"
       },
       "subfamily": null
     },
@@ -3185,15 +3185,15 @@
       "purposes": [
         "upscale"
       ],
-      "summary": "xBRZ 6× 像素画轮廓平滑。",
-      "details": "固定 6×，倍率越高输出像素越多。适合希望平滑斜线的像素画；作为主要缩放步骤。会改变像素网格，请与最近邻比较轮廓和颜色。\n\nHDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。",
+      "summary": "平滑像素画轮廓，固定放大 6×。",
+      "details": "重建像素画中的斜线、曲线与色块边缘，适合希望获得平滑轮廓的复古游戏和图像。固定放大 6×，可直接作为主要放大步骤使用。",
       "level": "situational",
       "recommendation": "特定场景推荐",
-      "search": "xBRZ\\xBRZ_6x xBRZ 6x 放大与超分 像素画 xBRZ 6× 像素画轮廓平滑。 固定 6×，倍率越高输出像素越多。适合希望平滑斜线的像素画；作为主要缩放步骤。会改变像素网格，请与最近邻比较轮廓和颜色。  HDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。 xBRZ\\xBRZ_6x xBRZ",
+      "search": "xBRZ\\xBRZ_6x xBRZ 6x 放大与超分 像素画 xBRZ\\xBRZ_6x xBRZ 平滑像素画轮廓，固定放大 6×。 重建像素画中的斜线、曲线与色块边缘，适合希望获得平滑轮廓的复古游戏和图像。固定放大 6×，可直接作为主要放大步骤使用。",
       "family": {
         "id": "xbrz",
         "name": "xBRZ",
-        "summary": "2×～6× 为固定整数倍率，Freescale 可设置目标尺寸。平滑轮廓会改变像素网格，请与最近邻比较。"
+        "summary": "平滑像素画的斜线与曲线。2×～6× 为固定倍率，Freescale 用于将画面适配到目标尺寸。"
       },
       "subfamily": null
     },
@@ -3205,15 +3205,15 @@
       "purposes": [
         "upscale"
       ],
-      "summary": "自由尺寸的 xBRZ 像素画放大。",
-      "details": "输出尺寸由效果组设置，自由倍率包含额外尺寸整理。适合希望平滑斜线的像素画；作为主要缩放步骤。会改变像素网格，请与最近邻比较轮廓和颜色。\n\nHDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。",
+      "summary": "平滑像素画轮廓，按目标尺寸放大。",
+      "details": "重建像素画中的斜线、曲线与色块边缘，适合希望获得平滑轮廓的复古游戏和图像。在效果组中设置目标尺寸，放大后会进一步整理到该尺寸。",
       "level": "situational",
       "recommendation": "特定场景推荐",
-      "search": "xBRZ\\xBRZ_Freescale xBRZ Freescale 放大与超分 像素画 自由尺寸的 xBRZ 像素画放大。 输出尺寸由效果组设置，自由倍率包含额外尺寸整理。适合希望平滑斜线的像素画；作为主要缩放步骤。会改变像素网格，请与最近邻比较轮廓和颜色。  HDR 下使用 SDR 兼容转换，请比较高光、颜色与渐变。 xBRZ\\xBRZ_Freescale xBRZ",
+      "search": "xBRZ\\xBRZ_Freescale xBRZ Freescale 放大与超分 像素画 xBRZ\\xBRZ_Freescale xBRZ 平滑像素画轮廓，按目标尺寸放大。 重建像素画中的斜线、曲线与色块边缘，适合希望获得平滑轮廓的复古游戏和图像。在效果组中设置目标尺寸，放大后会进一步整理到该尺寸。",
       "family": {
         "id": "xbrz",
         "name": "xBRZ",
-        "summary": "2×～6× 为固定整数倍率，Freescale 可设置目标尺寸。平滑轮廓会改变像素网格，请与最近邻比较。"
+        "summary": "平滑像素画的斜线与曲线。2×～6× 为固定倍率，Freescale 用于将画面适配到目标尺寸。"
       },
       "subfamily": null
     },
@@ -3225,31 +3225,31 @@
       "purposes": [
         "upscale"
       ],
-      "summary": "XeSS 时序超分，利用连续帧放大。",
-      "details": "每轴支持 1×～3× 放大，需要可用的 XeSS 运行库和受支持显卡。\n\n作为主要放大步骤，再做少量锐化。运动由捕获图像估计，没有游戏内真实深度，效果不同于游戏内集成；请比较快速运动、遮挡和 HUD。\n\n光流方式与质量影响计算开销；修改后需重新缩放。HDR 下请比较高光与颜色。",
+      "summary": "XeSS 时序超分，结合连续帧重建放大细节。",
+      "details": "结合当前画面与帧历史重建细节，适合游戏和连续视频的放大。在效果组中设置放大尺寸，可通过光流选项加入从捕获画面估计的运动信息。每轴支持 1×～3×，需要受支持的渲染 GPU 与配套 XeSS 运行库。",
       "level": "advanced",
       "recommendation": "进阶／实验",
-      "search": "XeSS\\XeSS_SR XeSS SR 放大与超分 时序重建 XeSS 时序超分，利用连续帧放大。 每轴支持 1×～3× 放大，需要可用的 XeSS 运行库和受支持显卡。  作为主要放大步骤，再做少量锐化。运动由捕获图像估计，没有游戏内真实深度，效果不同于游戏内集成；请比较快速运动、遮挡和 HUD。  光流方式与质量影响计算开销；修改后需重新缩放。HDR 下请比较高光与颜色。 XeSS\\XeSS_SR Optical Flow Method OF Quality OF Quality",
+      "search": "XeSS\\XeSS_SR XeSS SR 放大与超分 时序重建 XeSS\\XeSS_SR Optical Flow Method OF Quality OF Quality XeSS 时序超分，结合连续帧重建放大细节。 结合当前画面与帧历史重建细节，适合游戏和连续视频的放大。在效果组中设置放大尺寸，可通过光流选项加入从捕获画面估计的运动信息。每轴支持 1×～3×，需要受支持的渲染 GPU 与配套 XeSS 运行库。",
       "family": null,
       "subfamily": null
     },
     {
       "id": "XeSSFG\\XeSS_FrameGeneration",
-      "name": "XeSS_FrameGeneration",
+      "name": "XeSS FrameGeneration",
       "category": "frame",
       "subcategory": "补帧",
       "purposes": [
         "frame"
       ],
-      "summary": "XeSS 补帧，可选 2×～4×。",
-      "details": "默认 2×、AMD 光流、质量。需要随附的 XeSSFG 运行库和受支持显卡；一个效果组只使用一个补帧器。\n\n非 Intel 显卡的 3×／4× 使用本项目实验兼容路径，需匹配的随附运行库；不代表 Intel 官方多帧支持。3×／4× 可选无光流或 AMD 光流，NVIDIA 光流目前用于 2×。\n\n基础帧率在“帧率与刷新”中设置。补帧在图像处理后执行，列表位置不改变阶段；不会提高游戏逻辑帧率。检查运动、遮挡、HUD、光标和 HDR 颜色。倍率与光流修改需重新缩放。",
+      "summary": "为游戏与视频补帧，可选 2×～4× 倍率。",
+      "details": "在连续画面之间生成中间帧，让运动呈现更连贯，保持画面尺寸。可从默认 2×、AMD 光流质量档开始。需要受支持的渲染 GPU 与配套运行库；非 Intel 显卡的 3×／4× 使用本项目实验兼容路径。",
       "level": "advanced",
       "recommendation": "进阶／实验",
-      "search": "XeSSFG\\XeSS_FrameGeneration XeSS_FrameGeneration 补帧与帧率 补帧 XeSS 补帧，可选 2×～4×。 默认 2×、AMD 光流、质量。需要随附的 XeSSFG 运行库和受支持显卡；一个效果组只使用一个补帧器。  非 Intel 显卡的 3×／4× 使用本项目实验兼容路径，需匹配的随附运行库；不代表 Intel 官方多帧支持。3×／4× 可选无光流或 AMD 光流，NVIDIA 光流目前用于 2×。  基础帧率在“帧率与刷新”中设置。补帧在图像处理后执行，列表位置不改变阶段；不会提高游戏逻辑帧率。检查运动、遮挡、HUD、光标和 HDR 颜色。倍率与光流修改需重新缩放。 XeSSFG\\XeSS_FrameGeneration XeSSFG\\XeSS_FrameGeneration_x2_ZeroMV XeSSFG\\XeSS_MultiFrameGeneration_ZeroMV Frame Multiplier Duplicate Frame Filtering Optical Flow Method OF Quality OF Quality XeSS Frame Generation",
+      "search": "XeSSFG\\XeSS_FrameGeneration XeSS FrameGeneration XeSSFG\\XeSS_FrameGeneration_x2_ZeroMV XeSSFG\\XeSS_MultiFrameGeneration_ZeroMV XeSS Frame Generation 为游戏与视频补帧，可选 2×～4× 倍率。 在连续画面之间生成中间帧，让运动呈现更连贯，保持画面尺寸。可从默认 2×、AMD 光流质量档开始。需要受支持的渲染 GPU 与配套运行库；非 Intel 显卡的 3×／4× 使用本项目实验兼容路径。",
       "family": {
         "id": "xessfg",
         "name": "XeSS Frame Generation",
-        "summary": "生成 2×～4× 显示帧，可选光流。非 Intel 显卡的 3×／4× 使用本项目实验兼容路径。"
+        "summary": "为连续画面生成 2×～4× 显示帧。可从默认 2×、AMD 光流开始；非 Intel 显卡的 3×／4× 使用本项目实验兼容路径。"
       },
       "subfamily": null
     },
@@ -3261,27 +3261,28 @@
       "purposes": [
         "cleanup"
       ],
-      "summary": "AI 视频降噪，四档处理强度。",
-      "details": "适合颗粒或压缩噪声明显的视频，保持输入尺寸；通常在放大前处理。Low／Medium／High／Ultra 是处理档位，先从默认 Medium 比较纹理与噪声。\n\n需要受支持的 NVIDIA RTX 显卡、驱动与随附 Video Effects 运行库。强度越高不一定越适合素材；HDR 会经过 SDR 兼容映射与量化，请检查高光和颜色。强度可实时切换；模型准备可能暂时增加开销。",
+      "summary": "用 AI 减轻视频颗粒与压缩噪声。",
+      "details": "清理视频中的颗粒和压缩噪声，保持输入尺寸，适合在放大前使用。可从默认的中档开始，处理档位可实时切换。需要受支持的 NVIDIA RTX 渲染 GPU、驱动与配套 Video Effects 运行库。",
       "level": "situational",
       "recommendation": "特定场景推荐",
-      "search": "RTXVideo\\RTXVideo_Denoise RTXVideo_Denoise 清理修复 降噪 AI 视频降噪，四档处理强度。 适合颗粒或压缩噪声明显的视频，保持输入尺寸；通常在放大前处理。Low／Medium／High／Ultra 是处理档位，先从默认 Medium 比较纹理与噪声。  需要受支持的 NVIDIA RTX 显卡、驱动与随附 Video Effects 运行库。强度越高不一定越适合素材；HDR 会经过 SDR 兼容映射与量化，请检查高光和颜色。强度可实时切换；模型准备可能暂时增加开销。 RTXVideo\\RTXVideo_Denoise RTXVideo\\RTXVideo_Denoise_High RTXVideo\\RTXVideo_Denoise_Low RTXVideo\\RTXVideo_Denoise_Medium RTXVideo\\RTXVideo_Denoise_Ultra Strength",
+      "search": "RTXVideo\\RTXVideo_Denoise RTXVideo_Denoise 清理修复 降噪 RTXVideo\\RTXVideo_Denoise RTXVideo\\RTXVideo_Denoise_High RTXVideo\\RTXVideo_Denoise_Low RTXVideo\\RTXVideo_Denoise_Medium RTXVideo\\RTXVideo_Denoise_Ultra Strength 用 AI 减轻视频颗粒与压缩噪声。 清理视频中的颗粒和压缩噪声，保持输入尺寸，适合在放大前使用。可从默认的中档开始，处理档位可实时切换。需要受支持的 NVIDIA RTX 渲染 GPU、驱动与配套 Video Effects 运行库。",
       "family": null,
       "subfamily": null
     },
     {
       "id": "RTXVideo\\RTXVideo_VSR",
-      "name": "RTXVideo_VSR",
+      "name": "Nvidia VFX VSR",
       "category": "upscale",
       "subcategory": "通用",
       "purposes": [
-        "upscale"
+        "upscale",
+        "cleanup"
       ],
-      "summary": "AI 视频放大，四档处理强度。",
-      "details": "适合视频与串流内容的放大，输出尺寸由效果组设置。Low／Medium／High／Ultra 是处理档位，先从默认 Medium 比较纹理与噪声。\n\n需要受支持的 NVIDIA RTX 显卡、驱动与随附 Video Effects 运行库。强度越高不一定越适合素材；HDR 会经过 SDR 兼容映射与量化，请检查高光和颜色。强度可实时切换；模型准备可能暂时增加开销。",
+      "summary": "AI 视频增强，可放大、降噪或去模糊。",
+      "details": "增强视频画面的清晰度，适合视频播放与串流内容。先按素材选择放大、降噪或去模糊分类，再调节质量档位；降噪和去模糊保持输入尺寸。需要受支持的 NVIDIA 渲染 GPU 与配套 VFX 运行库，流媒体分类需 Ampere 及更新架构。",
       "level": "situational",
       "recommendation": "特定场景推荐",
-      "search": "RTXVideo\\RTXVideo_VSR RTXVideo_VSR 放大与超分 通用 AI 视频放大，四档处理强度。 适合视频与串流内容的放大，输出尺寸由效果组设置。Low／Medium／High／Ultra 是处理档位，先从默认 Medium 比较纹理与噪声。  需要受支持的 NVIDIA RTX 显卡、驱动与随附 Video Effects 运行库。强度越高不一定越适合素材；HDR 会经过 SDR 兼容映射与量化，请检查高光和颜色。强度可实时切换；模型准备可能暂时增加开销。 RTXVideo\\RTXVideo_VSR RTXVideo\\RTXVideo_VSR_High RTXVideo\\RTXVideo_VSR_Low RTXVideo\\RTXVideo_VSR_Medium RTXVideo\\RTXVideo_VSR_Ultra Strength",
+      "search": "RTXVideo\\RTXVideo_VSR RTXVideo_VSR RTX Video VSR RTXVideo_VSR RTX Video Denoise RTXVideo_Denoise RTXVideo\\RTXVideo_VSR_Low RTXVideo\\RTXVideo_VSR_Medium RTXVideo\\RTXVideo_VSR_High RTXVideo\\RTXVideo_VSR_Ultra RTXVideo\\RTXVideo_Denoise_Low RTXVideo\\RTXVideo_Denoise_Medium RTXVideo\\RTXVideo_Denoise_High RTXVideo\\RTXVideo_Denoise_Ultra category Category Standard High bitrate Streaming Denoise Deblur strength Quality level Low Medium High Ultra Nvidia VFX VSR 放大与超分 通用 AI 视频增强，可放大、降噪或去模糊。 增强视频画面的清晰度，适合视频播放与串流内容。先按素材选择放大、降噪或去模糊分类，再调节质量档位；降噪和去模糊保持输入尺寸。需要受支持的 NVIDIA 渲染 GPU 与配套 VFX 运行库，流媒体分类需 Ampere 及更新架构。",
       "family": null,
       "subfamily": null
     },
@@ -3293,11 +3294,11 @@
       "purposes": [
         "hdr-components"
       ],
-      "summary": "将 HDR 映射到 SDR 处理或显示。",
-      "details": "保持输入尺寸，放在需要 SDR 输入的效果之前。兼容配对模式预留高光范围，后面的 SDR → HDR 自动沿用配对参数；SDR 显示模式用于直接观看。\n\n源应用所在屏幕需开启 Windows HDR，并使用 Graphics Capture。配对中间画面与普通 SDR 不同；量化、裁切和处理可能损失高光与颜色，恢复不保证无损。参数修改需重新缩放。",
+      "summary": "将 HDR 亮度映射为 SDR，供处理或观看。",
+      "details": "压缩 HDR 的亮度范围，保持输入尺寸。直接观看可选 SDR 显示模式；交给 SDR 效果处理后再恢复 HDR，可选兼容配对模式，并在该段后放置 SDR → HDR。源屏幕须开启 Windows HDR，捕获方式须为 Graphics Capture。",
       "level": "advanced",
       "recommendation": "进阶／实验",
-      "search": "Color\\HDR_to_SDR HDR → SDR HDR 组件  将 HDR 映射到 SDR 处理或显示。 保持输入尺寸，放在需要 SDR 输入的效果之前。兼容配对模式预留高光范围，后面的 SDR → HDR 自动沿用配对参数；SDR 显示模式用于直接观看。  源应用所在屏幕需开启 Windows HDR，并使用 Graphics Capture。配对中间画面与普通 SDR 不同；量化、裁切和处理可能损失高光与颜色，恢复不保证无损。参数修改需重新缩放。 Color\\HDR_to_SDR Mapping SDR white (nits) HDR peak (nits) Exposure Shoulder",
+      "search": "Color\\HDR_to_SDR HDR → SDR HDR 组件 Color\\HDR_to_SDR Mapping SDR white (nits) HDR peak (nits) Exposure Shoulder 将 HDR 亮度映射为 SDR，供处理或观看。 压缩 HDR 的亮度范围，保持输入尺寸。直接观看可选 SDR 显示模式；交给 SDR 效果处理后再恢复 HDR，可选兼容配对模式，并在该段后放置 SDR → HDR。源屏幕须开启 Windows HDR，捕获方式须为 Graphics Capture。",
       "family": null,
       "subfamily": null
     },
@@ -3309,27 +3310,75 @@
       "purposes": [
         "hdr-components"
       ],
-      "summary": "恢复兼容映射，或映射 SDR 白点。",
-      "details": "保持输入尺寸，放在 SDR 效果段之后。自动模式优先恢复上游 HDR → SDR 的兼容映射；没有配对时，将 SDR 白色映射到设定亮度。\n\n配对恢复使用上游参数，本项白点与曝光仅用于原生 SDR 映射。输出屏幕需开启 Windows HDR；普通白点映射不会生成原素材没有的高光细节。参数修改需重新缩放。",
+      "summary": "将 SDR 映射到 HDR，或恢复上游兼容映射。",
+      "details": "将 SDR 白色映射到指定的 HDR 亮度，适合在 HDR 屏幕上呈现 SDR 内容，保持输入尺寸。自动模式也会恢复上游 HDR → SDR 的兼容配对；此时放在 SDR 处理段之后。输出屏幕须开启 Windows HDR。",
       "level": "advanced",
       "recommendation": "进阶／实验",
-      "search": "Color\\SDR_to_HDR SDR → HDR HDR 组件  恢复兼容映射，或映射 SDR 白点。 保持输入尺寸，放在 SDR 效果段之后。自动模式优先恢复上游 HDR → SDR 的兼容映射；没有配对时，将 SDR 白色映射到设定亮度。  配对恢复使用上游参数，本项白点与曝光仅用于原生 SDR 映射。输出屏幕需开启 Windows HDR；普通白点映射不会生成原素材没有的高光细节。参数修改需重新缩放。 Color\\SDR_to_HDR Mapping Native SDR white (nits) Native SDR exposure",
+      "search": "Color\\SDR_to_HDR SDR → HDR nativeWhiteNits Native SDR white brightness Legacy exposure 将 SDR 映射到 HDR，或恢复上游兼容映射。 将 SDR 白色映射到指定的 HDR 亮度，适合在 HDR 屏幕上呈现 SDR 内容，保持输入尺寸。自动模式也会恢复上游 HDR → SDR 的兼容配对；此时放在 SDR 处理段之后。输出屏幕须开启 Windows HDR。",
       "family": null,
       "subfamily": null
     },
     {
       "id": "RTXVideo\\RTXVideo_HDR",
-      "name": "RTX Video HDR",
+      "name": "Nvidia VFX TrueHDR",
       "category": "hdr-components",
       "subcategory": "",
       "purposes": [
         "hdr-components"
       ],
-      "summary": "通过 NVIDIA AI 将 SDR 扩展为 HDR。",
-      "details": "保持输入尺寸，放在 SDR 效果段之后；HDR 输入先用 HDR → SDR。AI 会重新塑造亮度与颜色，不代表恢复原始 HDR。\n\n需要受支持的 NVIDIA RTX 显卡、驱动与随附 RTX Video HDR 运行库，输出屏幕需开启 Windows HDR。按显示器设置峰值亮度，再比较对比度、饱和度和中间灰。四项参数可实时调整；开销随分辨率和显卡变化。",
+      "summary": "用 AI 将 SDR 画面扩展为 HDR 亮度与颜色。",
+      "details": "重新塑造 SDR 画面的亮度和颜色，适合在 HDR 屏幕上观看视频与游戏，保持画面尺寸。先按显示器能力设置峰值亮度，再调节对比度与饱和度。需要 SDR 输入、受支持的 NVIDIA 渲染 GPU 与配套 VFX 运行库，输出屏幕须开启 Windows HDR。",
       "level": "situational",
       "recommendation": "特定场景推荐",
-      "search": "RTXVideo\\RTXVideo_HDR RTX Video HDR HDR 组件  通过 NVIDIA AI 将 SDR 扩展为 HDR。 保持输入尺寸，放在 SDR 效果段之后；HDR 输入先用 HDR → SDR。AI 会重新塑造亮度与颜色，不代表恢复原始 HDR。  需要受支持的 NVIDIA RTX 显卡、驱动与随附 RTX Video HDR 运行库，输出屏幕需开启 Windows HDR。按显示器设置峰值亮度，再比较对比度、饱和度和中间灰。四项参数可实时调整；开销随分辨率和显卡变化。 RTXVideo\\RTXVideo_HDR Contrast Saturation Middle gray Peak brightness (nits)",
+      "search": "RTXVideo\\RTXVideo_HDR RTXVideo_HDR RTX Video HDR RTXVideo_HDR TrueHDR contrast Contrast saturation Saturation middleGray Middle gray peakNits Peak brightness (nits) debanding Debanding Nvidia VFX TrueHDR HDR 组件 用 AI 将 SDR 画面扩展为 HDR 亮度与颜色。 重新塑造 SDR 画面的亮度和颜色，适合在 HDR 屏幕上观看视频与游戏，保持画面尺寸。先按显示器能力设置峰值亮度，再调节对比度与饱和度。需要 SDR 输入、受支持的 NVIDIA 渲染 GPU 与配套 VFX 运行库，输出屏幕须开启 Windows HDR。",
+      "family": null,
+      "subfamily": null
+    },
+    {
+      "id": "NvidiaVFX\\Upscale",
+      "name": "Nvidia VFX Upscale",
+      "category": "upscale",
+      "subcategory": "通用",
+      "purposes": [
+        "upscale"
+      ],
+      "summary": "放大视频画面，并调节边缘清晰度。",
+      "details": "适合视频播放和串流画面的放大。可选择固定倍率，或自动适配目标尺寸；通过锐化强度调整画面的清晰程度。需要受支持的 NVIDIA 渲染 GPU 与配套 VFX 运行库。",
+      "level": "advanced",
+      "recommendation": "进阶／实验",
+      "search": "NvidiaVFX\\Upscale Upscale sharpness Sharpness Nvidia VFX Upscale 放大与超分 通用 放大视频画面，并调节边缘清晰度。 适合视频播放和串流画面的放大。可选择固定倍率，或自动适配目标尺寸；通过锐化强度调整画面的清晰程度。需要受支持的 NVIDIA 渲染 GPU 与配套 VFX 运行库。",
+      "family": null,
+      "subfamily": null
+    },
+    {
+      "id": "NvidiaVFX\\VFG",
+      "name": "Nvidia VFX VFG",
+      "category": "frame",
+      "subcategory": "补帧",
+      "purposes": [
+        "frame"
+      ],
+      "summary": "在视频帧之间补帧，提供 2×～8× 帧数倍率。",
+      "details": "为连续视频画面生成中间帧，让运动呈现更连贯，保持画面尺寸。可从 2×、均衡模型开始，再按处理余量调整倍率。处理 SDR 输入；需要 Windows x64、Ada／Blackwell 架构的 NVIDIA 渲染 GPU 与配套 VFX 运行库。",
+      "level": "advanced",
+      "recommendation": "进阶／实验",
+      "search": "NvidiaVFX\\VFG VFG multiplier Frame multiplier model Model Performance Balanced automaticShotDetection Automatic shot detection Nvidia VFX VFG 补帧与帧率 补帧 在视频帧之间补帧，提供 2×～8× 帧数倍率。 为连续视频画面生成中间帧，让运动呈现更连贯，保持画面尺寸。可从 2×、均衡模型开始，再按处理余量调整倍率。处理 SDR 输入；需要 Windows x64、Ada／Blackwell 架构的 NVIDIA 渲染 GPU 与配套 VFX 运行库。",
+      "family": null,
+      "subfamily": null
+    },
+    {
+      "id": "FSR3FG\\FSR3_FrameGeneration",
+      "name": "FSR3 FrameGeneration",
+      "category": "frame",
+      "subcategory": "补帧",
+      "purposes": [
+        "frame"
+      ],
+      "summary": "生成中间帧，让 SDR 画面以固定 2× 倍率补帧。",
+      "details": "在连续画面之间生成中间帧，适合改善游戏和视频的运动连贯性，保持画面尺寸。从默认 AMDOF 质量档开始，按处理余量调整光流质量。实验性功能，需支持该功能的 x64 程序、渲染 GPU 与配套运行库；仅支持 SDR 及已适配的效果组合，画面须完整位于输出区域内。",
+      "level": "advanced",
+      "recommendation": "进阶／实验",
+      "search": "FSR3FG\\FSR3_FrameGeneration FSR3_FrameGeneration FSR3FG FSR 3 FG FSR3_FrameGeneration AMD FidelityFX opticalFlowMethod Optical Flow Method 1 AMDOF 2 NVOF amdOpticalFlowMode OF Quality 0 Performance 1 Quality nvidiaOpticalFlowQuality OF Quality 1 Performance 2 Balanced (Recommended) 3 Quality 4 High Quality (High Cost) 5 Highest Quality (Very High Cost) FSR3 FrameGeneration 补帧与帧率 补帧 生成中间帧，让 SDR 画面以固定 2× 倍率补帧。 在连续画面之间生成中间帧，适合改善游戏和视频的运动连贯性，保持画面尺寸。从默认 AMDOF 质量档开始，按处理余量调整光流质量。实验性功能，需支持该功能的 x64 程序、渲染 GPU 与配套运行库；仅支持 SDR 及已适配的效果组合，画面须完整位于输出区域内。",
       "family": null,
       "subfamily": null
     }

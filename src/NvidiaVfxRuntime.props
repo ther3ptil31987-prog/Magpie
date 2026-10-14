@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <!-- Canonical allowlist for the four-feature 1.3.0.0 Windows x64 suite.
+       Full is a private-validation layout; Minimal still contains all features. -->
+  <PropertyGroup>
+    <NvidiaVfxRuntimePackageVersion>1.3.0.0</NvidiaVfxRuntimePackageVersion>
+  </PropertyGroup>
+  <ItemGroup Condition="$(EnableNvidiaVfx) And '$(Platform)' == 'x64'">
+    <NvidiaVfxRuntimeFile Include="$(VFXRuntimeDir)\NVVideoEffects.dll">
+      <SdkRelativePath>bin/NVVideoEffects.dll</SdkRelativePath><Role>Core</Role>
+      <SHA256>2FAB7E1C13EF28C2AB8F14D9DFACB5062B7B74374035AF7466C58458922EC1BE</SHA256>
+    </NvidiaVfxRuntimeFile>
+    <NvidiaVfxRuntimeFile Include="$(VFXRuntimeDir)\NVCVImage.dll">
+      <SdkRelativePath>bin/NVCVImage.dll</SdkRelativePath><Role>Core</Role>
+      <SHA256>AFD9B7AD335D78663126B315C50C2A8820C474CE6DEBEDA414DD633ACEAD949D</SHA256>
+    </NvidiaVfxRuntimeFile>
+    <NvidiaVfxRuntimeFile Include="$(VFXRuntimeDir)\cudart64_12.dll">
+      <SdkRelativePath>bin/cudart64_12.dll</SdkRelativePath><Role>Core</Role>
+      <SHA256>F5FB39DAB8D8C5E7CF7E6E9B12EC1D27E4A6505A6BCE28DD34AA1E9A26B4D9E3</SHA256>
+    </NvidiaVfxRuntimeFile>
+    <NvidiaVfxRuntimeFile Include="$(VFXRuntimeDir)\nvngxruntime.dll">
+      <SdkRelativePath>bin/nvngxruntime.dll</SdkRelativePath><Role>Core</Role>
+      <SHA256>531878E1C60CE10171CCC4F56BF87060CD5D34ED93A00B198A5FFFE04EA42FB5</SHA256>
+    </NvidiaVfxRuntimeFile>
+    <NvidiaVfxRuntimeFile Include="$(VFXSdkDir)\features\nvvfxupscale\bin\nvVFXUpscale.dll">
+      <SdkRelativePath>features/nvvfxupscale/bin/nvVFXUpscale.dll</SdkRelativePath><Role>Upscale</Role>
+      <SHA256>55B32C685D2A42350B55D8DFD1D58F715FE002A35F44E9CCEE370260D9B698ED</SHA256>
+    </NvidiaVfxRuntimeFile>
+    <NvidiaVfxRuntimeFile Include="$(VFXSdkDir)\features\nvvfxvideosuperres\bin\nvVFXVideoSuperRes.dll">
+      <SdkRelativePath>features/nvvfxvideosuperres/bin/nvVFXVideoSuperRes.dll</SdkRelativePath><Role>VSR</Role>
+      <SHA256>5BA6AC2A933C3CCE56DD202A1780023E405EA57BDC32B85BC7787D44B08C0B3D</SHA256>
+    </NvidiaVfxRuntimeFile>
+    <NvidiaVfxRuntimeFile Include="$(VFXSdkDir)\features\nvvfxvideosuperres\bin\nvngx_vsr.dll">
+      <SdkRelativePath>features/nvvfxvideosuperres/bin/nvngx_vsr.dll</SdkRelativePath><Role>VSR</Role>
+      <SHA256>3ED97A8F5DD0AFD5CEB9E98B3FA9A868A134F74103B3747E9765595606C3F509</SHA256>
+    </NvidiaVfxRuntimeFile>
+    <NvidiaVfxRuntimeFile Include="$(VFXSdkDir)\features\nvvfxvideoframegeneration\bin\nvVFXVideoFrameGeneration.dll">
+      <SdkRelativePath>features/nvvfxvideoframegeneration/bin/nvVFXVideoFrameGeneration.dll</SdkRelativePath><Role>VFG</Role>
+      <SHA256>F803E891E75B1A1D9D4A42C0FFFC208FA48953E6E135CE9493E935BC0044FC97</SHA256>
+    </NvidiaVfxRuntimeFile>
+    <NvidiaVfxRuntimeFile Include="$(VFXSdkDir)\features\nvvfxtruehdr\bin\nvVFXTrueHDR.dll">
+      <SdkRelativePath>features/nvvfxtruehdr/bin/nvVFXTrueHDR.dll</SdkRelativePath><Role>TrueHDR</Role>
+      <SHA256>B762C5DAEC5F3CD85EC78A34CE1985212FCE86828A01316106BAE62DC1D6097D</SHA256>
+    </NvidiaVfxRuntimeFile>
+    <NvidiaVfxRuntimeFile Include="$(VFXSdkDir)\features\nvvfxtruehdr\bin\nvngx_truehdr.dll">
+      <SdkRelativePath>features/nvvfxtruehdr/bin/nvngx_truehdr.dll</SdkRelativePath><Role>TrueHDR</Role>
+      <SHA256>AEDDF0387D7F440C2BD4634D2E496065DB17D590B222CE4DDCA26015E96CC7CD</SHA256>
+    </NvidiaVfxRuntimeFile>
+    <NvidiaVfxExcludedCoreName Include="cublas64_12.dll;cublasLt64_12.dll;nvinfer_10.dll;nvinfer_plugin_10.dll;nvonnxparser_10.dll;nvrtc64_120_0.dll;nvrtc-builtins64_128.dll;nppc64_12.dll;nppial64_12.dll;nppicc64_12.dll;nppidei64_12.dll;nppif64_12.dll;nppig64_12.dll;nppim64_12.dll;nppist64_12.dll;nppitc64_12.dll;libcrypto-3-x64.dll" />
+  </ItemGroup>
+  <ItemGroup>
+    <NvidiaVfxLicenseFile Include="NVIDIA-Open-Model-License-Agreements-24-10-2025.pdf"><SHA256>4D2FB590AA9B30C47F2058BFF17291DF7FA2AA0C1BD775A20703DA9BB267CFAB</SHA256></NvidiaVfxLicenseFile>
+    <NvidiaVfxLicenseFile Include="NVIDIA-Software-License-Agreement-2025.05.05.pdf"><SHA256>887D7381EED7CD2E6D9FBFA9C9BBDA4E32DF20BF506CFF79DC5C8DAE20CCC531</SHA256></NvidiaVfxLicenseFile>
+    <NvidiaVfxLicenseFile Include="product-specific-terms-for-nvidia-ai-products-2025.05.05.pdf"><SHA256>5C755AB1145DEB6CE422C2D376F4C3ADB55DA9F6F2492F35E6D4759E7E3E5499</SHA256></NvidiaVfxLicenseFile>
+    <NvidiaVfxLicenseFile Include="ThirdPartyLicenses.txt"><SHA256>207B323C79C8D73A1570378597B77DD6CE15D05D0391D9C4D1AEF628490BBE70</SHA256></NvidiaVfxLicenseFile>
+  </ItemGroup>
+</Project>

@@ -32,8 +32,15 @@
     <Import Project="$(MagpieIntermediateRoot)_ConanDeps\Magpie\conandeps.props" Condition="'$(MagpieIntermediateRoot)' != '' And Exists('$(MagpieIntermediateRoot)_ConanDeps\Magpie\conandeps.props')" />
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
-  <Target Name="BuildRtxVideoBridge" BeforeTargets="PrepareForBuild" Condition="'$(Platform)' == 'x64' And Exists('$(RtxVideoSdkDir)\include\nvsdk_ngx_helpers_truehdr.h')">
+  <Target Name="BuildRtxVideoBridge" BeforeTargets="PrepareForBuild" Condition="'$(EnableNvidiaVfx)' != 'true' And '$(Platform)' == 'x64' And Exists('$(RtxVideoSdkDir)\include\nvsdk_ngx_helpers_truehdr.h')">
     <MSBuild Projects="..\RtxVideoBridge\RtxVideoBridge.vcxproj" Targets="Build" Properties="Configuration=$(Configuration);Platform=x64;OutDir=$(OutDir);MagpieIntermediateRoot=$(MagpieIntermediateRoot);RtxVideoSdkDir=$(RtxVideoSdkDir)" />
+  </Target>
+  <Target Name="CheckNvidiaVfxSdk" BeforeTargets="PrepareForBuild" Condition="$(EnableNvidiaVfx)">
+    <Error Condition="'$(Platform)' != 'x64'" Text="The current NVIDIA VFX component set is Windows x64 only." />
+    <Error Condition="!Exists('$(VFXIncludeDir)\nvVideoEffects.h') Or !Exists('$(VFXProxyDir)\nvVideoEffectsProxy.cpp') Or !Exists('$(VFXSdkDir)\features\nvvfxvideoframegeneration\include\nvVFXVideoFrameGeneration.h')" Text="NVIDIA VFX needs the matched Core 1.3.0.0 development kit and requested feature packages. Set VFXSdkDir to core/VideoFX." />
+  </Target>
+  <Target Name="CheckFSR3FGOpticalFlow" BeforeTargets="PrepareForBuild" Condition="'$(EnableFSR3FrameGeneration)' == 'true' And '$(Platform)' == 'x64'">
+    <Error Condition="'$(EnableAmdOpticalFlow)' != 'true'" Text="FSR3 FrameGeneration requires AMDOF (default Quality). EnableAmdOpticalFlow=false is not supported when FSR3 FG is enabled." />
   </Target>
   <Target Name="CheckNvapiHeaders" BeforeTargets="PrepareForBuild" Condition="$(EnableDLSSFrameGeneration) And '$(Platform)' == 'x64'">
     <Error Condition="!Exists('$(NvapiSdkDir)\nvapi.h') Or !Exists('$(NvapiSdkDir)\nvapi_interface.h')" Text="DLSS FG Reflex needs the official NVAPI headers. Run scripts/Fetch-NvapiHeaders.ps1 or set NvapiSdkDir to that SDK directory, then rebuild." />
@@ -56,6 +63,7 @@
   <ItemGroup>
     <ClInclude Include="RTXVideoHdr.h" />
     <ClInclude Include="HdrComponentRuntime.h" />
+    <ClInclude Include="OverlayColor.h" />
     <ClInclude Include="HdrDisplayPreflight.h" />
     <ClInclude Include="include\HdrComponents.h" />
     <ClInclude Include="HdrEffectBoundary.h" />
@@ -90,6 +98,7 @@
     <ClInclude Include="include\EffectDesc.h" />
     <ClInclude Include="include\EffectFrameState.h" />
     <ClInclude Include="include\EffectParameterValue.h" />
+    <ClInclude Include="include\DlssNrStatus.h" />
     <ClInclude Include="include\ScalingOptions.h" />
     <ClInclude Include="include\SourceWindowGeometry.h" />
     <ClInclude Include="include\ScalingSessionLifetime.h" />
@@ -105,11 +114,24 @@
     <ClInclude Include="include\Event.h" />
     <ClInclude Include="OverlayDrawer.h" />
     <ClInclude Include="PresenterBase.h" />
+    <ClInclude Include="ForegroundCompatibilityState.h" />
+    <ClInclude Include="VRRPerformance.h" />
+    <ClInclude Include="VRROutputProbe.h" />
+    <ClInclude Include="NvidiaForegroundCompatibility.h" />
+    <ClInclude Include="VRRPresentationPolicy.h" />
     <ClInclude Include="Renderer.h" />
+    <ClInclude Include="SceneScreenshot.h" />
+    <ClInclude Include="ScreenshotNaming.h" />
+    <ClInclude Include="include\ScreenshotContent.h" />
     <ClInclude Include="pch.h" />
     <ClInclude Include="ScalingWindow.h" />
     <ClInclude Include="ScreenshotHelper.h" />
     <ClInclude Include="SrcTracker.h" />
+    <ClInclude Include="include\SourceWindowCoordinator.h" />
+    <ClInclude Include="include\SourceWindowRelations.h" />
+    <ClInclude Include="include\WindowIdentity.h" />
+    <ClInclude Include="include\ScalingWindowRetirement.h" />
+    <ClInclude Include="include\CaptureTargetLifetime.h" />
     <ClInclude Include="StepTimer.h" />
     <ClInclude Include="AdaptivePresenter.h" />
     <ClInclude Include="XeSSFGPresenter.h" />
@@ -122,6 +144,16 @@
     <ClInclude Include="YasHelper.h" />
     <ClInclude Include="DLSSSRUpscaler.h" />
     <ClInclude Include="DLSSFrameGenerator.h" />
+    <ClInclude Include="include\DlssgSm86Runtime.h" />
+    <ClInclude Include="NgxFeatureDiscovery.h" />
+    <ClInclude Include="include\DlssgSm86Policy.h" />
+    <ClInclude Include="NvidiaVfxRuntime.h" />
+    <ClInclude Include="NvidiaVfxImageBackend.h" />
+    <ClInclude Include="include\NvidiaVfxTrueHdrParameters.h" />
+    <ClInclude Include="NvidiaVfxFrameGenerator.h" />
+    <ClInclude Include="include\NvidiaVfxExecutionPlan.h" />
+    <ClInclude Include="include\NvidiaVfxParameters.h" />
+    <ClInclude Include="include\NvidiaVfxParameterPolicy.h" />
     <ClInclude Include="GroupBEffectProtocol.h" />
     <ClInclude Include="DLSSNRFilter.h" />
     <ClInclude Include="DLSSNRColorShader.h" />
@@ -148,6 +180,7 @@
     <ClInclude Include="FrameGuidanceTypes.h" />
     <ClInclude Include="FrameGuidancePerformance.h" />
     <ClInclude Include="NativeBackendTiming.h" />
+    <ClInclude Include="NvidiaVfxMeasurements.h" />
     <ClInclude Include="ReflexController.h" />
     <ClInclude Include="ZeroFrameGuidanceProvider.h" />
     <ClInclude Include="NvidiaOpticalFlowProvider.h" />
@@ -157,6 +190,14 @@
     <ClInclude Include="include\EffectParameterResetGesture.h" />
     <ClInclude Include="FrameGuidanceD3D12Interop.h" />
     <ClInclude Include="FSR2Upscaler.h" />
+    <ClInclude Include="FSR3FGPresenter.h" />
+    <ClInclude Include="FSR3FGPolicy.h" />
+    <ClInclude Include="FrameGuidanceAvailability.h" />
+    <ClInclude Include="IdlePresentationClock.h" />
+    <ClInclude Include="include\FrameGenerationParameters.h" />
+    <ClInclude Include="FSR3FGMotion.h" />
+    <ClInclude Include="FrontendMotionTexture.h" />
+    <ClInclude Include="PresenterFailure.h" />
     <ClInclude Include="FSR3Upscaler.h" />
     <ClInclude Include="FSR2ZeroMVUpscaler.h" />
     <ClInclude Include="FSR3ZeroMVUpscaler.h" />
@@ -223,10 +264,12 @@
     <ClCompile Include="GroupBHdrRoutes.cpp" />
     <ClCompile Include="PresenterBase.cpp" />
     <ClCompile Include="Renderer.cpp" />
+    <ClCompile Include="RendererScreenshot.cpp" />
     <ClCompile Include="ReflexController.cpp" />
     <ClCompile Include="ScalingOptions.cpp" />
     <ClCompile Include="ScalingRuntime.cpp" />
     <ClCompile Include="ScalingWindow.cpp" />
+    <ClCompile Include="NvidiaForegroundCompatibility.cpp" />
     <ClCompile Include="XeSSFGPresenter.cpp" />
     <ClCompile Include="ScreenshotHelper.cpp" />
     <ClCompile Include="SrcTracker.cpp" />
@@ -237,6 +280,7 @@
     <ClCompile Include="WindowHelper.cpp" />
     <ClCompile Include="DLSSSRUpscaler.cpp" />
     <ClCompile Include="DLSSFrameGenerator.cpp" />
+    <ClCompile Include="DlssgSm86Runtime.cpp" />
     <ClCompile Include="DLSSNRFilter.cpp" />
     <ClCompile Include="DLSSNRTemporal.cpp" />
     <ClCompile Include="FrameGuidanceService.cpp" />
@@ -247,6 +291,7 @@
     <ClCompile Include="PassThroughFrames.cpp" />
     <ClCompile Include="FrameGuidanceD3D12Interop.cpp" />
     <ClCompile Include="FSR2Upscaler.cpp" />
+    <ClCompile Include="FSR3FGPresenter.cpp" />
     <ClCompile Include="FSR3Upscaler.cpp" />
     <ClCompile Include="FSR2ZeroMVUpscaler.cpp" />
     <ClCompile Include="FSR3ZeroMVUpscaler.cpp" />
@@ -256,10 +301,13 @@
     <ClCompile Include="NativeEffectBackendFactory.cpp" />
     <ClCompile Include="NgxD3D12Core.cpp" />
     <ClCompile Include="RTXVideoDenoiser.cpp" />
-    <ClCompile Include="$(VFXSdkDir)\nvvfx\src\NVVideoEffectsProxy.cpp" Condition="$(EnableRTXVideoDenoise) And '$(Platform)' == 'x64'">
+    <ClCompile Include="NvidiaVfxRuntime.cpp" />
+    <ClCompile Include="NvidiaVfxImageBackend.cpp" />
+    <ClCompile Include="NvidiaVfxFrameGenerator.cpp" />
+    <ClCompile Include="$(VFXProxyDir)\NVVideoEffectsProxy.cpp" Condition="($(EnableRTXVideoDenoise) Or $(EnableNvidiaVfx)) And '$(Platform)' == 'x64'">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
     </ClCompile>
-    <ClCompile Include="$(VFXSdkDir)\nvvfx\src\nvCVImageProxy.cpp" Condition="$(EnableRTXVideoDenoise) And '$(Platform)' == 'x64'">
+    <ClCompile Include="$(VFXProxyDir)\nvCVImageProxy.cpp" Condition="($(EnableRTXVideoDenoise) Or $(EnableNvidiaVfx)) And '$(Platform)' == 'x64'">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
     </ClCompile>
     <ClCompile Include="$(FSR3SdkDir)\Kits\FidelityFX\api\internal\ffx_assert.cpp" Condition="$(EnableAmdOpticalFlow) And '$(Platform)' == 'x64'">

@@ -49,7 +49,7 @@ harness = r'''
 enum class ScalingError { NoError, CaptureMethodUnavailable, ScalingModeEmpty,
     ConflictingFrameGenerationEffects, Windowed3DGameMode, WindowedDesktopDuplication };
 enum class CaptureMethod { GraphicsCapture, DesktopDuplication, GDI, DwmSharedSurface, COUNT };
-enum class FrameGenerationEffectKind : uint8_t { None, DLSS, XeSSX2, XeSSMultiFrame };
+enum class FrameGenerationEffectKind : uint8_t { None, DLSS, XeSSX2, XeSSMultiFrame, NvidiaVfx };
 CLASSIFIER
 VALIDATION_TYPE
 VALIDATION

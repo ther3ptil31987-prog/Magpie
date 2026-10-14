@@ -32,6 +32,20 @@ struct EffectParametersSaveState {
 	}
 };
 
+// Scaling type and dimensions form one value. Unchanged requests preserve
+// unrelated editor changes; repeated requests accept already committed values.
+template<typename Destination, typename Option>
+bool MergeEffectScalingChanges(Destination& current, const Option& before, const Option& after) {
+	if (!std::isfinite(after.scale.first) || !std::isfinite(after.scale.second) ||
+		after.scale.first <= 0 || after.scale.second <= 0) return false;
+	if (before.scalingType == after.scalingType && before.scale == after.scale) return true;
+	if ((current.scalingType != before.scalingType || current.scale != before.scale) &&
+		(current.scalingType != after.scalingType || current.scale != after.scale)) return false;
+	current.scalingType = after.scalingType;
+	current.scale = after.scale;
+	return true;
+}
+
 // Three-way parameter merge. Preserve unrelated editor changes and reject a
 // concurrent edit to the same parameter. The caller commits the full chain
 // only after every effect has passed validation.

@@ -19,6 +19,7 @@ def function(signature):
 
 prefix = r'''
 #include "FramePacingOptions.h"
+#include "FrameRefreshSettings.h"
 #include "FramePresentationTiming.h"
 #include "ReflexController.h"
 #include <atomic>
@@ -31,6 +32,7 @@ prefix = r'''
 #include <string>
 #include <vector>
 #include <cstdlib>
+#include <functional>
 #undef assert
 #define assert(condition) do { if (!(condition)) { std::cerr << "FAILED: " << #condition << '\n'; std::exit(42); } } while(false)
 namespace fmt { template<class... T> std::string format(T&&...) { return {}; } }
@@ -38,17 +40,22 @@ namespace Magpie {
 struct EffectOption { std::string name; std::map<std::string,float> parameters; };
 bool IsFrameGenerationEffect(std::string_view name) { return name == "DLSSFG" || name == "XeSSFG"; }
 struct ScalingOptions {
+    FrameRefreshSettings frameRefresh;
+    std::function<void(uintptr_t, bool, double, bool)> contentTargetChanged;
+    bool benchmark=false;
     bool isFrontEdgeSyncEnabled=true;
     float frontEdgeSyncFrameRate=80, minFrameRate=0;
     std::optional<float> maxFrameRate;
-    bool IsBenchmarkMode() const { return false; }
+    bool IsBenchmarkMode() const { return benchmark; }
 };
+struct SourceTracker { uintptr_t Handle() const { return 0x123; } };
 struct ScalingWindow {
     ScalingOptions options;
     static ScalingWindow& Get() { static ScalingWindow window; return window; }
     auto& Options() { return options; }
+    SourceTracker SrcTracker() const { return {}; }
 };
-struct Logger { static Logger& Get() { static Logger logger; return logger; } void Info(std::string) {} };
+struct Logger { static Logger& Get() { static Logger logger; return logger; } void Info(std::string) {} void Warn(std::string) {} };
 struct Timer {
     std::optional<float> limit;
     bool strict=false;
@@ -84,6 +91,9 @@ struct Renderer {
     unsigned _configuredFrameGenerationMultiplier=1;
     bool _frameSyncEnabled=true, _frameSyncUsesSharedSlot=true;
     std::unique_ptr<FG> _dlssFrameGenerator;
+    std::unique_ptr<FG> _nvidiaVfxFrameGenerator;
+    bool _HasSoftwareFrameGenerator() const noexcept { return _dlssFrameGenerator || _nvidiaVfxFrameGenerator; }
+    uint32_t _SoftwareFrameMultiplier() const noexcept;
     std::vector<int> _effectDrawers{1};
     FrameSyncBackend _frameSyncBackend=FrameSyncBackend::FrontEdge;
     FrameSyncBackend _appliedFrameSyncBackend=FrameSyncBackend::None;
@@ -91,6 +101,8 @@ struct Renderer {
     bool _reflexFallbackLogged=false;
     Timer _stepTimer;
     double _baseFrameRateLimit=0;
+    std::optional<double> _reportedContentTarget;
+    bool _reportedFixedContent=false, _reportedContentConstraint=false;
     CaptureFrameCadence _captureCadence;
     std::chrono::nanoseconds _synchronousPresentInterval{};
     // ACTIVE_RESOLVER_FROM_PRODUCTION
@@ -207,6 +219,46 @@ int main() {
     assert(idle._stepTimer.limit==80);
     options.isFrontEdgeSyncEnabled=false; idle._UpdateFrameRateLimits();
     assert(!idle._stepTimer.limit && idle._stepTimer.minimum==30);
+    // The RTSS notification reports the actual base target without adding a
+    // limiter. Repeated targets are deduplicated; mode/constraint changes notify.
+    options.isFrontEdgeSyncEnabled=true; options.frontEdgeSyncFrameRate=0;
+    options.frameRefresh.contentMode=ContentFrameRateMode::Auto;
+    options.maxFrameRate.reset();
+    unsigned notifications=0;
+    bool reportedFixed=false, reportedConstrained=false;
+    double reportedRate=0;
+    options.contentTargetChanged=[&](uintptr_t sourceHandle, bool fixed, double baseRate, bool constrained) {
+        assert(sourceHandle==0x123);
+        ++notifications; reportedFixed=fixed; reportedRate=baseRate; reportedConstrained=constrained;
+    };
+    Renderer reported;
+    reported._frameSyncBackend=FrameSyncBackend::Async;
+    reported._presentationRefreshRate=144;
+    for (unsigned multiplier=2; multiplier<=4; ++multiplier) {
+        reported._configuredFrameGenerationMultiplier=multiplier;
+        reported._UpdateFrameRateLimits();
+        assert(reportedFixed && !reportedConstrained && reportedRate==144.0/multiplier);
+        const auto before=notifications;
+        reported._UpdateFrameRateLimits();
+        assert(notifications==before);
+    }
+    reported._captureMaxFrameRate=30.0f;
+    reported._UpdateFrameRateLimits();
+    assert(reportedFixed && reportedConstrained && reportedRate==30);
+    options.frameRefresh.contentMode=ContentFrameRateMode::Source;
+    auto before=notifications;
+    reported._UpdateFrameRateLimits();
+    assert(notifications==before+1 && !reportedFixed && !reportedConstrained);
+    options.frameRefresh.contentMode=ContentFrameRateMode::Auto; options.benchmark=true;
+    before=notifications; reported._UpdateFrameRateLimits();
+    assert(notifications==before && !reportedFixed);
+    options.benchmark=false; reported._UpdateFrameRateLimits();
+    assert(notifications==before+1 && reportedFixed && reportedConstrained);
+    options.contentTargetChanged=[](uintptr_t, bool, double, bool) { throw 1; };
+    reported._captureMaxFrameRate=20.0f; reported._UpdateFrameRateLimits();
+    assert(reported._baseFrameRateLimit==20 && reported._stepTimer.limit==20);
+    options.contentTargetChanged={};
+    std::cout << "PASS: production content-target notifications use base FPS, track FG/capture/mode changes, deduplicate and isolate callback failures\n";
     std::cout << "PASS: production renderer single limiter ownership, lower profile cap, Reflex failure fallback, DLSS recovery, XeLL handoff, idle clamp/FG disable and unsupported-strategy targets\n";
 }
 '''
@@ -214,11 +266,15 @@ start = header.index('FrameSyncBackend ActiveFrameSyncBackend()')
 end = header.index('\n\t}', start) + len('\n\t}')
 prefix = prefix.replace('// ACTIVE_RESOLVER_FROM_PRODUCTION', header[start:end])
 suffix = suffix.replace('._reflex.interval', '._reflex.driver->interval')
-runtime = prefix + function('double Renderer::_FrameSyncFrameRate()') + '\n' + function('void Renderer::_UpdateFrameRateLimits()') + suffix
+runtime = prefix + function('uint32_t Renderer::_SoftwareFrameMultiplier()') + '\n' + function('double Renderer::_FrameSyncFrameRate()') + '\n' + function('void Renderer::_UpdateFrameRateLimits()') + suffix
 (output/'frame_sync_runtime.cpp').write_text(runtime, encoding='utf-8')
 # Controlled regressions of production code must compile and fail at runtime.
 policy_dir = output/'negative_policy'
 policy_dir.mkdir(exist_ok=True)
+# Resolve the transitive pacing include to the same mutated policy. Otherwise
+# pragma-once permits two different paths and both enum declarations are loaded.
+(policy_dir/'FrameRefreshSettings.h').write_text(
+    (repo/'src/Magpie.Core/include/FrameRefreshSettings.h').read_text(encoding='utf-8-sig'), encoding='utf-8')
 policy = (repo/'src/Magpie.Core/include/FramePacingOptions.h').read_text(encoding='utf-8-sig')
 needle = 'if (settings.mode == FrameSyncMode::Reflex)\n\t\treturn FrameSyncBackend::Reflex;'
 assert needle in policy

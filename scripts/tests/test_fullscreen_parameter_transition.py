@@ -29,6 +29,7 @@ using Magpie::PresentationJobTiming;
 #include <iostream>
 #include <vector>
 static HWND source=(HWND)1, scaling=(HWND)2, host=(HWND)3, foreground=source;
+static HWND sourceRoot=source;
 static RECT currentRect{100,100,900,700};
 static bool visible=true, valid=true, held=false, settling=false;
 static UINT showCommand=SW_SHOWNORMAL;
@@ -53,9 +54,11 @@ static BOOL FakeMonitor(HMONITOR, MONITORINFO* p) { p->rcMonitor=p->rcWork={0,0,
 #define GetSystemMetrics(...) 0
 #define GetAsyncKeyState(...) 0
 #define GetWindowThreadProcessId(...) 1
+#define GetWindow(hwnd, relation) ((relation)==GW_OWNER && (hwnd)==host ? scaling : nullptr)
 #define GetGUIThreadInfo(...) FALSE
 #define SetWindowPos(...) TRUE
 #define PostMessageW(...) TRUE
+#include "SourceWindowRelations.h"
 bool operator==(const RECT& a,const RECT& b) { return a.left==b.left && a.top==b.top && a.right==b.right && a.bottom==b.bottom; }
 bool operator==(const SIZE& a,const SIZE& b) { return a.cx==b.cx && a.cy==b.cy; }
 constexpr int SWP_NO_ACTIVATE_MOVE_SIZE=0;
@@ -71,6 +74,7 @@ struct Logger {
     void Win32Error(const char*) {}
 };
 struct Win32Helper {
+    static HWND GetRealForegroundWindow() { return FakeForeground(); }
     template<class T> static T* LoadSystemFunction(const wchar_t*,const char*) { return nullptr; }
     static bool GetWindowFrameRect(HWND,RECT& r) { r={0,0,1000,1000};return true; }
     static bool IntersectRect(RECT& out,const RECT& a,const RECT& b) { return ::IntersectRect(&out,&a,&b); }
@@ -79,7 +83,12 @@ struct Win32Helper {
     static void OffsetRect(RECT& r,LONG x,LONG y) { r.left+=x;r.right+=x;r.top+=y;r.bottom+=y; }
 };
 struct WindowHelper { static bool IsForbiddenSystemWindow(HWND) { return false; } };
-struct Options { bool windowed=false, game3d=false; bool IsWindowedMode() const { return windowed; } bool Is3DGameMode() const { return game3d; } bool IsTouchSupportEnabled() const { return false; } };
+struct NvidiaForegroundCompatibility {
+    static bool ReferenceOwnsForeground() { return false; }
+    static void FrontendSuspended(bool) {}
+	static void FrontendWindows(HWND, HWND) {}
+};
+struct Options { SessionWindowIdentity mainUI; bool windowed=false, game3d=false; bool IsWindowedMode() const { return windowed; } bool Is3DGameMode() const { return game3d; } bool IsTouchSupportEnabled() const { return false; } };
 struct Cursor { void Update() {} void OnSrcStartMove() {} void OnSrcEndMove() {} void OnSrcRectChanged() {} };
 enum class DLSSFGFrameRenderResult { Presented, Retry, Dropped };
 struct Renderer {
@@ -88,16 +97,18 @@ struct Renderer {
     bool IsEditingParameters() const { return true; }
     HWND ParameterInputHandle() const { return host; }
     void UpdateParameterInputHost() {} bool AllowAutomaticSourceFocus() const { return false; }
-    void OnSourceFocusChanged() {} int CaptureOverlayState() { return 0; }
+    int focusHistoryResets=0;
+    void OnSourceFocusChanged() { ++focusHistoryResets; } int CaptureOverlayState() { return 0; }
     DLSSFGFrameRenderResult RenderDLSSFGFrame(uint32_t,uint32_t,PresentationJobTiming&) { ++consumed;return DLSSFGFrameRenderResult::Presented; }
 };
 class SrcTracker {
 public:
     HWND _hWnd=source;
     RECT _windowRect{100,100,900,700},_windowFrameRect=_windowRect,_srcRect=_windowRect;
-    bool _isFocused=true,_isMoving=false,_isMaximized=false;
+    bool _isSessionForeground=true,_isSourceForeground=false,_isMoving=false,_isMaximized=false;
     HWND Handle() const { return _hWnd; }
-    bool SetFocus() const { foreground=_hWnd;return true; }
+    bool SetFocus(HWND=nullptr) const { foreground=sourceRoot;return true; }
+    bool UpdateForeground(HWND) noexcept;
     const RECT& WindowRect() const { return _windowRect; }
     const RECT& SrcRect() const { return _srcRect; }
     bool IsMoving() const { return _isMoving; }
@@ -107,6 +118,7 @@ class ScalingWindow {
 public:
     static ScalingWindow& Get() { static ScalingWindow x;return x; }
     static uint32_t RunId() { return 1; }
+    struct Coordinator { bool Ready() const { return valid; } } _sourceCoordinator;
     struct Dispatcher { template<class F> void TryEnqueue(F&& f) const { ++queued;callbacks.emplace_back(std::forward<F>(f)); } } _dispatcher;
     Options _options;
     SrcTracker _srcTracker;
@@ -114,6 +126,7 @@ public:
     Cursor cursor; Cursor* _cursorManager=&cursor;
     RECT _rendererRect{0,0,1920,1080},_windowRect{0,0,1920,1080};
     bool _isResizingOrMoving=false,_isMovingDueToSrcMoved=false,_isSrcRepositioning=false;
+    bool _isFirstFrame=false;
     LONG _lastWindowedRendererWidth=0;
     int _repositionOverlayState=0, destroyed=0;
     mutable uint8_t _pendingSourceTransition=0;
@@ -125,6 +138,11 @@ public:
     struct DLSSFGFrameJob { uint32_t sharedTextureSlot=0, sharedTextureGeneration=0; PresentationJobTiming timing; };
     std::deque<DLSSFGFrameJob> _dlssFgFrameJobs;
     HWND Handle() const { return scaling; }
+    const class SrcTracker& SrcTracker() const { return _srcTracker; }
+    HWND SourceRoot() const { return sourceRoot; }
+    bool SourceIdentityValid() const { return valid; }
+    SourceForegroundKind ClassifyForeground(HWND) const noexcept;
+    bool IsSessionForeground(HWND) const noexcept;
     Renderer* TryGetRenderer() { return _renderer; }
     bool IsParameterInputWindow(HWND h) const { return h==host; }
     bool HasHeldParameterInput() const { return held; }
@@ -145,7 +163,10 @@ public:
 production = '\n'.join([
     method(tracker, 'static bool IsWindowMoving('),
     method(tracker, 'static bool IsPrimaryMouseButtonDown('),
+    method(tracker, 'bool SrcTracker::UpdateForeground('),
     method(tracker, 'bool SrcTracker::UpdateState('),
+    method(scaling, 'SourceForegroundKind ScalingWindow::ClassifyForeground('),
+    method(scaling, 'bool ScalingWindow::IsSessionForeground('),
     method(scaling, 'bool ScalingWindow::_CheckForegroundFor3DGameMode('),
     method(scaling, 'bool ScalingWindow::_UpdateSrcState('),
     method(scaling, 'bool ScalingWindow::_PrepareFrontendRender('),
@@ -162,7 +183,7 @@ static void reset() {
     w._isSrcRepositioning=false;w.destroyed=0;
     foreground=host;currentRect={100,100,900,700};visible=valid=true;held=false;showCommand=SW_SHOWNORMAL;
     callbacks.clear();queued=stateLogs=0;settling=false;w._pendingSourceTransition=0;w._sourceStateCheckDeferred=false;
-    w._dlssFgFrameJobs.clear();w.renderer.consumed=0;
+    w._dlssFgFrameJobs.clear();w.renderer.consumed=w.renderer.focusHistoryResets=0;sourceRoot=source;
 }
 static bool check(bool& reposition) { bool focus=false; return ScalingWindow::Get()._UpdateSrcState(reposition,focus); }
 int main() {
@@ -172,8 +193,13 @@ int main() {
     foreground=(HWND)4;assert(!check(reposition));
     foreground=scaling;settling=false;assert(!check(reposition));
     foreground=host;assert(check(reposition));
+    sourceRoot=(HWND)5;foreground=sourceRoot;assert(check(reposition));
     std::cout<<"PASS: 3D focus handoff accepts only the settling scaling window; external foreground still stops.\n";
     reset(); assert(check(reposition) && !reposition);
+    foreground=source; assert(ScalingWindow::Get()._PrepareFrontendRender());
+    foreground=host; assert(ScalingWindow::Get()._PrepareFrontendRender());
+    assert(ScalingWindow::Get().renderer.focusHistoryResets==0);
+    std::cout<<"PASS: actual source/root to parameter-host transfers keep logical session focus and do not reset content history.\n";
     std::cout<<"PASS: internal parameter focus with unchanged source geometry keeps fullscreen active.\n";
     reset(); ++currentRect.left;++currentRect.right;reposition=false;
     assert(!check(reposition) && reposition);

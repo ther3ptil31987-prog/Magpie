@@ -32,7 +32,7 @@ public:
 		float dpiScale
 	) noexcept;
 
-	void Draw(POINT drawOffset) noexcept;
+	void Draw(POINT drawOffset, float hdrWhiteScale = 0) noexcept;
 
 	void ClearStates() noexcept;
 	void ParameterEditing(bool value) noexcept;

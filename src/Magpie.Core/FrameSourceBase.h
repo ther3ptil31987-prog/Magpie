@@ -53,12 +53,6 @@ public:
 	const char* CaptureErrorContext() const noexcept { return _captureErrorContext; }
 	HRESULT CaptureErrorCode() const noexcept { return _captureErrorCode; }
 
-	// nullopt follows global settings; FG explicitly chooses on or off.
-	// Configure before capture starts; changes take effect after scaling restarts.
-	void DuplicateFrameDetectionOverride(std::optional<bool> value) noexcept {
-		_duplicateFrameDetectionOverride = value;
-	}
-
 	// Compatibility getter. HDR callers must use GetCanonicalFrame(); SDR keeps
 	// the original raw capture texture contract.
 	ID3D11Texture2D* GetOutput() noexcept { return _hdrEnabled ?
@@ -172,7 +166,6 @@ private:
 	uint16_t _framesLeft;
 	
 	bool _isCheckingForDuplicateFrame = true;
-	std::optional<bool> _duplicateFrameDetectionOverride;
 
 protected:
 	bool _roundCornerDisabled = false;

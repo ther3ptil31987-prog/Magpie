@@ -1,8 +1,9 @@
 #Requires -Version 7.0
+param([string]$OutputDirectory)
 $ErrorActionPreference = 'Stop'
 $beta6Repo = Split-Path $PSScriptRoot -Parent
 $beta6Workspace = Split-Path $beta6Repo -Parent
-$beta6Output = Join-Path $beta6Workspace '.tools/067-beta6/tests'
+$beta6Output = if ($OutputDirectory) { [IO.Path]::GetFullPath($OutputDirectory) } else { Join-Path $beta6Workspace '.tools/067-beta6/tests' }
 New-Item -ItemType Directory -Path $beta6Output -Force | Out-Null
 $beta6Vswhere = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio/Installer/vswhere.exe'
 $beta6Vs = & $beta6Vswhere -latest -products * -requires Microsoft.Component.MSBuild -property installationPath | Select-Object -First 1
@@ -14,6 +15,7 @@ if ($LASTEXITCODE) { throw 'Extract source transition paths failed' }
 if ($LASTEXITCODE) { throw 'Extract FIFO renderer failed' }
 foreach ($beta6Test in @('source_state_paths', 'beta6_presentation')) {
     & cl.exe /nologo /std:c++20 /EHsc /utf-8 /MT /O2 "/I$beta6Repo/src/Magpie.Core" `
+        "/I$beta6Repo/src/Magpie.Core/include" `
         "$beta6Output/$beta6Test.cpp" "/Fe:$beta6Output/$beta6Test.exe" "/Fo:$beta6Output/$beta6Test.obj" user32.lib
     if ($LASTEXITCODE) { throw "Compile failed: $beta6Test" }
     & "$beta6Output/$beta6Test.exe"

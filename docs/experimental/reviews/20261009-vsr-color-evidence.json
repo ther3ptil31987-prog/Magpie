@@ -1,0 +1,179 @@
+{
+  "scope": "Independent synthetic SDK D3D11/CUDA tests on one GPU; Magpie C++, XAML, HLSL, HDR presentation and performance not tested",
+  "gpu": {
+    "name": "NVIDIA GeForce RTX 5070 Ti",
+    "vendor": 4318,
+    "device": 11269,
+    "luidLow": 79801,
+    "luidHigh": 0
+  },
+  "displayDriverVersion": "32.0.16.1692",
+  "coreVersion": "0x1030000",
+  "dllSha256": {
+    "cudart64_12.dll": "f5fb39dab8d8c5e7cf7e6e9b12ec1d27e4a6505a6bce28dd34aa1e9a26b4d9e3",
+    "nvngxruntime.dll": "531878e1c60ce10171ccc4f56bf87060cd5d34ed93a00b198a5fffe04ea42fb5",
+    "NVCVImage.dll": "afd9b7ad335d78663126b315c50c2a8820c474ce6debeda414dd633acead949d",
+    "NVVideoEffects.dll": "2fab7e1c13ef28c2ab8f14d9dfacb5062b7b74374035af7466c58458922ec1be",
+    "nvngx_vsr.dll": "3ed97a8f5dd0afd5ceb9e98b3fa9a868a134f74103b3747e9765595606c3f509",
+    "nvVFXVideoSuperRes.dll": "5ba6ac2a933c3cce56dd202a1780023e405ea57bdc32b85bc7787d44b08c0b3d"
+  },
+  "probeSha256": "7b2a596398d811573d2d726d2a5a136a90d9de5cdaf6721a85b28d7f481ca4b5",
+  "reports": [
+    {
+      "file": "current-path.json",
+      "passed": 6,
+      "failed": 2,
+      "failures": [
+        {
+          "inputDxgi": 28,
+          "outputDxgi": 87,
+          "quality": 2,
+          "status": "color-fail",
+          "firstColorFailure": "CUDA model output"
+        },
+        {
+          "inputDxgi": 87,
+          "outputDxgi": 28,
+          "quality": 2,
+          "status": "color-fail",
+          "firstColorFailure": "CUDA model output"
+        }
+      ]
+    },
+    {
+      "file": "mixed-explicit-encoding.json",
+      "passed": 6,
+      "failed": 2,
+      "failures": [
+        {
+          "inputDxgi": 28,
+          "outputDxgi": 87,
+          "quality": 2,
+          "status": "color-fail",
+          "firstColorFailure": "CUDA model output"
+        },
+        {
+          "inputDxgi": 87,
+          "outputDxgi": 28,
+          "quality": 2,
+          "status": "color-fail",
+          "firstColorFailure": "CUDA model output"
+        }
+      ]
+    },
+    {
+      "file": "rgba-bridge-matrix.json",
+      "passed": 76,
+      "failed": 0,
+      "failures": []
+    },
+    {
+      "file": "wrapper-contract.json",
+      "passed": 8,
+      "failed": 0,
+      "failures": []
+    },
+    {
+      "file": "stride-packed-contract.json",
+      "passed": 8,
+      "failed": 1,
+      "failures": [
+        {
+          "case": "RGB10A2/P32 same-encoding roundtrip",
+          "status": "api-fail",
+          "error": "Wrap RGB10A2: -9"
+        }
+      ]
+    },
+    {
+      "file": "stride-packed-byte-carrier.json",
+      "passed": 9,
+      "failed": 0,
+      "failures": []
+    }
+  ],
+  "redSamples": {
+    "input": [
+      224,
+      24,
+      16,
+      255
+    ],
+    "oldModelOutput": [
+      15.37,
+      23.35,
+      224.35,
+      255.0
+    ],
+    "fixedD3DOutput": [
+      223.0,
+      23.6,
+      15.16,
+      255.0
+    ]
+  },
+  "packedByteCarrier": {
+    "case": "RGB10A2/P32 byte-carrier roundtrip",
+    "status": "pass",
+    "linearDescriptor": {
+      "width": 64,
+      "height": 64,
+      "pitch": 256,
+      "pixelFormat": 13,
+      "componentType": 11,
+      "pixelBytes": 4,
+      "componentBytes": 4,
+      "numComponents": 4,
+      "planar": 0,
+      "gpuMem": 1
+    },
+    "byteViewDescriptor": {
+      "width": 64,
+      "height": 64,
+      "pitch": 256,
+      "pixelFormat": 6,
+      "componentType": 1,
+      "pixelBytes": 4,
+      "componentBytes": 1,
+      "numComponents": 4,
+      "planar": 0,
+      "gpuMem": 1
+    },
+    "wrapperDescriptors": [
+      {
+        "width": 64,
+        "height": 64,
+        "pitch": 256,
+        "pixelFormat": 6,
+        "componentType": 1,
+        "pixelBytes": 4,
+        "componentBytes": 1,
+        "numComponents": 4,
+        "planar": 0,
+        "gpuMem": 3
+      },
+      {
+        "width": 64,
+        "height": 64,
+        "pitch": 256,
+        "pixelFormat": 6,
+        "componentType": 1,
+        "pixelBytes": 4,
+        "componentBytes": 1,
+        "numComponents": 4,
+        "planar": 0,
+        "gpuMem": 3
+      }
+    ],
+    "bitExactPixels": 4096,
+    "cpuFloat32ByteReconstruction": true,
+    "hlslExecuted": false
+  },
+  "checks": {
+    "suiteStructural": 105,
+    "optimizationStructural": 61,
+    "runtimeIntegrity": 7,
+    "cppPolicyTestExecuted": false,
+    "newHdrShaderExecuted": false
+  }
+}

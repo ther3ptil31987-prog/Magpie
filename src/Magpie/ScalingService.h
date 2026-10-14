@@ -50,6 +50,8 @@ public:
 	// 强制重新检查前台窗口
 	void CheckForeground();
 	void OnTaskSwitch();
+	void MainUIChanged(HWND window);
+	void UpdateScreenshotContent(ScreenshotContent content);
 	void EffectParameterEdited(uint32_t modeIdx, uint32_t effectIdx,
 		const std::string& parameter, float value);
 	void RetryConfigurationSave(std::function<void(bool)> completed);
@@ -89,6 +91,9 @@ private:
 	Event<winrt::Magpie::ShortcutAction>::EventRevoker _shortcutActivatedRevoker;
 	Event<winrt::Magpie::ShortcutAction>::EventRevoker _toolbarShortcutsChangedRevoker;
 	Event<Profile&>::EventRevoker _frameSyncChangedRevoker;
+	Event<>::EventRevoker _frameRefreshModeChangedRevoker;
+	Event<>::EventRevoker _duplicateRefreshChangedRevoker;
+	Event<Profile&>::EventRevoker _rtssChangedRevoker;
 	std::weak_ptr<const uint8_t> _activeFrameSyncProfile;
 
 	std::chrono::steady_clock::time_point _timerStartTimePoint;

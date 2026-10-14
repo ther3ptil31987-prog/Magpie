@@ -1,6 +1,8 @@
 #include "pch.h"
 #include "NgxRuntimeGuard.h"
 #include "NgxD3D12Core.h"
+#include "DlssgSm86Runtime.h"
+#include "NgxFeatureDiscovery.h"
 #include "DeviceResources.h"
 #include "Logger.h"
 #include "Win32Helper.h"
@@ -10,6 +12,8 @@
 #endif
 
 namespace Magpie {
+
+NgxD3D12Core::NgxD3D12Core() = default;
 
 #if defined(MP_ENABLE_DLSSNR) || defined(MP_ENABLE_DLSS_FRAME_GENERATION)
 
@@ -102,7 +106,10 @@ bool NgxD3D12Core::Acquire(
 	DeviceResources& resources,
 	std::string_view consumer
 ) noexcept {
+	_lastFailure = { NgxCallFailure::Kind::Unknown, 0, "Acquire NGX Core" };
 	if (NgxRuntimeGuard::IsFaulted()) {
+		_lastFailure = { NgxRuntimeGuard::FaultCode() == ERROR_INVALID_STATE ? NgxCallFailure::Kind::Win32 : NgxCallFailure::Kind::Seh,
+			NgxRuntimeGuard::FaultCode(), "NGX process protection" };
 		Logger::Get().Error("NGX initialization blocked after an earlier fault; restart Magpie");
 		return false;
 	}
@@ -111,24 +118,34 @@ bool NgxD3D12Core::Acquire(
 			resources.GetGraphicsAdapter(), D3D_FEATURE_LEVEL_11_0,
 			IID_PPV_ARGS(_device.put()));
 		if (FAILED(hr)) {
+			_lastFailure = { NgxCallFailure::Kind::HResult, static_cast<uint32_t>(hr), "D3D12CreateDevice" };
 			Logger::Get().ComError("Create shared NGX D3D12 device failed", hr);
 			return false;
 		}
 	}
 	if (!_initialized) {
-		const std::filesystem::path applicationDirectory =
-			Win32Helper::GetExePath().parent_path();
-		const std::wstring featurePath = applicationDirectory.wstring();
-		const wchar_t* featurePaths[]{ featurePath.c_str() };
-		NVSDK_NGX_FeatureCommonInfo featureInfo{};
-		featureInfo.PathListInfo.Path = featurePaths;
-		featureInfo.PathListInfo.Length = 1;
+		const bool communityPrepared = DlssgSm86Runtime::Prepare(resources.GetGraphicsAdapter());
+		if (consumer == "DLSSFG" && !communityPrepared) return false;
+		_featureDiscovery = std::make_unique<NgxFeatureDiscovery>();
+		if (!_featureDiscovery->Initialize(communityPrepared)) return false;
 		DWORD sehCode = 0;
 		const NVSDK_NGX_Result result = InitCoreSafely(
-			applicationDirectory.c_str(), _device.get(), &featureInfo, &sehCode);
-		if (!LogNgxResult("Init", consumer, result, sehCode)) return false;
+			_featureDiscovery->ApplicationDirectory(), _device.get(), _featureDiscovery->Info(), &sehCode);
+		if (!LogNgxResult("Init", consumer, result, sehCode)) {
+			_lastFailure = { sehCode ? NgxCallFailure::Kind::Seh : NgxCallFailure::Kind::Ngx,
+				sehCode ? sehCode : static_cast<uint32_t>(result), "NVSDK_NGX_D3D12_Init_with_ProjectID" };
+			return false;
+		}
 		_initialized = true;
-		Logger::Get().Info("NGX D3D12 Core initialized once for Renderer session");
+		Logger::Get().Info(fmt::format("NGX D3D12 Core initialized once for Renderer session; FG search directory registered={}",
+			_featureDiscovery->CommunityRegistered()));
+	}
+	// A Core first acquired by NR without FG discovery cannot later prove FG
+	// readiness. Do not treat another consumer's successful Init as FG success.
+	if (consumer == "DLSSFG" && (!_featureDiscovery->CommunityRegistered() ||
+		!DlssgSm86Runtime::VerifyLoadedPair())) {
+		Logger::Get().Error("DLSSFG NGX discovery/pair validation failed before capability query; restart Magpie");
+		return false;
 	}
 	++_activeConsumers;
 	Logger::Get().Info(fmt::format(
@@ -153,12 +170,16 @@ bool NgxD3D12Core::AllocateParameters(
 	NVSDK_NGX_Parameter** parameters,
 	std::string_view consumer
 ) noexcept {
+	_lastFailure = { NgxCallFailure::Kind::Unknown, 0, "Allocate NGX parameters" };
 	if (!_initialized || !parameters) return false;
 	DWORD sehCode = 0;
 	const NVSDK_NGX_Result result =
 		AllocateParametersSafely(parameters, &sehCode);
-	if (!LogNgxResult("AllocateParameters", consumer, result, sehCode) ||
-		!*parameters) return false;
+	if (!LogNgxResult("AllocateParameters", consumer, result, sehCode) || !*parameters) {
+		_lastFailure = { sehCode ? NgxCallFailure::Kind::Seh : NgxCallFailure::Kind::Ngx,
+			sehCode ? sehCode : static_cast<uint32_t>(result), "NVSDK_NGX_D3D12_AllocateParameters" };
+		return false;
+	}
 	++_activeParameterBlocks;
 	return true;
 }
@@ -171,6 +192,8 @@ bool NgxD3D12Core::GetCapabilityParameters(
 	DWORD sehCode = 0;
 	const NVSDK_NGX_Result result =
 		GetCapabilityParametersSafely(parameters, &sehCode);
+	Logger::Get().Info(fmt::format("NGX D3D12 Core capability parameters: consumer={} result={:#x} seh={:#x} present={}",
+		consumer, static_cast<uint32_t>(result), sehCode, *parameters != nullptr));
 	if (!LogNgxResult("GetCapabilityParameters", consumer, result, sehCode) ||
 		!*parameters) return false;
 	++_activeParameterBlocks;
@@ -195,6 +218,7 @@ void NgxD3D12Core::_Shutdown() noexcept {
 	if (NgxRuntimeGuard::IsFaulted()) {
 		// Keep the device alive for SDK state whose teardown was interrupted.
 		(void)_device.detach();
+		(void)_featureDiscovery.release();
 		_initialized = false;
 		return;
 	}
@@ -211,6 +235,7 @@ void NgxD3D12Core::_Shutdown() noexcept {
 	} else {
 		NgxRuntimeGuard::MarkShutdownFailed();
 		(void)_device.detach();
+		(void)_featureDiscovery.release();
 	}
 	_initialized = false;
 }

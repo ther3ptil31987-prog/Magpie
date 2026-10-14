@@ -5,6 +5,8 @@
 
 **Current release: [Magpie Experimental v0.6.9](https://github.com/SAOG0721/Magpie/releases/tag/v0.6.9-experimental)** · [Release notes](docs/RELEASE_NOTES_v0.6.9-experimental.md)
 
+**0.6.10 review draft:** [Release notes](docs/RELEASE_NOTES_v0.6.10-experimental.md). The source includes the 0.6.10 candidate; the public download above remains 0.6.9 until review is complete.
+
 Magpie Experimental is a Windows tool for processing window content and an unofficial fork of [Blinue/Magpie](https://github.com/Blinue/Magpie). Built on Magpie's window-scaling and effect system, it explores DLSS, XeSS, FSR, RTX Video and related technologies for games, video and other windowed content.
 
 The application captures a target window, processes its images through a user-configured effect group, and displays the result fullscreen or in a window. The source application does not need to integrate these effects itself. This is not an official Magpie release; please report experimental-fork issues in this repository.
@@ -19,13 +21,15 @@ The application captures a target window, processes its images through a user-co
 | Experimental temporal super resolution | DLSS SR, FSR 2/3/4, XeSS SR | Explore image reconstruction from captured frames and estimated motion |
 | AI image controls | DLSSNR | Same-resolution SDR processing with tone, structure, shadow, reflection and glow controls |
 | Video enhancement | RTX Video | Video super resolution and denoising for low-resolution or compressed content |
-| Frame generation | DLSSFG, XeSSFG | Generate intermediate images between real frames for smoother motion |
+| Frame generation | DLSSFG, XeSSFG, FSR3FG, NVIDIA VFG | Generate intermediate images between real frames for smoother motion |
 
 Experimental-effect availability depends on the GPU, driver, runtime components and effect combination. See the [Release notes](https://github.com/SAOG0721/Magpie/releases) for the effects and hardware requirements of each build.
 
 ### Effect Groups and Parameter Editing
 
 An **effect group** combines effects in a chosen order, storing their parameters and scaling settings. Use built-in groups or create your own combinations for different applications.
+
+See the [built-in effect guide](docs/Built-in%20effects.md#current-branch-setup) for this branch's frame-generation chains, HDR conversion, and shared settings.
 
 The toolbar's parameter panel lets you adjust effects while viewing the result, with automatic saving. Controls indicate whether a change applies live or requires the group to restart; double-clicking a slider restores the effect's default value. Parameters support groups, drop-down choices and Chinese translations.
 

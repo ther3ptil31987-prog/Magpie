@@ -1,5 +1,6 @@
 #include "pch.h"
 #include "DeviceResources.h"
+#include "DlssgSm86Runtime.h"
 #include "DirectXHelper.h"
 #include "Logger.h"
 #include "ScalingOptions.h"
@@ -34,6 +35,16 @@ bool DeviceResources::Initialize(bool isForeground) noexcept {
 	if (!_ObtainAdapterAndDevice(ScalingWindow::Get().Options().graphicsCardId, isForeground)) {
 		Logger::Get().Error("找不到可用的图形适配器");
 		return false;
+	}
+	// Prepare before the first NVIDIA backend, including SR/NR and VFX/RTX
+	// Video which may initialize NGX before a later FG session. Ordinary shader
+	// scaling does not load CUDA or the proxy. Preparation failure blocks FG only.
+	if (!isForeground && std::ranges::any_of(ScalingWindow::Get().Options().effects,
+		[](const EffectOption& effect) {
+			return effect.name.starts_with("DLSS") || effect.name.starts_with("RTXVideo\\") ||
+				effect.name.starts_with("NvidiaVFX\\");
+		})) {
+		DlssgSm86Runtime::Prepare(_graphicsAdapter.get());
 	}
 
 	return true;

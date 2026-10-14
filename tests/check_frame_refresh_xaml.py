@@ -35,6 +35,7 @@ project.write_text(f'''<Project xmlns="http://schemas.microsoft.com/developer/ms
   <ItemGroup>
     <Page Include="{repo / 'src/Magpie/HomePage.xaml'}"><Link>HomePage.xaml</Link></Page>
     <Page Include="{repo / 'src/Magpie/ProfilePage.xaml'}"><Link>ProfilePage.xaml</Link></Page>
+    <Page Include="{repo / 'src/Magpie/SettingsExpander.Resource.xaml'}"><Link>SettingsExpander.Resource.xaml</Link></Page>
     {refs_xml}
     <ReferenceDirectory Include="{Path(os.environ['WINDIR']) / 'Microsoft.NET/Framework/v4.0.30319'}" />
     {paths_xml}

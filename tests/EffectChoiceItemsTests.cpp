@@ -164,7 +164,7 @@ int main(int argc, char**) {
 		std::ifstream input("src/Magpie/EffectCatalog/zh-Hans.json", std::ios::binary);
 		const std::string bytes{std::istreambuf_iterator<char>(input), {}};
 		const auto entries = Windows::Data::Json::JsonObject::Parse(to_hstring(bytes)).GetNamedArray(L"effects");
-		assert(entries.Size() == 162); // Includes the five 0.6.9 xBR effects.
+		assert(entries.Size() == 164); // Includes five xBR and two new NVIDIA VFX effects.
 		size_t overflowing = 0;
 		for (const auto value : entries) {
 			const auto entry = value.GetObject();

@@ -14,6 +14,13 @@ struct IssueContext {
 	std::wstring scalingModeName;
 	std::wstring windowTitle;
 	CaptureMethod captureMethod = CaptureMethod::GraphicsCapture;
+	std::vector<std::wstring> effectNames;
+	std::weak_ptr<const uint8_t> scalingModeIdentity;
+	std::vector<std::weak_ptr<const uint8_t>> effectIdentities;
+	uint32_t effectIndex = UINT32_MAX;
+	std::shared_ptr<DlssNrSessionState> dlssNrSession;
+	uint32_t runId = 0;
+	std::optional<DlssNrStatus> dlssNrStatus;
 };
 
 // Reports may originate on a renderer or file-writing thread. Only the UI
@@ -24,6 +31,11 @@ public:
 	void Report(ScalingError error, std::string context = {}, HWND target = nullptr,
 		uint32_t systemError = 0, IssueContext issueContext = {}, uint64_t saveRevision = 0) noexcept;
 	void Initialize() noexcept;
+	void BeginScalingSession(std::shared_ptr<DlssNrSessionState> session, IssueContext context);
+	void DlssNrStatusChanged(uint32_t runId, uint32_t index, const DlssNrStatus& status, IssueContext context);
+	std::wstring DlssNrSummary() const;
+	const IssueContext& DlssNrContext() const noexcept { return _dlssNrContext; }
+	std::shared_ptr<DlssNrSessionState> DlssNrSession() const noexcept { return _dlssNrSession; }
 	IssueAction Action() const noexcept { return _action; }
 	const IssueContext& Context() const noexcept { return _issueContext; }
 	uint64_t Revision() const noexcept { return _revision; }
@@ -37,6 +49,8 @@ public:
 	const winrt::hstring& Details() const noexcept { return _details; }
 	Event<> Changed;
 private:
+	std::shared_ptr<DlssNrSessionState> _dlssNrSession;
+	IssueContext _dlssNrContext;
 	void _Persist() noexcept;
 	IssueAction _action = IssueAction::None;
 	IssueContext _issueContext;

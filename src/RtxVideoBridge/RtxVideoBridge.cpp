@@ -16,19 +16,41 @@ struct Instance {
 	NVSDK_NGX_Handle* feature = nullptr;
 };
 
-void DestroyImpl(Instance* state) {
-	if (!state) return;
-	if (!faulted) {
-		if (state->feature) NVSDK_NGX_D3D11_ReleaseFeature(state->feature);
-		if (state->parameters) NVSDK_NGX_D3D11_DestroyParameters(state->parameters);
+HRESULT DestroyImpl(Instance* state, RtxHdrCleanupStage* stage = nullptr, uint32_t* status = nullptr) {
+	if (stage) *stage = RtxHdrCleanupStage::None;
+	if (status) *status = 0;
+	if (!state) return faulted ? E_UNEXPECTED : S_OK;
+	if (users) --users;
+	auto failed = [&](RtxHdrCleanupStage step, NVSDK_NGX_Result result) {
+		if (NVSDK_NGX_SUCCEED(result)) return false;
+		faulted = true;
+		if (stage) *stage = step;
+		if (status) *status = static_cast<uint32_t>(result);
+		return true;
+	};
+	// A failed SDK call can leave ownership unresolved. Retain the instance,
+	// context and device until process exit; do not call dependent cleanup or
+	// unload the SDK while it may still own callbacks into these resources.
+	if (faulted) {
+		if (stage) *stage = RtxHdrCleanupStage::Faulted;
+		return E_UNEXPECTED;
 	}
-	if (state->context) state->context->Release();
-	delete state;
-	if (users && --users == 0 && activeDevice) {
-		if (!faulted) NVSDK_NGX_D3D11_Shutdown1(activeDevice);
+	if (state->feature) {
+		if (failed(RtxHdrCleanupStage::ReleaseFeature, NVSDK_NGX_D3D11_ReleaseFeature(state->feature))) return E_UNEXPECTED;
+		state->feature = nullptr;
+	}
+	if (state->parameters) {
+		if (failed(RtxHdrCleanupStage::DestroyParameters, NVSDK_NGX_D3D11_DestroyParameters(state->parameters))) return E_UNEXPECTED;
+		state->parameters = nullptr;
+	}
+	if (!users && activeDevice) {
+		if (failed(RtxHdrCleanupStage::Shutdown, NVSDK_NGX_D3D11_Shutdown1(activeDevice))) return E_UNEXPECTED;
 		activeDevice->Release();
 		activeDevice = nullptr;
 	}
+	if (state->context) state->context->Release();
+	delete state;
+	return S_OK;
 }
 
 HRESULT CreateImpl(ID3D11Device* device, const wchar_t* path, void** output, uint32_t* status) {
@@ -56,7 +78,10 @@ HRESULT CreateImpl(ID3D11Device* device, const wchar_t* path, void** output, uin
 	auto* state = new(std::nothrow) Instance;
 	if (!state) {
 		if (--users == 0) {
-			NVSDK_NGX_D3D11_Shutdown1(activeDevice);
+			const auto shutdown = NVSDK_NGX_D3D11_Shutdown1(activeDevice);
+			if (NVSDK_NGX_FAILED(shutdown)) {
+				faulted = true; *status = static_cast<uint32_t>(shutdown); return E_UNEXPECTED;
+			}
 			activeDevice->Release(); activeDevice = nullptr;
 		}
 		return E_OUTOFMEMORY;
@@ -72,7 +97,13 @@ HRESULT CreateImpl(ID3D11Device* device, const wchar_t* path, void** output, uin
 		result = NVSDK_NGX_Result_FAIL_FeatureNotSupported;
 	}
 	*status = static_cast<uint32_t>(result);
-	if (NVSDK_NGX_FAILED(result)) { DestroyImpl(state); return E_FAIL; }
+	if (NVSDK_NGX_FAILED(result)) {
+		uint32_t cleanupStatus = 0;
+		if (FAILED(DestroyImpl(state, nullptr, &cleanupStatus))) {
+			*status = cleanupStatus; return E_UNEXPECTED;
+		}
+		return E_FAIL;
+	}
 	*output = state;
 	return S_OK;
 }
@@ -113,6 +144,16 @@ extern "C" __declspec(dllexport) HRESULT WINAPI MagpieRtxHdrDraw(void* state,
 	}
 }
 extern "C" __declspec(dllexport) HRESULT WINAPI MagpieRtxHdrDestroy(void* state) {
-	__try { DestroyImpl(static_cast<Instance*>(state)); return faulted ? E_UNEXPECTED : S_OK; }
+	__try { return DestroyImpl(static_cast<Instance*>(state)); }
 	__except(EXCEPTION_EXECUTE_HANDLER) { faulted = true; return E_UNEXPECTED; }
+}
+extern "C" __declspec(dllexport) HRESULT WINAPI MagpieRtxHdrDestroyEx(
+	void* state, RtxHdrCleanupStage* stage, uint32_t* status) {
+	__try { return DestroyImpl(static_cast<Instance*>(state), stage, status); }
+	__except(EXCEPTION_EXECUTE_HANDLER) {
+		faulted = true;
+		if (stage) *stage = RtxHdrCleanupStage::Exception;
+		if (status) *status = GetExceptionCode();
+		return E_UNEXPECTED;
+	}
 }

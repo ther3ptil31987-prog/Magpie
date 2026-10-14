@@ -1,4 +1,5 @@
 #include "pch.h"
+#include "NvidiaVfxParameters.h"
 #include "EffectDrawer.h"
 #include "BackendDescriptorStore.h"
 #include "DeviceResources.h"
@@ -721,6 +722,30 @@ SIZE EffectDrawer::_CalcOutputSize(
 		}
 	}
 
+	if (option.name == NVIDIA_VFX_VSR_ID) {
+		const auto category = option.parameters.find("category");
+		if (NvidiaVfxSameSize(NvidiaVfxCategory(category == option.parameters.end() ? 0.f : category->second))) outputSize = inputSize;
+	}
+	if (option.name == NVIDIA_VFX_UPSCALE_ID) {
+		const auto saved = option.parameters.find("upscaleMode");
+		const float mode = saved == option.parameters.end() ? 0.f : saved->second;
+		if (!std::isfinite(mode) || std::floor(mode) != mode || mode < 0 || mode > 5 || outputSize.cx <= 0 || outputSize.cy <= 0) return {};
+		if (mode == 0) {
+			// Resolve proportional content first. Fit leaves borders; Fill crops
+			// the oversize content later. The SDK never sees anisotropic scaling.
+			const double x = double(outputSize.cx) / inputSize.cx, y = double(outputSize.cy) / inputSize.cy;
+			const double factor = option.scalingType == ScalingType::Fit ? std::min(x,y) : std::max(x,y);
+			outputSize = {LONG(std::lround(inputSize.cx * factor)), LONG(std::lround(inputSize.cy * factor))};
+		}
+		const auto plan = PlanNvidiaVfxUpscale({uint32_t(inputSize.cx), uint32_t(inputSize.cy)},
+			{uint32_t(outputSize.cx), uint32_t(outputSize.cy)}, int(mode));
+		if (!plan.valid) { Logger::Get().Error("Nvidia VFX Upscale: invalid integer dimensions or texture limit"); return {}; }
+		if (mode != 0) outputSize = {LONG(plan.native.width), LONG(plan.native.height)};
+		Logger::Get().Info(fmt::format("Nvidia VFX Upscale: {}x{} -> native {}x{} ({}/{}) -> target {}x{} adaptation={}",
+			inputSize.cx, inputSize.cy, plan.native.width, plan.native.height,
+			NVIDIA_VFX_UPSCALE_RATIOS[plan.ratioIndex].numerator, NVIDIA_VFX_UPSCALE_RATIOS[plan.ratioIndex].denominator,
+			outputSize.cx, outputSize.cy, int(mode == 0 ? plan.adaptation : NvidiaVfxAdaptation::None)));
+	}
 	_exprParser.DefineConst("OUTPUT_WIDTH", outputSize.cx);
 	_exprParser.DefineConst("OUTPUT_HEIGHT", outputSize.cy);
 

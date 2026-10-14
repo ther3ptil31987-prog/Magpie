@@ -164,6 +164,7 @@ bool App::Initialize(const wchar_t* arguments) {
 		_Uninitialize();
 		return false;
 	}
+	settings.UpdateAdminAutoStart();
 
 	// 延迟注册 DependencyProperty，见 FixThreadPoolCrash
 	SettingsCard::RegisterDependencyProperties();
@@ -277,7 +278,9 @@ void App::Restart(bool asElevated, const wchar_t* arguments) noexcept {
 	};
 
 	if (!ShellExecuteEx(&execInfo)) {
-		Logger::Get().Win32Error("ShellExecuteEx 失败");
+		const DWORD error = GetLastError();
+		Logger::Get().Warn(fmt::format("Application restart failed: elevated={} error={} cancelled={}",
+			asElevated, error, error == ERROR_CANCELLED));
 		Logger::Get().Flush();
 	}
 }

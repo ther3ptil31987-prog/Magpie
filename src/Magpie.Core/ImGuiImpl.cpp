@@ -326,7 +326,7 @@ void ImGuiImpl::NewFrame(
 	}
 }
 
-void ImGuiImpl::Draw(POINT drawOffset) noexcept {
+void ImGuiImpl::Draw(POINT drawOffset, float hdrWhiteScale) noexcept {
 	ImGui::Render();
 	_StagePresentedWindowRects();
 
@@ -341,7 +341,7 @@ void ImGuiImpl::Draw(POINT drawOffset) noexcept {
 		destRect.left - rendererRect.left + drawOffset.x,
 		destRect.top - rendererRect.top + drawOffset.y
 	};
-	_backend.RenderDrawData(*drawData, viewportOffset);
+	_backend.RenderDrawData(*drawData, viewportOffset, hdrWhiteScale);
 }
 
 void ImGuiImpl::Tooltip(

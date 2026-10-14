@@ -21,12 +21,12 @@ inline MotionVectorRequest ParseDlssOpticalFlowRequest(const EffectOption& optio
 	return {it == option.parameters.end() ? 0 : static_cast<int>(it->second)};
 }
 #include "DLSSNRSettingsUnderTest.h"
-enum class EffectParameterApplyMode { Live, RestartRequired, Unavailable };
+enum class EffectParameterApplyMode { Live, RestartRequired, Unavailable, Restricted };
 struct DLSSNRFilter {
 	struct Impl {
 		std::vector<std::unique_ptr<Impl>> laterPasses;
 		uint64_t evaluateParameterRevision = 0;
-		bool resetHistory = false, residualParametersDirty = false;
+		bool resetHistory = false, residualParametersDirty = false, disabled = false;
 	};
 	std::unique_ptr<Impl> _impl = std::make_unique<Impl>();
 	std::vector<DLSSNRSettings> _passSettings;
@@ -88,6 +88,8 @@ int main() {
 	assert(filter.ApplyLiveParameters(option, names));
 	assert(first.evaluateParameterRevision == hiddenRevision);
 	filter._settings.experimentalHdr.enabled = true;
-	assert(filter.GetParameterApplyMode("residualSaturation") == EffectParameterApplyMode::Unavailable);
+	assert(filter.GetParameterApplyMode("residualSaturation") == EffectParameterApplyMode::Restricted);
+	first.disabled = true;
+	assert(filter.GetParameterApplyMode("intensity") == EffectParameterApplyMode::Unavailable);
 	std::cout << "Production live transaction: NR isolation, dependent history resets, post-only reuse, rejection and hidden settings passed.\n";
 }

@@ -1,5 +1,6 @@
 #pragma once
 #include "ScalingOptions.h"
+#include "RtssSettings.h"
 
 namespace Magpie {
 
@@ -93,6 +94,7 @@ struct Profile {
 		cursorScaling = other.cursorScaling;
 		customCursorScaling = other.customCursorScaling;
 		frameRefresh = other.frameRefresh;
+		rtss = other.rtss;
 		autoHideCursorDelay = other.autoHideCursorDelay;
 		cropping = other.cropping;
 		captureMethod = other.captureMethod;
@@ -129,6 +131,7 @@ struct Profile {
 	bool isParameterFocusSwitchingEnabled = false;
 	ToolbarDockSettings toolbarDocks;
 	FrameRefreshSettings frameRefresh;
+	RtssSettings rtss;
 	// Not serialized/copied by Copy(): survives vector moves and renames, but
 	// a deleted/recreated profile cannot receive an older toolbar save.
 	std::shared_ptr<const uint8_t> runtimeIdentity = std::make_shared<const uint8_t>(uint8_t{0});

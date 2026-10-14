@@ -12,7 +12,10 @@ reader=helper[helper.index('bool JsonHelper::ReadBool('):helper.index('bool Json
 field=re.search(r'bool isParameterFocusSwitchingEnabled = [^;]+;',profile).group()
 copy=profile.split('void Copy(const Profile& other) noexcept {',1)[1].split('scalingMode =',1)[0]
 migration=settings[settings.index('\tbool legacyParameterFocusSwitching ='):settings.index('\t_isStopEffectsOnTaskSwitchEnabled = false;')]
-load=settings[settings.index('\tauto scaleProfilesNode = root.FindMember("profiles");'):settings.index('\tauto overlayNode = root.FindMember("overlay");')]
+profiles_end = settings.index('\tauto overlayNode = root.FindMember("overlay");')
+if '\t_screenshotContent =' in settings:
+    profiles_end = min(profiles_end, settings.index('\t_screenshotContent ='))
+load=settings[settings.index('\tauto scaleProfilesNode = root.FindMember("profiles");'):profiles_end]
 # Frame-sync migration is covered by ProfileFrameSyncTests; isolate this focus fixture.
 load=re.sub(r'\t\t\tfor \(const auto& item : scaleProfilesArray\) \{.*?\n\t\t\t\}\n', '', load, flags=re.S)
 load=load.replace(', legacyFrameSync, legacyIdle, migrateLegacyRefresh', '')

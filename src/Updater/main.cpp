@@ -17,6 +17,8 @@
 #include "CommonSharedConstants.h"
 #include "Logger.h"
 #include "PackageFiles.h"
+#include "DlssgSm86Package.h"
+#include "UpdateTransaction.h"
 #include "StrHelper.h"
 #include "Version.h"
 #include <shellapi.h>
@@ -81,9 +83,11 @@ static bool WaitForMagpieToExit() noexcept {
 	}
 
 	// 即使 mutex 已被释放，Magpie.exe 仍有可能正在后台执行清理工作
-	// 尝试删除 Magpie.exe，直到成功为止
+	// Wait for exclusive access without destroying the rollback baseline.
 	for (int i = 0; i < 1000; ++i) {
-		if (DeleteFile(L"Magpie.exe")) {
+		wil::unique_handle file(CreateFileW(L"Magpie.exe", GENERIC_READ | DELETE,
+			0, nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr));
+		if (file) {
 			return true;
 		}
 
@@ -94,41 +98,18 @@ static bool WaitForMagpieToExit() noexcept {
 	return false;
 }
 
-static void MoveFolder(const std::wstring& src, const std::wstring& dest) noexcept {
-	WIN32_FIND_DATA findData{};
-	wil::unique_hfind hFind(FindFirstFileEx((std::wstring(src) + L"\\*").c_str(),
-		FindExInfoBasic, &findData, FindExSearchNameMatch, nullptr, FIND_FIRST_EX_LARGE_FETCH));
-	if (!hFind) {
-		Logger::Get().Win32Error("FindFirstFileEx 失败");
-		return;
+static bool VerifyCommunityPackage(const std::filesystem::path& root) {
+#ifdef MP_ENABLE_DLSS_FRAME_GENERATION
+	const bool required = true;
+#else
+	const bool required = std::filesystem::exists(root / Magpie::DlssgSm86Package::Directory);
+#endif
+	if (!required) return true;
+	if (!Magpie::DlssgSm86Package::Verify(root)) return false;
+	for (const auto* name : { L"version.dll", L"winmm.dll", L"dbghelp.dll", L"dinput8.dll", L"nvngx_dlssg.dll", L"dlssg_sm86.ini" }) {
+		if (std::filesystem::exists(root / name)) return false;
 	}
-
-	do {
-		if (wil::path_is_dot_or_dotdot(findData.cFileName)) {
-			continue;
-		}
-		
-		std::wstring curPath = src + L"\\" + findData.cFileName;
-		std::wstring destPath = dest + L"\\" + findData.cFileName;
-		if (FileExists(curPath.c_str())) {
-			if (MoveFileEx(curPath.c_str(), destPath.c_str(),
-				MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH))
-			{
-				Logger::Get().Info(StrHelper::Concat("已移动 ", StrHelper::UTF16ToUTF8(destPath)));
-			} else {
-				Logger::Get().Win32Error(StrHelper::Concat(
-					"移动 ", StrHelper::UTF16ToUTF8(destPath), " 失败"));
-			}
-		} else {
-			if (CreateDirectory(destPath.c_str(), nullptr) || GetLastError() == ERROR_ALREADY_EXISTS) {
-				Logger::Get().Info(StrHelper::Concat("已创建文件夹 ", StrHelper::UTF16ToUTF8(destPath)));
-				MoveFolder(curPath, destPath);
-			} else {
-				Logger::Get().Win32Error(StrHelper::Concat(
-					"创建文件夹 ", StrHelper::UTF16ToUTF8(destPath), " 失败"));
-			}
-		}
-	} while (FindNextFile(hFind.get(), &findData));
+	return true;
 }
 
 int APIENTRY wWinMain(
@@ -172,35 +153,54 @@ int APIENTRY wWinMain(
 		return 1;
 	}
 	
-	// 等待 Magpie.exe 退出
-	if (!WaitForMagpieToExit()) {
-		Logger::Get().Critical("等待 Magpie.exe 退出超时");
+	// Verify before touching the existing install. Updater is the new package's
+	// executable (UpdateService has already replaced it), so its pins match it.
+	UpdateTransaction transaction;
+	bool installed = false;
+	try {
+		if (!VerifyCommunityPackage(CommonSharedConstants::UPDATE_DIR)) {
+			Logger::Get().Critical("Update DLSSFG package integrity check failed; downloaded files retained");
+			return 1;
+		}
+		if (!WaitForMagpieToExit()) {
+			Logger::Get().Critical("等待 Magpie.exe 退出超时");
+			return 1;
+		}
+		std::vector<std::filesystem::path> obsolete;
+		for (const wchar_t* file : oldFiles->files) obsolete.emplace_back(file);
+		if (std::filesystem::exists(std::filesystem::path(CommonSharedConstants::UPDATE_DIR) /
+			Magpie::DlssgSm86Package::Directory)) {
+			// Experimental 0.6.x native FG is absent from the upstream version
+			// tables. Include it explicitly, with the same rollback protection.
+			obsolete.emplace_back(L"nvngx_dlssg.dll");
+			const auto& proxy = Magpie::DlssgSm86Package::Files[0];
+			if (Magpie::PinnedFile::Verify(L"version.dll", proxy.size, proxy.sha256)) {
+				obsolete.emplace_back(L"version.dll");
+				obsolete.emplace_back(L"dlssg_sm86.ini");
+			}
+		}
+		if (!transaction.Prepare(CommonSharedConstants::UPDATE_DIR, L".", obsolete)) {
+			Logger::Get().Critical("Update rollback snapshot failed; existing install retained");
+			return 1;
+		}
+		installed = transaction.Install() && VerifyCommunityPackage(L".");
+	} catch (...) {
+		Logger::Get().Critical("Update file transaction raised an exception");
+	}
+	if (!installed) {
+		const bool restored = transaction.Rollback();
+		Logger::Get().Error(StrHelper::Concat("Update transaction last file: ",
+			StrHelper::UTF16ToUTF8(transaction.CurrentFile().wstring()),
+			"; captured Win32 error: ", std::to_string(transaction.FailureCode()),
+			"; rollback directory: ", StrHelper::UTF16ToUTF8(transaction.Backup().wstring())));
+		Logger::Get().Critical(restored ?
+			"Update failed; rollback completed. Update and backup retained; Magpie will not launch" :
+			"Update failed and rollback incomplete. Update and backup retained; Magpie will not launch");
 		return 1;
 	}
+	Logger::Get().Info(StrHelper::Concat("Update verified; rollback copy retained at ",
+		StrHelper::UTF16ToUTF8(transaction.Backup().wstring())));
 
-	// 删除旧版本文件
-	for (const wchar_t* fileName : oldFiles->files) {
-		if (DeleteFile(fileName)) {
-			Logger::Get().Info(StrHelper::Concat(
-				"已删除文件 ", StrHelper::UTF16ToUTF8(fileName)));
-		} else {
-			Logger::Get().Win32Error(StrHelper::Concat(
-				"删除文件 ", StrHelper::UTF16ToUTF8(fileName), " 失败"));
-		}
-	}
-	for (const wchar_t* folder : oldFiles->folders) {
-		if (RemoveDirectory(folder)) {
-			Logger::Get().Info(StrHelper::Concat(
-				"已删除文件夹 ", StrHelper::UTF16ToUTF8(folder)));
-		} else {
-			Logger::Get().Win32Error(StrHelper::Concat(
-				"删除文件夹 ", StrHelper::UTF16ToUTF8(folder), " 失败"));
-		}
-	}
-
-	// 移动新版本
-	MoveFolder(CommonSharedConstants::UPDATE_DIR, L".");
-	
 	// 删除 update 文件夹
 	HRESULT hr = wil::RemoveDirectoryRecursiveNoThrow(CommonSharedConstants::UPDATE_DIR);
 	if (SUCCEEDED(hr)) {

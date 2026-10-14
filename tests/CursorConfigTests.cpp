@@ -1,4 +1,5 @@
 #include "../src/Magpie/ProfileFrameRefresh.h"
+#include "../src/Magpie/ProfileRtss.h"
 #include <string>
 #include "../src/Magpie/JsonHelper.h"
 #include <rapidjson/prettywriter.h>
@@ -88,7 +89,7 @@ int main() {
 	Profile tunedCopy; tunedCopy.Copy(tuned);
 	Check(tunedCopy.frameRefresh == tuned.frameRefresh, "Copy lost unified settings");
 	Profile tunedLoad; Load(Serialize(tunedCopy), tunedLoad);
-	Check(tunedLoad.frameRefresh == tuned.frameRefresh, "Production full model roundtrip failed");
+	Check(tunedLoad.frameRefresh == NormalizeContentFrameRate(tuned.frameRefresh), "Production full model migration/roundtrip failed");
 	tunedCopy.frameRefresh.contentRate = 38;
 	Check(tuned.frameRefresh.contentRate == 37, "Copied content edit leaked to source");
 	for (bool original : {false, true}) for (bool minimum : {false, true}) for (float rate : {1.0f, 60.0f, 144.0f, 1000.0f}) {

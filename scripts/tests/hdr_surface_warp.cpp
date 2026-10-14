@@ -9,9 +9,11 @@
 #include <array>
 #include <cmath>
 #include <iostream>
+#include <map>
 #include <stdexcept>
 #include <vector>
 #include "HdrColorTransform.h"
+#include "HdrComponentRuntime.h"
 #include "HdrEffectBoundary.h"
 #include "EffectProtocolCatalogC.h"
 #include "hdr_surface_shader.h"
@@ -154,6 +156,44 @@ struct Harness {
 		Check(Read(output.Get()) == pixels, "Canonical pass-through changed pixels");
 	}
 
+	void TestNativeOutputBrightness(float white, float exposure = 1, bool legacy = false) {
+		struct Effect { std::string name; std::map<std::string, float> parameters; };
+		std::vector<Effect> effects{ {"Color\\SDR_to_HDR", legacy
+			? std::map<std::string,float>{{"whiteNits",white},{"exposure",exposure}}
+			: std::map<std::string,float>{{"nativeWhiteNits",white}}} };
+		const auto plan = BuildHdrComponentPlan(effects);
+		Check(plan.error == HdrComponentError::None, "Native output plan invalid");
+		const auto settings = HdrComponentTransform(plan, 0);
+		std::vector<Pixel> pixels(Width);
+		for (UINT i = 0; i < Width; ++i) pixels[i] = { float(i) / (Width - 1), .5f, 0, .375f };
+		auto source = Texture(DXGI_FORMAT_R32G32B32A32_FLOAT, pixels.data());
+		auto proxy = Texture(DXGI_FORMAT_R8G8B8A8_UNORM);
+		auto output = Texture(DXGI_FORMAT_R16G16B16A16_FLOAT);
+		AdapterConstants cb{1, 1, 1, 1000, 1, 80, 203, 2, 1, 4, 1, 1};
+		Dispatch(source.Get(), proxy.Get(), cb);
+		const auto sdr = Read(proxy.Get());
+		cb.mode = 7; cb.sdrWhiteNits = settings.sdrWhiteNits;
+		cb.exposure = settings.exposure; cb.hdrPeakNits = settings.hdrPeakNits;
+		Dispatch(proxy.Get(), output.Get(), cb);
+		const auto hdr = Read(output.Get());
+		for (UINT i = 0; i < Width; ++i) for (size_t c = 0; c < 3; ++c) {
+			const float expected = HdrColorTransform::DecodeTransfer(sdr[i][c], HdrTransferFunction::SRGB) * white * exposure / 80;
+			// The UAV's float32 -> float16 store can truncate rather than round
+			// to nearest. Check adjacent representable FP16 values explicitly;
+			// a constant absolute tolerance is invalid over the 8..4000-nit range.
+			const auto half = DirectX::PackedVector::XMConvertFloatToHalf(expected);
+			const float lower = DirectX::PackedVector::XMConvertHalfToFloat(half ? half - 1 : 0);
+			const float upper = DirectX::PackedVector::XMConvertHalfToFloat(half + 1);
+			if (hdr[i][c] < lower - 1e-6f || hdr[i][c] > upper + 1e-6f) {
+				std::cerr << "Native output: white=" << white << " exposure=" << exposure << " legacy=" << legacy
+					<< " pixel=" << i << " channel=" << c << " SDR=" << sdr[i][c] << " expected=" << expected << " actual=" << hdr[i][c] << '\n';
+				throw std::runtime_error("Native high/legacy brightness pixel mismatch");
+			}
+		}
+		Check(std::abs(hdr.back()[0] * 80 - white * exposure) < 1, "Native output white changed");
+		Check(std::abs(hdr.back()[3] - sdr.back()[3]) < .001f, "Native alpha changed");
+	}
+
 	void TestExplicitComponents(float white, float peak) {
 		std::vector<Pixel> pixels(Width);
 		for (UINT i = 0; i < Width; ++i) {
@@ -227,6 +267,61 @@ struct Harness {
 		}
 	}
 
+	void TestPackedHdr10Bytes() {
+		std::vector<uint32_t> words(Width);
+		for (UINT i = 0; i < Width; ++i)
+			words[i] = (i & 1023u) | (((i * 37u) & 1023u) << 10) |
+				(((1023u - i) & 1023u) << 20) | ((i & 3u) << 30);
+		const auto packedTexture = [&](DXGI_FORMAT format) {
+			D3D11_TEXTURE2D_DESC desc{};
+			desc.Width = Width; desc.Height = 1; desc.MipLevels = 1; desc.ArraySize = 1;
+			desc.Format = format; desc.SampleDesc.Count = 1; desc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
+			D3D11_SUBRESOURCE_DATA data{words.data(), Width * sizeof(uint32_t), 0};
+			ComPtr<ID3D11Texture2D> texture;
+			Hr(device->CreateTexture2D(&desc, &data, &texture)); return texture;
+		};
+		auto native = packedTexture(DXGI_FORMAT_R10G10B10A2_UNORM);
+		auto carrier = packedTexture(DXGI_FORMAT_R8G8B8A8_UNORM);
+		auto reference = Texture(DXGI_FORMAT_R32G32B32A32_FLOAT);
+		auto output = Texture(DXGI_FORMAT_R32G32B32A32_FLOAT);
+		auto halfOutput = Texture(DXGI_FORMAT_R16G16B16A16_FLOAT);
+		AdapterConstants cb{1, 1, 1, 1000, 1, 80, 80, 3, 1, 6, 1, 1};
+		Dispatch(native.Get(), reference.Get(), cb);
+		cb.mode = 9;
+		Dispatch(carrier.Get(), output.Get(), cb);
+		Dispatch(carrier.Get(), halfOutput.Get(), cb);
+		const auto expected = Read(reference.Get()), actual = Read(output.Get()), halves = Read(halfOutput.Get());
+		for (UINT i = 0; i < Width; ++i) for (int c = 0; c < 4; ++c) {
+			Check(std::isfinite(actual[i][c]) && std::isfinite(halves[i][c]), "Nonfinite packed HDR10 output");
+			Check(std::abs(actual[i][c] - expected[i][c]) <= std::abs(expected[i][c]) * 3e-4f + .002f,
+				"Packed byte decode differs from native HDR10/PQ/Rec2020 decode");
+			Check(std::abs(halves[i][c] - expected[i][c]) <= std::abs(expected[i][c]) * .001f + .002f,
+				"Packed HDR10 FP16 conversion lost precision or alpha");
+		}
+		// Independent double-precision ST2084 and BT.2020->BT.709 reference.
+		// Comparing mode 6 to mode 9 alone can hide the same gamut clipping bug.
+		const auto decode = [](uint32_t code) {
+			const double p = std::pow(double(code) / 1023.0, 32.0 / 2523.0);
+			return std::pow(std::max(p - 3424.0 / 4096.0, 0.0) /
+				(2413.0 / 128.0 - 2392.0 / 128.0 * p), 16384.0 / 2610.0) * 125.0;
+		};
+		unsigned negativeChannels = 0;
+		for (UINT i = 0; i < Width; ++i) {
+			const double r = decode(words[i] & 1023), g = decode((words[i] >> 10) & 1023), b = decode((words[i] >> 20) & 1023);
+			const double reference[] = {1.6604910*r - .5876411*g - .0728499*b,
+				-.1245505*r + 1.1328999*g - .0083494*b, -.0181508*r - .1005789*g + 1.1187297*b};
+			for (int c = 0; c < 3; ++c) {
+				// Signed matrix terms can cancel: bound accumulated input error,
+				// rather than dividing by a near-zero final component.
+				Check(std::abs(actual[i][c] - reference[c]) < (r+g+b) * .0003 + .002,
+					"HDR10 wide-gamut output disagrees with signed scRGB reference");
+				if (reference[c] < -.01) { ++negativeChannels; Check(actual[i][c] < 0, "Valid negative scRGB channel was clipped"); }
+			}
+		}
+		Check(negativeChannels > 100, "Wide-gamut reference did not exercise negative channels");
+		std::cout << "PASS: signed scRGB agrees with independent PQ/matrix reference; negative channels=" << negativeChannels << '\n';
+	}
+
 	void TestResizedBoundaries() {
 		for (const auto size : {std::array<UINT, 2>{640, 360}, {1280, 720}}) {
 			D3D11_TEXTURE2D_DESC desc{};
@@ -259,16 +354,22 @@ struct Harness {
 int main() {
 	try {
 		Harness harness;
+		for (float white : {8.f, 203.f, 1000.f, 1500.f, 4000.f}) harness.TestNativeOutputBrightness(white);
+		harness.TestNativeOutputBrightness(80, .1f, true);
+		harness.TestNativeOutputBrightness(400, 4, true);
 		for (float white : {80.0f, 203.0f, 360.0f})
 			for (float peak : {400.0f, 1000.0f, 4000.0f})
 				for (float exposure : {0.5f, 1.0f, 2.0f})
 					for (bool quantized : {false, true}) harness.Test(white, peak, exposure, quantized);
 		harness.TestResizedBoundaries();
+		harness.TestPackedHdr10Bytes();
 		for (float white : {80.0f, 203.0f, 360.0f})
 			for (float peak : {400.0f, 1000.0f, 4000.0f}) harness.TestExplicitComponents(white, peak);
 		for (float white : {80.0f, 203.0f, 360.0f}) harness.TestAutomaticDlssnrBoundary(white);
 		std::cout << "PASS: production HDR shader on D3D11 WARP; 9 explicit FP16/RGBA8 component pipelines, native white mapping and SDR display maps; 54 ramp/round-trip cases, "
 			"R8 quantization, CPU/HLSL parity, alpha, resized boundaries and three automatic DLSSNR white-point round trips\n";
+		std::cout << "PASS: production plan plus WARP native 203/1000/1500/4000, legacy low/high exposures, signal maximum and alpha\n";
+		std::cout << "PASS: packed HDR10 RGBA8 byte carrier vs native R10 PQ/Rec2020 decode, FP32/FP16 and all two-bit alpha values\n";
 	} catch (const std::exception& error) {
 		std::cerr << "FAIL: " << error.what() << '\n';
 		return 1;

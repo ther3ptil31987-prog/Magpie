@@ -1,5 +1,6 @@
 #include "pch.h"
 #include "RootPage.h"
+#include "ScalingModesPage.h"
 #if __has_include("RootPage.g.cpp")
 #include "RootPage.g.cpp"
 #endif
@@ -156,7 +157,7 @@ void RootPage::NavigationView_SelectionChanged(
 			if (tagStr == L"Home") {
 				typeName = xaml_typename<HomePage>();
 			} else if (tagStr == L"ScalingModes") {
-				typeName = xaml_typename<ScalingModesPage>();
+				typeName = xaml_typename<winrt::Magpie::ScalingModesPage>();
 			} else if (tagStr == L"About") {
 				typeName = xaml_typename<AboutPage>();
 			} else {
@@ -408,6 +409,16 @@ bool RootPage::NavigateToIssueProfile(std::wstring_view name, std::wstring_view 
 	auto nv = RootNavigationView();
 	nv.SelectedItem(nv.MenuItems().GetAt(static_cast<uint32_t>(selected + int(FIRST_PROFILE_ITEM_IDX))));
 	return true;
+}
+
+void RootPage::NavigateToHome() {
+	RootNavigationView().SelectedItem(RootNavigationView().MenuItems().GetAt(0));
+}
+
+void RootPage::NavigateToIssueEffects(const ::Magpie::IssueContext& context) {
+	NavigateToScalingModes();
+	if (const auto page = ContentFrame().Content().try_as<winrt::Magpie::ScalingModesPage>())
+		get_self<ScalingModesPage>(page)->RevealIssueTarget(context);
 }
 
 void RootPage::NavigateToScalingModes() {

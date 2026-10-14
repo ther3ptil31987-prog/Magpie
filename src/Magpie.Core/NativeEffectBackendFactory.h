@@ -14,6 +14,8 @@ struct NativeEffectBackendResult {
 	ScalingError error = ScalingError::NoError;
 	std::string diagnostic;
 	uint32_t systemError = 0;
+	DlssNrFailure dlssNrFailure;
+	std::string dlssNrEnvironment;
 };
 
 NativeEffectBackendResult CreateNativeEffectBackend(

@@ -13,7 +13,7 @@ $arguments=@((Join-Path $PSScriptRoot 'prepare_scaling_mode_identity_test.py'),$
 if ($BaselineRef) { $arguments+=$BaselineRef }
 & python @arguments
 if ($LASTEXITCODE) { throw 'Group identity fixture extraction failed' }
-& cl.exe /nologo /std:c++20 /EHsc /utf-8 /MT /O2 /DNOMINMAX "/I$repo/src/Magpie" "$output/group_identity.cpp" "/Fe:$output/group_identity.exe" "/Fo:$output/group_identity.obj"
+& cl.exe /nologo /std:c++20 /EHsc /utf-8 /MT /O2 /DNOMINMAX "/I$repo/src/Magpie" "/I$repo/src/Magpie.Core/include" "$output/group_identity.cpp" "/Fe:$output/group_identity.exe" "/Fo:$output/group_identity.obj"
 if ($LASTEXITCODE) { throw 'Group identity test compilation failed' }
 & "$output/group_identity.exe"
 if ($BaselineRef) {

@@ -22,6 +22,8 @@ static const wchar_t* MessageKey(ScalingError error) noexcept {
 	case ScalingError::WindowedDesktopDuplication: return L"Message_WindowedDesktopDuplication";
 	case ScalingError::InvalidSourceWindow: return L"Message_InvalidSourceWindow";
 	case ScalingError::Maximized: return L"Message_Maximized";
+	case ScalingError::WindowIntegrityQueryFailed: return L"Message_WindowIntegrityQueryFailed";
+	case ScalingError::DlssNrStopped: return L"Message_DlssNrStopped";
 	case ScalingError::LowIntegrityLevel: return L"Message_LowIntegrityLevel";
 	case ScalingError::InvalidCropping: return L"Message_InvalidCropping";
 	case ScalingError::BannedInWindowedMode: return L"Message_BannedInWindowedMode";
@@ -53,6 +55,8 @@ static const wchar_t* MessageKey(ScalingError error) noexcept {
 	case ScalingError::ScalingModeUnknownEffect: return L"Message_ScalingModeUnknownEffect";
 	case ScalingError::GraphicsDeviceInitFailed: return L"Message_GraphicsDeviceInitFailed";
 	case ScalingError::PresentationInitFailed: return L"Message_PresentationInitFailed";
+	case ScalingError::FSR3FGEffectChainUnsupported: return L"Message_FSR3FGEffectChainUnsupported";
+	case ScalingError::FSR3FGHdrUnsupported: return L"Message_FSR3FGHdrUnsupported";
 	case ScalingError::EffectCompileFailed: return L"Message_EffectCompileFailed";
 	case ScalingError::EffectResourceFailed: return L"Message_EffectResourceFailed";
 	case ScalingError::NativeEffectInitFailed: return L"Message_NativeEffectInitFailed";
@@ -178,6 +182,48 @@ void ErrorService::DismissIssue() {
 	Changed.Invoke();
 }
 
+void ErrorService::BeginScalingSession(std::shared_ptr<DlssNrSessionState> session, IssueContext context) {
+	_dlssNrSession = std::move(session);
+	_dlssNrContext = std::move(context);
+	Changed.Invoke();
+}
+
+void ErrorService::DlssNrStatusChanged(uint32_t runId, uint32_t index, const DlssNrStatus& status, IssueContext context) {
+	context.runId = runId;
+	context.effectIndex = index;
+	context.dlssNrStatus = status;
+	winrt::Magpie::implementation::App::Get().Dispatcher().TryEnqueue([this, context = std::move(context)] {
+		if (context.dlssNrSession != _dlssNrSession || !_dlssNrSession) return;
+		const auto current = _dlssNrSession->Read();
+		if (current.runId != context.runId) return;
+		Changed.Invoke();
+		if (context.effectIndex >= current.effects.size() || !context.dlssNrStatus->Failed()) return;
+		const auto& status = current.effects[context.effectIndex];
+		if (!status.Failed() || status.failure != context.dlssNrStatus->failure) return;
+		Report(status.state == DlssNrState::Stopped ? ScalingError::DlssNrStopped : ScalingError::DlssNrUnavailable,
+			{}, nullptr, 0, context);
+	});
+}
+
+std::wstring ErrorService::DlssNrSummary() const {
+	if (!_dlssNrSession) return {};
+	const auto loader = winrt::ResourceLoader::GetForViewIndependentUse(CommonSharedConstants::APP_RESOURCE_MAP_ID);
+	const auto snapshot = _dlssNrSession->Read();
+	std::wstring text;
+	for (size_t i = 0; i < snapshot.effects.size() && i < _dlssNrContext.effectNames.size(); ++i) {
+		if (_dlssNrContext.effectNames[i] != L"DLSSNR\\DLSSNR_AI_Filter") continue;
+		const auto& status = snapshot.effects[i];
+		if (!text.empty()) text += L"\n\n";
+		text += fmt::format(L"{} / #{} DLSSNR: {}", _dlssNrContext.scalingModeName, i + 1,
+			std::wstring(loader.GetString(DlssNrStateKey(status.state))));
+		if (status.Failed()) {
+			text += L"\n" + std::wstring(loader.GetString(DlssNrReasonKey(status.failure.reason)));
+			text += L"\n" + std::wstring(loader.GetString(DlssNrAdviceKey(status)));
+		}
+	}
+	return text;
+}
+
 void ErrorService::Report(ScalingError error, std::string context, HWND target,
 	uint32_t systemError, IssueContext issueContext, uint64_t saveRevision) noexcept {
 	if (error == ScalingError::NoError) return;
@@ -188,8 +234,24 @@ void ErrorService::Report(ScalingError error, std::string context, HWND target,
 		else Logger::Get().Error(diagnostic);
 		Logger::Get().Flush();
 		winrt::Magpie::implementation::App::Get().Dispatcher().TryEnqueue([this, error, context = std::move(context), target, systemError,
-			issueContext = std::move(issueContext), saveRevision] {
+			issueContext = std::move(issueContext), saveRevision]() mutable {
 			try {
+				// A late renderer completion must not replace a newer session's issue.
+				if (issueContext.dlssNrSession) {
+					if (issueContext.dlssNrSession != _dlssNrSession) return;
+					const auto snapshot = issueContext.dlssNrSession->Read();
+					if (issueContext.runId && issueContext.runId != snapshot.runId) return;
+					if (error == ScalingError::DlssNrUnavailable || error == ScalingError::DlssNrStopped || error == ScalingError::NgxRestartRequired) {
+						if (issueContext.effectIndex == UINT32_MAX) {
+							for (uint32_t i = 0; i < snapshot.effects.size(); ++i) if (snapshot.effects[i].Failed()) { issueContext.effectIndex = i; break; }
+						}
+						if (issueContext.effectIndex < snapshot.effects.size()) {
+							const auto& status = snapshot.effects[issueContext.effectIndex];
+							if (!status.Failed() || (issueContext.dlssNrStatus && status.failure != issueContext.dlssNrStatus->failure)) return;
+							issueContext.dlssNrStatus = status;
+						}
+					}
+				}
 				if (error == ScalingError::ConfigurationWriteFailed && saveRevision) {
 					if (!_saveOutcomes.Record(saveRevision, false)) return;
 				}
@@ -207,7 +269,9 @@ void ErrorService::Report(ScalingError error, std::string context, HWND target,
 				const auto now = std::chrono::steady_clock::now();
 				const bool repeated = _lastError == error && _lastContext == context &&
 					_lastSystemError == systemError && _issueContext.profileName == issueContext.profileName &&
-					_issueContext.scalingModeName == issueContext.scalingModeName;
+					_issueContext.scalingModeName == issueContext.scalingModeName &&
+					_issueContext.dlssNrSession == issueContext.dlssNrSession &&
+					_issueContext.effectIndex == issueContext.effectIndex && _issueContext.dlssNrStatus == issueContext.dlssNrStatus;
 				_repeatCount = repeated ? _repeatCount + 1 : 1;
 				_lastError = error;
 				_lastContext = context;
@@ -228,6 +292,15 @@ void ErrorService::Report(ScalingError error, std::string context, HWND target,
 					!CanSuggestAnotherAdapter(AdaptersService::Get().AdapterInfos().size()))
 					key = L"Message_CreateFenceFailed_SingleAdapter";
 				_summary = loader.GetString(key);
+				if (issueContext.dlssNrStatus) {
+					const auto& nr = *issueContext.dlssNrStatus;
+					_summary = winrt::hstring(std::wstring(loader.GetString(DlssNrStateKey(nr.state))) + L"\n" +
+						std::wstring(loader.GetString(DlssNrReasonKey(nr.failure.reason))) + L"\n" +
+						std::wstring(loader.GetString(DlssNrAdviceKey(nr))));
+					_action = GetDlssNrIssueAction(nr, issueContext.hasProfile);
+				}
+				if (error == ScalingError::FSR3FGEffectChainUnsupported)
+					_summary = winrt::hstring(fmt::format(fmt::runtime(std::wstring(_summary)), StrHelper::UTF8ToUTF16(context)));
 				// Keep one complete, problem-specific sentence in the transient toast.
 				std::wstring toastSummary(_summary);
 				const auto chineseEnd = toastSummary.find(L'。');
@@ -273,6 +346,14 @@ void ErrorService::Report(ScalingError error, std::string context, HWND target,
 				field(L"ErrorDetails_Version", StrHelper::UTF8ToUTF16(STRINGIFY(MP_VERSION_STRING)));
 #endif
 				if (!context.empty()) field(L"ErrorDetails_Context", StrHelper::UTF8ToUTF16(context));
+				if (issueContext.dlssNrStatus) {
+					const auto& nr = *issueContext.dlssNrStatus;
+					constexpr const char* stages[]{ "initialize", "load-library", "initialize-library", "create-feature", "evaluate", "resize" };
+					constexpr const char* kinds[]{ "none", "Win32", "HRESULT", "NGX", "SEH" };
+					details += StrHelper::UTF8ToUTF16(fmt::format("\nRun={} / effect=#{} / stage={} / operation={} / {}=0x{:08X}\n{}",
+						issueContext.runId, issueContext.effectIndex + 1, stages[static_cast<size_t>(nr.failure.stage)],
+						nr.failure.operation, kinds[static_cast<size_t>(nr.failure.codeKind)], nr.failure.code, nr.environment));
+				}
 				if (!issueContext.windowTitle.empty()) field(L"ErrorDetails_Window", issueContext.windowTitle);
 				if (issueContext.hasProfile) {
 					constexpr const wchar_t* methods[] = { L"Graphics Capture", L"Desktop Duplication", L"GDI", L"DwmSharedSurface" };

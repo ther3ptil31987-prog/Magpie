@@ -1,5 +1,7 @@
 #pragma once
 #include "Event.h"
+#include "ScalingOptions.h"
+#include "RtssService.h"
 #include "ProfileViewModel.g.h"
 
 namespace Magpie {
@@ -102,14 +104,68 @@ struct ProfileViewModel : ProfileViewModelT<ProfileViewModel>,
 
 	IVector<IInspectable> GraphicsCards() const noexcept;
 
-	int GraphicsCard() const noexcept;
-	void GraphicsCard(int value);
+	IInspectable GraphicsCard() const noexcept;
+	void GraphicsCard(IInspectable const& value);
 
-	bool IsShowGraphicsCardSettingsCard() const noexcept;
+	bool IsGraphicsCardSelectionEnabled() const noexcept;
 
 	bool IsNoGraphicsCard() const noexcept;
+	bool ShowGraphicsCardUnavailableWarning() const noexcept;
 
+	int32_t FrameRefreshModeIndex() const noexcept;
+	void FrameRefreshModeIndex(int32_t value);
+	bool IsSimpleFrameRefresh() const noexcept;
+	bool IsAdvancedFrameRefresh() const noexcept;
 	int32_t ContentFrameRateModeIndex() const noexcept;
+	bool SimpleRtssSync() const noexcept;
+	void SimpleRtssSync(bool value);
+	int32_t RtssModeIndex() const noexcept;
+	void RtssModeIndex(int32_t value);
+	int32_t RtssTargetScopeIndex() const noexcept;
+	void RtssTargetScopeIndex(int32_t value);
+	bool ShowRtssOptions() const noexcept;
+	bool ShowContentPacing() const noexcept;
+	bool ShowRtssDownload() const noexcept;
+	bool CanRetryRtss() const noexcept;
+	void RetryRtss();
+	int32_t RtssScopeIndex() const noexcept;
+	void RtssScopeIndex(int32_t value);
+	int32_t RtssRateModeIndex() const noexcept;
+	void RtssRateModeIndex(int32_t value);
+	double RtssCustomRate() const noexcept;
+	void RtssCustomRate(double value);
+	double RtssSyncedRate() const noexcept;
+	int32_t RtssExitPolicyIndex() const noexcept;
+	void RtssExitPolicyIndex(int32_t value);
+	bool IsRtssManaged() const noexcept;
+	bool ShowRtssCustomRate() const noexcept;
+	bool ShowRtssSyncedRate() const noexcept;
+	bool IsRtssSyncAvailable() const noexcept;
+	bool ShowRtssGlobalNotice() const noexcept;
+	hstring RtssStatusTitle() const;
+	hstring RtssStatusDescription() const;
+	hstring RtssStatusGlyph() const;
+	bool IsRtssBusy() const;
+	bool ShowRtssManagement() const;
+	hstring RtssProgramStatus() const;
+	hstring RtssSelfStatus() const;
+	hstring RtssManagementResult() const;
+	bool ShowRtssManagementResult() const;
+	bool CanRecheckRtss() const;
+	hstring RtssStatusText() const;
+	IVector<hstring> RtssStatusSegments() const;
+	hstring RtssSyncText() const;
+	bool CanLaunchRtss() const;
+	bool CanInitializeMagpie() const;
+	bool ShowRtssInitialize() const;
+	hstring RtssInitializeText() const;
+	void InitializeMagpieRtss();
+	bool CanLaunchAfterburner() const;
+	hstring RtssLaunchText() const;
+	hstring AfterburnerLaunchText() const;
+	void RefreshRtss();
+	void LaunchRtss();
+	void LaunchAfterburner();
 	void ContentFrameRateModeIndex(int32_t value);
 	double ContentFrameRate() const noexcept;
 	void ContentFrameRate(double value);
@@ -135,6 +191,8 @@ struct ProfileViewModel : ProfileViewModelT<ProfileViewModel>,
 	bool ShowFrameRefreshNotice() const noexcept;
 	hstring FrameRefreshNotice() const noexcept;
 	void ResetFrameRefresh();
+	bool IsVRREnabled() const noexcept;
+	void IsVRREnabled(bool value);
 
 	bool IsCaptureTitleBar() const noexcept;
 	void IsCaptureTitleBar(bool value);
@@ -186,10 +244,15 @@ struct ProfileViewModel : ProfileViewModelT<ProfileViewModel>,
 
 private:
 	void _NotifyFrameRefreshChanged();
+	void _NotifyRtssChanged();
+	void _SaveRtss();
+	void _LoadRtssPreview();
+	::Magpie::RtssStatus _RtssStatus() const;
 	void _SaveFrameRefresh();
 	fire_and_forget _LoadIcon();
 
-	void _AdaptersService_AdaptersChanged();
+	void _BuildGraphicsCards();
+	void _RefreshGraphicsCardSettings();
 
 	void _BuildMonitorOptions();
 
@@ -206,15 +269,22 @@ private:
 	::Magpie::Event<uint32_t>::EventRevoker _dpiChangedRevoker;
 	::Magpie::Event<>::EventRevoker _adaptersChangedRevoker;
 	::Magpie::Event<::Magpie::Profile&>::EventRevoker _frameSyncChangedRevoker;
+	::Magpie::Event<>::EventRevoker _frameRefreshModeChangedRevoker;
+	::Magpie::Event<>::EventRevoker _rtssStatusRevoker;
+	::Magpie::Event<bool>::EventRevoker _scalingStatusRevoker;
+	::Magpie::RtssStatus _rtssPreview;
+	uint64_t _rtssPreviewGeneration = 0;
 
 	IconElement _icon{ nullptr };
 	IVector<IInspectable> _monitorOptions{ nullptr };
+	IVector<IInspectable> _graphicsCards{ nullptr };
+	std::vector<::Magpie::GraphicsCardId> _graphicsCardOptions;
 	std::vector<std::wstring> _monitorIds;
 	std::vector<std::wstring> _monitorNames;
 
 	const bool _isDefaultProfile = true;
 	bool _isRenameConfirmButtonEnabled = false;
-	// 用于防止 ComboBox 可见性变化时错误修改 GraphicsCard 配置
+	// Ignore binding writes while rebuilding the list; stale item identities are also rejected.
 	bool _isHandlingAdapterChanged = false;
 };
 

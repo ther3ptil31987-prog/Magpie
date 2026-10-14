@@ -25,6 +25,7 @@ def function(signature):
 prefix = r'''
 #include "HdrEffectBoundary.h"
 #include "EffectProtocolCatalogC.h"
+#include "NvidiaVfxParameters.h"
 #include <algorithm>
 #include <cstdio>
 #include <map>
@@ -47,8 +48,8 @@ struct MockTexture : ID3D11Texture2D {
     UINT STDMETHODCALLTYPE GetEvictionPriority() override { return 0; }
     void STDMETHODCALLTYPE GetDesc(D3D11_TEXTURE2D_DESC* result) override { *result=desc; }
 };
-enum class ScalingType { Fill, Fit };
-struct EffectOption { std::string name; std::map<std::string,float> parameters; ScalingType scalingType{}; };
+enum class ScalingType { Fill, Fit, Absolute };
+struct EffectOption { std::string name; std::map<std::string,float> parameters; ScalingType scalingType{}; std::pair<float,float> scale{}; };
 struct ScalingOptions {
     bool hdr=false;
     bool IsHdrCompatibilityEnabled() const { return hdr; }
@@ -58,7 +59,11 @@ struct ScalingWindow {
     ScalingOptions options;
     static ScalingWindow& Get() { static ScalingWindow w; return w; }
     ScalingOptions& Options() { return options; }
+    RECT RendererRect() const { return {0,0,1920,1080}; }
 };
+namespace Win32Helper {
+static SIZE GetSizeOfRect(const RECT& rect) { return {rect.right-rect.left, rect.bottom-rect.top}; }
+}
 struct Logger { static Logger& Get() { static Logger l; return l; } void Error(const char*) {} };
 struct EffectDesc { std::string name; DXGI_FORMAT input{}, output{}; bool hdr=false; };
 static int compiles[2]{};
@@ -105,6 +110,7 @@ struct FrameSource {
 };
 struct Renderer {
     FrameSource* _frameSource;
+    std::vector<EffectOption> _runtimeEffectOptions;
     HdrFrameMetadata _pipelineOutputMetadata{};
     int _backendResources=0, _backendDescriptorStore=0;
     std::vector<EffectDrawer> _effectDrawers;

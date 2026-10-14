@@ -50,9 +50,12 @@ inline bool MergeFrameSyncSettings(FrameSyncSettings& current,
 // Requested strategy is immutable during a scaling session. Availability of
 // Reflex can temporarily change on resize; the renderer then uses Async.
 inline FrameSyncBackend ResolveFrameSyncBackend(FrameSyncSettings settings,
-	bool dlssFG, bool xessFG, bool frontEdgeSupported, bool benchmark) noexcept {
+	bool dlssFG, bool xessFG, bool frontEdgeSupported, bool benchmark, bool fsrFG = false) noexcept {
 	if (!settings.enabled || benchmark) return FrameSyncBackend::None;
 	if (xessFG) return FrameSyncBackend::XeLL;
+	// AMD owns output pacing; StepTimer limits accepted base frames. No XeLL,
+	// Reflex or frontend deadline/sleep is stacked on the proxy swapchain.
+	if (fsrFG) return FrameSyncBackend::Async;
 	if (settings.mode == FrameSyncMode::Async) return FrameSyncBackend::Async;
 	if (settings.mode == FrameSyncMode::Reflex)
 		return FrameSyncBackend::Reflex;
@@ -71,7 +74,7 @@ inline double ResolvePresentationFrameRate(double requested, double existingLimi
 	requested = SanitizePresentationFrameRate(static_cast<float>(requested));
 	if (!(std::isfinite(existingLimit) && existingLimit > 0)) existingLimit = 0;
 	if (!(std::isfinite(refreshRate) && refreshRate >= 10 && refreshRate <= 1000)) refreshRate = 60;
-	const double target = requested > 0 ? requested : refreshRate / std::clamp(multiplier, 1u, 4u);
+	const double target = requested > 0 ? requested : refreshRate / std::clamp(multiplier, 1u, 8u);
 	return std::clamp(existingLimit > 0 ? std::min(target, existingLimit) : target, 1.0, 1000.0);
 }
 

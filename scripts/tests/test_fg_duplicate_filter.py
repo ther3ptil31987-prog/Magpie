@@ -17,16 +17,15 @@ branch = branch[:branch.rindex('\n}')]
 header = (root / 'src/Magpie.Core/FrameSourceBase.h').read_text(encoding='utf-8-sig')
 reasons = re.search(r'enum class CaptureFrameReason.*?\n};', header, re.S)[0]
 
-for family, effect in [('DLSSFG', 'DLSS_FrameGeneration'), ('XeSSFG', 'XeSS_FrameGeneration')]:
+for family, effect in [('DLSSFG', 'DLSS_FrameGeneration'), ('XeSSFG', 'XeSS_FrameGeneration'),
+                       ('FSR3FG', 'FSR3_FrameGeneration'), ('NvidiaVFX', 'VFG')]:
     shader = (root / f'src/Effects/{family}/{effect}.hlsl').read_text(encoding='utf-8-sig')
-    names = re.findall(r'^int (\w+);', shader, re.M)
-    assert names[:3] == ['multiplier', 'duplicateFrameFiltering', 'opticalFlowMethod']
-    block = next(part for part in shader.split('//!PARAMETER') if 'int duplicateFrameFiltering;' in part)
-    assert all(f'//!{key} {value}' in block for key, value in [('DEFAULT', 1), ('MIN', 0), ('MAX', 1), ('STEP', 1)])
+    assert 'duplicateFrameFiltering' not in shader
     for language in ['en-US', 'zh-Hans', 'zh-Hant']:
         resource = ET.parse(root / f'src/Magpie/Resources.language-{language}.resw')
         key = f'EffectParam_{family}_{effect}_duplicateFrameFiltering_Label'
-        assert len(resource.findall(f'./data[@name="{key}"]')) == 1
+        assert not resource.findall(f'./data[@name="{key}"]')
+assert '_duplicateFrameDetectionOverride' not in source + header
 
 harness = r'''
 #include <optional>
@@ -73,7 +72,6 @@ struct Capture {
     uint64_t _duplicateCaptureSequence=0, _captureSequence=1;
     bool _isCheckingForDuplicateFrame=true;
     uint32_t _framesLeft=16, _nextSkipCount=1;
-    std::optional<bool> _duplicateFrameDetectionOverride;
     Resource _prevFrame, _prevFrameSrv, _output;
     Device device;
     Device* _deviceResources=&device;
@@ -97,28 +95,24 @@ int main() {
     for (auto mode : {DuplicateFrameDetectionMode::Always, DuplicateFrameDetectionMode::Dynamic, DuplicateFrameDetectionMode::Never}) {
         for (bool game : {false,true}) {
             options.duplicateFrameDetectionMode=mode; options.game=game;
-            Capture disabled; disabled._duplicateFrameDetectionOverride=false;
-            for (int i=0;i<40;++i) Check(disabled.Feed()==State::NewFrame,"FG off dropped an input frame");
-            Check(disabled.checks==0 && disabled.initializations==0,"FG off still accessed GPU duplicate detection");
-            Capture enabled; enabled._duplicateFrameDetectionOverride=true;
-            Check(enabled.Feed()==State::NewFrame,"first input was lost");
-            for (int i=0;i<40;++i) Check(enabled.Feed()==State::Waiting,"FG on did not filter duplicates");
-            enabled.duplicate=false;
-            Check(enabled.Feed()==State::NewFrame,"FG on dropped changed pixels");
-            enabled.duplicate=true; ++enabled._captureSequence;
-            Check(enabled.Feed()==State::NewFrame,"capture restart failed to publish first frame");
-            Check(enabled.Feed()==State::Waiting,"filter did not resume after restart");
             Capture normal;
-            Check(normal.Feed()==State::NewFrame,"non-FG first input was lost");
+            Check(normal.Feed()==State::NewFrame,"common first input was lost");
             const bool globalFilters=!game && mode!=DuplicateFrameDetectionMode::Never;
-            Check(normal.Feed()==(globalFilters ? State::Waiting : State::NewFrame),"non-FG global behavior changed");
-            Check(enabled.Feed(State::Waiting)==State::Waiting && enabled.Feed(State::Error)==State::Error,
+            Check(normal.Feed()==(globalFilters ? State::Waiting : State::NewFrame),"common global policy changed");
+            if (globalFilters) {
+                normal.duplicate=false;
+                Check(normal.Feed()==State::NewFrame,"common policy lost changed pixels");
+                normal.duplicate=true; ++normal._captureSequence;
+                Check(normal.Feed()==State::NewFrame,"capture restart lost the first input");
+                Check(normal.Feed()==State::Waiting,"common filtering did not resume after restart");
+            }
+            Check(normal.Feed(State::Waiting)==State::Waiting && normal.Feed(State::Error)==State::Error,
                 "capture waiting/error state changed");
         }
     }
     options.game=false;
     options.duplicateFrameDetectionMode=DuplicateFrameDetectionMode::Always;
-    Capture hdr; hdr._duplicateFrameDetectionOverride=true;
+    Capture hdr;
     Check(hdr.Feed(State::NewFrame,true)==State::NewFrame && hdr.initializations==1,"HDR first frame failed to establish baseline");
     Check(hdr.Feed()==State::Waiting,"HDR duplicate after first conversion was accepted");
     const int before=hdr.checks;
@@ -152,7 +146,7 @@ int main() {
         ++dynamic._captureSequence;
         Check(dynamic.Feed()==State::NewFrame,"Dynamic recovery first frame was filtered");
     }
-    std::cout << "FG duplicate filter: on/off overrides all global modes and game mode; non-FG policy, changed pixels and capture restart passed.\n";
+    std::cout << "Common FG/non-FG duplicate policy: global modes and game mode, changed pixels, metadata and capture restart passed.\n";
 }
 '''.replace('BRANCH', branch).replace('REASONS', reasons)
 output = Path(sys.argv[1]).resolve()

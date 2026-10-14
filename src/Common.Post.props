@@ -25,6 +25,8 @@
       <AdditionalIncludeDirectories Condition="$(EnableNvidiaOpticalFlow) And '$(Platform)' == 'x64'">$(NvidiaOpticalFlowSdkDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions Condition="$(EnableFSR2ZeroMV) And '$(Platform)' == 'x64'">MP_ENABLE_FSR2_ZEROMV;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <AdditionalIncludeDirectories Condition="$(EnableFSR2ZeroMV) And '$(Platform)' == 'x64'">$(FSR2SdkDir)\src\ffx-fsr2-api;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions Condition="$(EnableFSR3FrameGeneration) And '$(Platform)' == 'x64'">MP_ENABLE_FSR3_FRAME_GENERATION;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories Condition="$(EnableFSR3FrameGeneration) And '$(Platform)' == 'x64'">$(FSR3SdkDir)\Kits\FidelityFX\api\include;$(FSR3SdkDir)\Kits\FidelityFX\framegeneration\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions Condition="$(EnableFSR3ZeroMV) And '$(Platform)' == 'x64'">MP_ENABLE_FSR3_ZEROMV;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <AdditionalIncludeDirectories Condition="$(EnableFSR3ZeroMV) And '$(Platform)' == 'x64'">$(FSR3SdkDir)\Kits\FidelityFX\api\include;$(FSR3SdkDir)\Kits\FidelityFX\upscalers\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions Condition="$(EnableAmdOpticalFlow) And '$(Platform)' == 'x64'">MP_ENABLE_AMD_OPTICAL_FLOW;%(PreprocessorDefinitions)</PreprocessorDefinitions>
@@ -35,6 +37,10 @@
 	  <AdditionalIncludeDirectories Condition="$(EnableXeSSFrameGeneration) And '$(Platform)' == 'x64'">$(XeSSSdkDir)\inc;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions Condition="$(EnableRTXVideoDenoise) And '$(Platform)' == 'x64'">MP_ENABLE_RTX_VIDEO_DENOISE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <AdditionalIncludeDirectories Condition="$(EnableRTXVideoDenoise) And '$(Platform)' == 'x64'">$(VFXSdkDir)\nvvfx\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions Condition="$(EnableNvidiaVfx) And '$(Platform)' == 'x64'">MP_ENABLE_NVIDIA_VFX;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions Condition="$(EnableNvidiaVfx) And $(EnableNvidiaVfxAsync) And '$(Platform)' == 'x64'">MP_ENABLE_NVIDIA_VFX_ASYNC;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions Condition="$(EnableNvidiaVfx) And $(EnableNvidiaVfxCudaHandoff) And '$(Platform)' == 'x64'">MP_ENABLE_NVIDIA_VFX_CUDA_HANDOFF;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories Condition="$(EnableNvidiaVfx) And '$(Platform)' == 'x64'">$(VFXIncludeDir);$(VFXSdkDir)\features\nvvfxupscale\include;$(VFXSdkDir)\features\nvvfxvideosuperres\include;$(VFXSdkDir)\features\nvvfxvideoframegeneration\include;$(VFXSdkDir)\features\nvvfxtruehdr\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <DebugInformationFormat Condition="'$(DisablePDB)' == 'true'">None</DebugInformationFormat>
       <AdditionalOptions>/bigobj %(AdditionalOptions)</AdditionalOptions>
       <AdditionalOptions Condition="'$(ReproducibleBuild)' == 'true'">/Brepro %(AdditionalOptions)</AdditionalOptions>

@@ -15,7 +15,8 @@ public:
 
 	bool BuildFonts() noexcept;
 
-	void RenderDrawData(const ImDrawData& drawData, POINT viewportOffset) noexcept;
+	// hdrWhiteScale == 0 preserves SDR; positive values select linear scRGB.
+	void RenderDrawData(const ImDrawData& drawData, POINT viewportOffset, float hdrWhiteScale) noexcept;
 
 private:
 	bool _CreateDeviceObjects() noexcept;
@@ -34,6 +35,7 @@ private:
 	winrt::com_ptr<ID3D11InputLayout> _inputLayout;
 	winrt::com_ptr<ID3D11Buffer> _vertexConstantBuffer;
 	winrt::com_ptr<ID3D11PixelShader> _pixelShader;
+	winrt::com_ptr<ID3D11Buffer> _pixelConstantBuffer;
 	winrt::com_ptr<ID3D11ShaderResourceView> _fontTextureView;
 	winrt::com_ptr<ID3D11BlendState> _blendState;
 	winrt::com_ptr<ID3D11RasterizerState> _rasterizerState;

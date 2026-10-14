@@ -1,5 +1,7 @@
 # Contribution Guide
 
+When adding an effect or changing its capabilities, update both languages of the picker descriptions, categories/families, and relevant parameter help. Follow the [effect description guide](docs/experimental/EFFECT-DESCRIPTION-GUIDE.md), edit the authoritative review sources, regenerate the catalogs, and run the listed checks. Record source validation separately from builds, UI checks, and GPU acceptance.
+
 **First of all, thank you for spending your valuable time on this project!**
 
 Magpie is a personal project, initially inspired by IntegerScaler and Lossless Scaling. However, the project has become much more powerful than its predecessors. Due to the limited capability and energy of the developers, we welcome any form of contribution to this project! Magpie follows the [All Contributors](https://github.com/all-contributors/all-contributors) protocol. No matter in what form you contributed to the project (e.g. code, document, test, etc.), the developer will add you to the contributors list as long as you contributed enough.

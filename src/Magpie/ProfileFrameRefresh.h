@@ -36,6 +36,9 @@ inline FrameRefreshSettings ReadProfileFrameRefresh(
 		enumeration("cursorSupplement", result.cursorSupplement, 1);
 		rate("cursorRate", result.cursorRate);
 		boolean("idleEnabled", result.idleEnabled);
+		boolean("vrrEnabled", result.vrrEnabled);
+		// Legacy foreground compatibility is derived from this single VRR intent.
+		// Ignore its old field, including malformed values; vrrEnabled is authoritative.
 		rate("idleRate", result.idleRate);
 		rate("legacyContentLimit", result.legacyContentLimit);
 		if (const auto value = fields.FindMember("legacySourceTarget"); value != fields.MemberEnd() && value->value.IsNumber()) {
@@ -45,7 +48,7 @@ inline FrameRefreshSettings ReadProfileFrameRefresh(
 		boolean("legacyLimiterOnly", result.legacyLimiterOnly);
 		boolean("legacyResponsiveMinimum", result.legacyResponsiveMinimum);
 		if (result.contentMode != ContentFrameRateMode::Custom) result.legacyLimiterOnly = false;
-		return result;
+		return NormalizeContentFrameRate(result);
 	}
 
 	if (!migrateLegacy) return result;
@@ -84,12 +87,12 @@ inline FrameRefreshSettings ReadProfileFrameRefresh(
 	result.legacyResponsiveMinimum = !original && minimum;
 	result.idleEnabled = std::isfinite(legacyIdle) && legacyIdle > 0;
 	result.idleRate = result.idleEnabled ? FrameRefreshSettings::ValidateRate(legacyIdle, 10) : 30;
-	return result;
+	return NormalizeContentFrameRate(result);
 }
 
 template<class Writer>
 void WriteProfileFrameRefresh(Writer& writer, const FrameRefreshSettings& settings) {
-	const auto s = settings.IsValid() ? settings : FrameRefreshSettings{};
+	const auto s = NormalizeContentFrameRate(settings.IsValid() ? settings : FrameRefreshSettings{});
 	writer.Key("frameRefresh"); writer.StartObject();
 	writer.Key("contentMode"); writer.Uint(uint32_t(s.contentMode));
 	writer.Key("contentRate"); writer.Double(s.contentRate);
@@ -98,6 +101,7 @@ void WriteProfileFrameRefresh(Writer& writer, const FrameRefreshSettings& settin
 	writer.Key("cursorSupplement"); writer.Uint(uint32_t(s.cursorSupplement));
 	writer.Key("cursorRate"); writer.Double(s.cursorRate);
 	writer.Key("idleEnabled"); writer.Bool(s.idleEnabled);
+	writer.Key("vrrEnabled"); writer.Bool(s.vrrEnabled);
 	writer.Key("idleRate"); writer.Double(s.idleRate);
 	writer.Key("legacyContentLimit"); writer.Double(s.legacyContentLimit);
 	writer.Key("legacySourceTarget"); writer.Double(s.legacySourceTarget);

@@ -1,6 +1,7 @@
 #include "pch.h"
 #include "FrameTrace.h"
 #include "ScalingWindow.h"
+#include "NvidiaForegroundCompatibility.h"
 #include "CommonSharedConstants.h"
 #include "CursorManager.h"
 #include "ExclModeHelper.h"
@@ -8,6 +9,7 @@
 #include "Renderer.h"
 #include "NgxRuntimeGuard.h"
 #include "ScalingWindowOwner.h"
+#include "StrHelper.h"
 #include "EffectParameterValue.h"
 #include "HdrDisplayPreflight.h"
 #include "Win32Helper.h"
@@ -87,7 +89,22 @@ static ScalingError CheckCapturePrerequisites(CaptureMethod method) noexcept {
 	}
 }
 
-ScalingError ScalingWindow::_StartImpl(HWND hwndSrc) noexcept {
+static std::string DescribeScalingWindowOwner(const char* step, HWND window, HWND source, HWND owner,
+	const ScalingWindowOwnerResult& result) noexcept {
+	return fmt::format("Scaling window owner: step={} status={} system={} sourceClass={} outputClass={} "
+		"output={:#x} requested={:#x} actual={:#x} unownedByErrorCode={} rawReturn={:#x} outputStyle={:#x} ownerStyle={:#x}", step, result.StatusName(),
+		result.systemError, StrHelper::UTF16ToUTF8(Win32Helper::GetWindowClassName(source)),
+		StrHelper::UTF16ToUTF8(Win32Helper::GetWindowClassName(window)),
+		reinterpret_cast<uintptr_t>(window), reinterpret_cast<uintptr_t>(owner), reinterpret_cast<uintptr_t>(result.actualOwner),
+		result.CanContinueUnowned(), uintptr_t(result.previousOwner), uintptr_t(result.outputStyle), uintptr_t(result.ownerStyle));
+}
+
+ScalingError ScalingWindow::_StartImpl(HWND hwndSrc, bool& rendererInitializationFailed) noexcept {
+	rendererInitializationFailed = false;
+	for (auto& effect : _options.effects) {
+		if (NormalizeFrameGenerationParameters(effect))
+			Logger::Get().Info("FG input settings normalized: " + effect.name);
+	}
 	if (_options.effects.empty()) return ScalingError::ScalingModeEmpty;
 	if (ValidateFrameGenerationChain(_options.effects).HasConflict()) {
 		Logger::Get().Error("Scaling preflight: keep one frame-generation effect in the group");
@@ -103,7 +120,7 @@ ScalingError ScalingWindow::_StartImpl(HWND hwndSrc) noexcept {
 	}
 	if (!_options.parameterSession) {
 		_options.parameterSession = std::make_shared<EffectParameterSessionState>(
-			_options.effects, _options.frameRefresh);
+			_options.effects, _options.frameRefresh, _options.isSimpleFrameRefresh);
 	}
 	Logger::Get().Info(fmt::format("缩放开始\n\t程序版本: {}\n\tOS 版本: {}\n\t管理员: {}",
 #ifdef MP_VERSION_STRING
@@ -153,6 +170,26 @@ ScalingError ScalingWindow::_StartImpl(HWND hwndSrc) noexcept {
 		Logger::Get().Error("初始化 SrcTracker 失败");
 		return error;
 	}
+
+	// Watch identity before capture/backend initialization. Rebuilds retain the
+	// existing watch so a destroy notification cannot be lost between outputs.
+	if (_sourceCoordinator.Source().capture != hwndSrc) {
+		if (!_sourceCoordinator.Prepare(hwndSrc)) {
+			Logger::Get().Win32Error("Prepare source window coordination failed");
+			return ScalingError::ScalingWindowCreationFailed;
+		}
+	}
+	if (!_sourceCoordinator.Ready()) {
+		Logger::Get().Error("Source window identity changed before initialization");
+		return ScalingError::SourceWindowClosed;
+	}
+	_srcTracker.UpdateForeground(Win32Helper::GetRealForegroundWindow());
+	const auto& identity = _sourceCoordinator.Source();
+	Logger::Get().Info(fmt::format("Window coordination preparing: run={} epoch={} capture={:#x} root={:#x} "
+		"capturePid={} captureTid={} rootPid={} rootTid={} captureStyle={:#x} rootStyle={:#x}",
+		RunId(), _sourceCoordinator.Epoch(), uintptr_t(identity.capture), uintptr_t(identity.root),
+		identity.capturePid, identity.captureTid, identity.rootPid, identity.rootTid,
+		uintptr_t(identity.captureStyle), uintptr_t(identity.rootStyle)));
 
 	if (isSrcInvisibleOrMinimized || (_srcTracker.IsMoving() && !_options.IsWindowedMode())) {
 		// 等待源窗口状态改变
@@ -303,7 +340,9 @@ ScalingError ScalingWindow::_StartImpl(HWND hwndSrc) noexcept {
 		);
 
 		if (!Handle()) {
-			Logger::Get().Error("创建缩放窗口失败");
+			_startupFailureSystemError = GetLastError();
+			_startupFailureContext = "Create scaling output failed";
+			Logger::Get().Error(_startupFailureContext);
 			return ScalingError::ScalingWindowCreationFailed;
 		}
 
@@ -330,6 +369,8 @@ ScalingError ScalingWindow::_StartImpl(HWND hwndSrc) noexcept {
 				nullptr
 			);
 			if (!_hwndRenderer) {
+				_startupFailureSystemError = GetLastError();
+				_startupFailureContext = "Create renderer child failed";
 				Logger::Get().Win32Error("Create renderer child window failed");
 				return ScalingError::ScalingWindowCreationFailed;
 			}
@@ -367,7 +408,9 @@ ScalingError ScalingWindow::_StartImpl(HWND hwndSrc) noexcept {
 		);
 
 		if (!Handle()) {
-			Logger::Get().Error("创建缩放窗口失败");
+			_startupFailureSystemError = GetLastError();
+			_startupFailureContext = "Create scaling output failed";
+			Logger::Get().Error(_startupFailureContext);
 			return ScalingError::ScalingWindowCreationFailed;
 		}
 
@@ -375,10 +418,13 @@ ScalingError ScalingWindow::_StartImpl(HWND hwndSrc) noexcept {
 	}
 
 	LogRects(_srcTracker.SrcRect(), _rendererRect, _windowRect);
+	NvidiaForegroundCompatibility::Prepare(_sourceCoordinator.Source(), _hwndRenderer, RunId(),
+		_options.isVRREnabled, _options.IsWindowedMode(), _options.mainUI);
 
 	_renderer = std::make_unique<class Renderer>();
 	ScalingError error = _renderer->Initialize(_hwndRenderer, _options.overlayOptions);
 	if (error != ScalingError::NoError) {
+		rendererInitializationFailed = true;
 		Logger::Get().Error("初始化 Renderer 失败");
 		return error;
 	}
@@ -389,26 +435,89 @@ ScalingError ScalingWindow::_StartImpl(HWND hwndSrc) noexcept {
 		// 应在 Renderer 初始化后调用。推迟到缩放窗口显示后再显示
 		_UpdateTouchHoleWindows(true);
 	}
-	if (!IsWindow(hwndSrc)) return ScalingError::SourceWindowClosed;
-	if (Win32Helper::IsWindowHung(hwndSrc)) return ScalingError::SourceWindowUnresponsive;
-	if (!SetScalingWindowOwner(Handle(), hwndSrc)) {
-		Logger::Get().Win32Error("Set scaling window owner after initialization failed");
-		return ScalingError::ScalingWindowCreationFailed;
+	if (!_sourceCoordinator.Ready()) {
+		_startupFailureContext = "Source identity retired after renderer initialization";
+		_startupFailureSystemError = ERROR_INVALID_WINDOW_HANDLE;
+		Logger::Get().Error(_startupFailureContext);
+		return ScalingError::SourceWindowClosed;
 	}
-	if (!AttachThreadInput(GetCurrentThreadId(), GetWindowThreadProcessId(hwndSrc, nullptr), FALSE)) {
-		Logger::Get().Win32Warn("Detach source input queue after setting window owner failed");
+	if (Win32Helper::IsWindowHung(hwndSrc)) {
+		_startupFailureContext = "Source window unresponsive after renderer initialization";
+		Logger::Get().Error(_startupFailureContext);
+		return ScalingError::SourceWindowUnresponsive;
 	}
-
+	// First-frame GPU/presenter preparation must also stay unowned. Admission
+	// and the success notification happen in the common first-display path.
 	return ScalingError::NoError;
 }
 
+bool ScalingWindow::_EstablishWindowCoordination() noexcept {
+	const HWND source = _srcTracker.Handle();
+	const HWND root = SourceRoot();
+	ScalingError error = ScalingError::NoError;
+	uint32_t systemError = 0;
+	std::string context;
+	if (!_sourceCoordinator.Ready()) {
+		error = ScalingError::SourceWindowClosed;
+		context = "Source identity retired before first display";
+	} else if (Win32Helper::IsWindowHung(source) || Win32Helper::IsWindowHung(root)) {
+		error = ScalingError::SourceWindowUnresponsive;
+		context = "Source unresponsive before first display";
+	} else {
+		DWORD integrity = 0;
+		if (!Win32Helper::GetWindowIntegrityLevel(root, integrity) || integrity > Win32Helper::GetCurrentProcessIntegrityLevel()) {
+			error = ScalingError::LowIntegrityLevel;
+			systemError = ERROR_ACCESS_DENIED;
+			context = "Source coordination integrity validation failed";
+		} else {
+			const auto result = TrySetScalingWindowOwner(Handle(), root);
+			context = DescribeScalingWindowOwner("first-display", Handle(), source, root, result);
+			systemError = result.systemError;
+			if (!_sourceCoordinator.Accept(Handle(), result, true)) {
+				error = !_sourceCoordinator.Ready() || result.status == ScalingWindowOwnerStatus::InvalidOwner ?
+					ScalingError::SourceWindowClosed : ScalingError::ScalingWindowCreationFailed;
+			} else {
+				Logger::Get().Info(context);
+				if (_sourceCoordinator.Mode() == WindowCoordinationMode::ManagedUnowned &&
+					!_sourceCoordinator.UpdateManagedOrder(_CalcTopmostState(), _srcTracker.IsSessionForeground(), _options.IsTopmostDisabled())) {
+					systemError = GetLastError();
+					context = "Managed coordination preparation failed before first display: " + context;
+					error = ScalingError::ScalingWindowCreationFailed;
+				} else {
+					Logger::Get().Info(fmt::format("Window coordination admitted: run={} epoch={} mode={} "
+						"reason={} identityVerified=true permissionVerified=true",
+						RunId(), _sourceCoordinator.Epoch(), _sourceCoordinator.ModeName(),
+						result.IsApplied() ? "native-owner" :
+						result.CanContinueUnowned() ? "owner-rejected" : "uwp-owner-not-applied"));
+					if (_sourceCoordinator.Mode() == WindowCoordinationMode::NativeOwned &&
+						!AttachThreadInput(GetCurrentThreadId(), GetWindowThreadProcessId(root, nullptr), FALSE)) {
+						Logger::Get().Win32Warn("Detach source input queue after setting window owner failed");
+					}
+					return true;
+				}
+			}
+		}
+	}
+	Logger::Get().Error(context);
+	if (const auto report = _options.reportErrorDetails) report(source, error, context, systemError);
+	else ShowError(error);
+	_DelayedStop();
+	return false;
+}
+
 void ScalingWindow::Start(HWND hwndSrc, ScalingOptions&& options) noexcept {
+	CompletePendingDestroy();
+	if (_retirement.Pending() || _isDestroying) {
+		Logger::Get().Error("New scaling session deferred until previous output retirement completes");
+		return;
+	}
 	assert(!Handle());
 	_stopRequested = false;
 	_frontendRenderPending = false;
 	_pendingSourceTransition = 0;
 	_sourceStateCheckDeferred = false;
 	_dlssFgFrameJobs.clear();
+	_nextSourceStateCheck = {};
 
 	assert(options.minFrameRate >= 0);
 	assert(!options.maxFrameRate.has_value() || *options.maxFrameRate > 0);
@@ -420,7 +529,7 @@ void ScalingWindow::Start(HWND hwndSrc, ScalingOptions&& options) noexcept {
 
 	// Retired profile flags cannot enable HDR. Explicit conversion components
 	// derive capture/output domains for this session and every parameter restart.
-	options.hdrComponents = BuildHdrComponentPlan(options.effects);
+	options.hdrComponents = BuildHdrComponentPlan(options.effects, options.legacyHdrCaptureIntent);
 	if (!IsValidFrameSyncMode(options.frameSyncMode)) options.frameSyncMode = FrameSyncMode::FrontEdge;
 	options.IsHdrCompatibilityEnabled(options.hdrComponents.enabled && options.hdrComponents.outputHdr);
 	options.Log();
@@ -429,13 +538,18 @@ void ScalingWindow::Start(HWND hwndSrc, ScalingOptions&& options) noexcept {
 	// Self move-assignment may clear vectors/maps and lose the session.
 	if (&options != &_options) _options = std::move(options);
 
+	_startupFailureContext.clear();
+	_startupFailureSystemError = 0;
 	Logger::DiagnosticCapture startupDiagnostic;
-	ScalingError error = _StartImpl(hwndSrc);
+	bool rendererInitializationFailed = false;
+	ScalingError error = _StartImpl(hwndSrc, rendererInitializationFailed);
 	if (error != ScalingError::NoError) {
 		if (_options.reportErrorDetails) {
 			_options.reportErrorDetails(hwndSrc, error,
-				_renderer ? _renderer->InitializationContext() : startupDiagnostic.Details(),
-				_renderer ? _renderer->InitializationSystemError() : startupDiagnostic.SystemError());
+				rendererInitializationFailed ? _renderer->InitializationContext() :
+					(_startupFailureContext.empty() ? startupDiagnostic.Details() : _startupFailureContext),
+				rendererInitializationFailed ? _renderer->InitializationSystemError() :
+					(_startupFailureContext.empty() ? startupDiagnostic.SystemError() : _startupFailureSystemError));
 		} else {
 			_options.showError(hwndSrc, error);
 		}
@@ -446,6 +560,7 @@ void ScalingWindow::Start(HWND hwndSrc, ScalingOptions&& options) noexcept {
 
 void ScalingWindow::Stop() noexcept {
 	if (_isDestroying) return;
+	NvidiaForegroundCompatibility::Retire();
 	if (HasHeldParameterInput()) {
 		// Finish the host's press/release pair before destroying its input HWND.
 		// Swallowing just a low-level release leaves Windows' async key state down.
@@ -457,17 +572,84 @@ void ScalingWindow::Stop() noexcept {
 	_CancelParameterRestart();
 	Destroy();
 	// 为了简化逻辑和确保可靠清理，这里始终调用 CleanAfterSrcRepositioned
-	CleanAfterSrcRepositioned();
+	if (!_retirement.Pending()) CleanAfterSrcRepositioned();
 }
 
 void ScalingWindow::Destroy() noexcept {
-	if (_isDestroying) return;
-	// Publish cancellation before DestroyWindow can synchronously dispatch input
-	// or owner/focus messages. WM_DESTROY also handles destruction by the OS.
+	if (_finalizingRetirement || (_isDestroying && _windowCallbackDepth)) return;
+	if (!Handle()) { CompletePendingDestroy(); return; }
+	_BeginDestroy(Handle());
+	if (!DestroyWindow(Handle())) Logger::Get().Win32Error("Destroy scaling output failed; retain session resources");
+	CompletePendingDestroy();
+}
+
+void ScalingWindow::_BeginDestroy(HWND window) noexcept {
+	if (!_retirement.Begin(window, reinterpret_cast<LONG_PTR>(this))) return;
+	_isDestroying = true;
+	_stopRequested = false;
+	_pendingSourceTransition = 0;
+	_sourceStateCheckDeferred = false;
+	NvidiaForegroundCompatibility::Retire();
+	// Only atomic cancellation/event wakeups precede the owner cut.
 	if (_cursorManager) _cursorManager->BeginShutdown();
-	if (_renderer) _renderer->ReleaseParameterInput();
 	if (_renderer) _renderer->BeginShutdown();
-	base_type::Destroy();
+	++_runId;
+	const auto result = TrySetScalingWindowOwner(window, nullptr);
+	const auto diagnostic = DescribeScalingWindowOwner("retire-before-destroy", window, _srcTracker.Handle(), nullptr, result);
+	if (result.IsApplied()) {
+		Logger::Get().Info(diagnostic);
+		NvidiaForegroundCompatibility::ReleaseReferenceFocus();
+		// Focus restoration and USER32 calls can wait. Do them only after the
+		// relationship is verified absent; otherwise retain input resources too.
+		if (_renderer) _renderer->ReleaseParameterInput();
+	} else Logger::Get().Warn(diagnostic);
+	_sourceCoordinator.RetireOutput();
+}
+
+bool ScalingWindow::CompletePendingDestroy() noexcept {
+	if (_finalizingRetirement || !_retirement.Ready(_windowCallbackDepth)) return false;
+	_finalizingRetirement = true;
+	_FinishDestroy();
+	_retirement.Complete();
+	_isDestroying = false;
+	_finalizingRetirement = false;
+	return true;
+}
+
+void ScalingWindow::PollSourceState() noexcept {
+	if (_isDestroying) return;
+	NvidiaForegroundCompatibility::Poll();
+	const bool dirty = _sourceCoordinator.TakeDirty();
+	const auto now = std::chrono::steady_clock::now();
+	if (!dirty && now < _nextSourceStateCheck) return;
+	_nextSourceStateCheck = now + 250ms;
+	if (_sourceCoordinator.Source().capture && !_sourceCoordinator.Ready()) {
+		if (Handle()) { _HideOutputForSourceTransition(); _DelayedStop(); }
+		else if (_isSrcRepositioning) CleanAfterSrcRepositioned();
+		return;
+	}
+	if (!Handle() || !_renderer || !_cursorManager || HasPendingSourceTransition()) return;
+	bool repositioning = false, focusedChanged = false;
+	if (!_UpdateSrcState(repositioning, focusedChanged)) {
+		// Retire visually even if a held parameter key delays resource cleanup.
+		_HideOutputForSourceTransition();
+		_DelayedStop(false, repositioning);
+		return;
+	}
+	if (_sourceStateCheckDeferred) return;
+	if (focusedChanged) _renderer->OnSourceFocusChanged();
+	if (!_isFirstFrame && (focusedChanged || dirty || _sourceCoordinator.Mode() == WindowCoordinationMode::ManagedUnowned)) {
+		_UpdateFocusStateAsync();
+	}
+}
+
+void ScalingWindow::_HideOutputForSourceTransition() noexcept {
+	NvidiaForegroundCompatibility::Retire();
+	ShowWindow(Handle(), SW_HIDE);
+	for (const auto& helper : _hwndResizeHelpers) if (helper) ShowWindow(helper.get(), SW_HIDE);
+	// Touch holes are deliberately unowned; hiding/destroying the output
+	// cannot retire these windows on our behalf.
+	for (const auto& hole : _hwndTouchHoles) if (hole) ShowWindow(hole.get(), SW_HIDE);
 }
 
 void ScalingWindow::ToggleScaling(bool isWindowedMode) noexcept {
@@ -477,7 +659,7 @@ void ScalingWindow::ToggleScaling(bool isWindowedMode) noexcept {
 		return;
 	}
 
-	if (_options.IsWindowedMode() == isWindowedMode || !_srcTracker.IsFocused()) {
+	if (_options.IsWindowedMode() == isWindowedMode || !_srcTracker.IsSessionForeground()) {
 		Stop();
 		return;
 	}
@@ -524,7 +706,7 @@ bool ScalingWindow::_PrepareFrontendRender() noexcept {
 			"Source transition requested: reason={} reposition={} foreground={:#x} inputHost={:#x} "
 			"editing={} focusSettling={} visible={} iconic={} rectValid={} "
 			"before=({},{},{},{}) current=({},{},{},{})",
-			_sourceStateChangeReason, isSrcRepositioning, uintptr_t(GetForegroundWindow()),
+			_sourceStateChangeReason, isSrcRepositioning, uintptr_t(Win32Helper::GetRealForegroundWindow()),
 			uintptr_t(_renderer->ParameterInputHandle()), _renderer->IsEditingParameters(),
 			_renderer->IsParameterFocusSettling(), IsWindowVisible(source), IsIconic(source), rectValid,
 			_sourceRectBeforeCheck.left, _sourceRectBeforeCheck.top,
@@ -537,7 +719,7 @@ bool ScalingWindow::_PrepareFrontendRender() noexcept {
 
 	if (srcFocusedChanged) {
 		_renderer->OnSourceFocusChanged();
-		_UpdateFocusStateAsync();
+		if (!_isFirstFrame) _UpdateFocusStateAsync();
 	}
 
 	// 虽然可以在第一帧渲染完成后再隐藏系统光标，但某些设备上显示窗口时光标状态会变成忙，
@@ -553,11 +735,13 @@ void ScalingWindow::_CompleteFrontendRender(
 ) noexcept {
 	if (submitted && _isFirstFrame) {
 		Logger::Get().Info(fromDLSSFGQueue ?
-			"First frontend frame submitted by DLSSFG FIFO; showing scaling window" :
-			"First frontend frame submitted by regular renderer; showing scaling window");
+			"First frontend frame submitted by DLSSFG FIFO; preparing first display" :
+			"First frontend frame submitted by regular renderer; preparing first display");
+		// Both regular and DLSSFG first frames enter the same admission gate.
+		if (!_Show()) return;
 		_isFirstFrame = false;
-		// 第一帧渲染完成后显示缩放窗口
-		_Show();
+		Logger::Get().Info(fmt::format("Scaling output shown: run={} epoch={} mode={}",
+			RunId(), _sourceCoordinator.Epoch(), _sourceCoordinator.ModeName()));
 		// 缩放已开始，给用户一个确认；失败路径已有错误提示
 		ShowToast(GetLocalizedString(L"Message_ScalingStarted"));
 		const auto& notice = _renderer->MotionConfigurationNotice();
@@ -629,13 +813,16 @@ void ScalingWindow::RestartWithEffectParameters(
 	_isSrcRepositioning = false;
 	_options.effects = std::move(effects);
 	// The backend has joined: update the immutable pacing snapshot only now.
-	ApplyFrameRefreshSettings(_options, frameRefresh);
+	ApplyFrameRefreshSettings(_options, frameRefresh, _options.isSimpleFrameRefresh);
 	_options.parameterSession->Desired(_options.effects);
 	Start(hwndSource, std::move(_options));
 	if (Handle() && _renderer) _renderer->RestoreOverlayState(overlayState);
 }
 
 void ScalingWindow::CleanAfterSrcRepositioned() noexcept {
+	// Options are still read by the retained backend until retirement joins it.
+	if (_retirement.Pending() && _renderer) return;
+	_sourceCoordinator.Reset();
 	_CancelParameterRestart();
 	_repositionOverlayState.reset();
 	_pendingManualParameterRestart.reset();
@@ -779,21 +966,33 @@ winrt::hstring ScalingWindow::GetLocalizedString(std::wstring_view resName) cons
 }
 
 LRESULT ScalingWindow::_MessageHandler(UINT msg, WPARAM wParam, LPARAM lParam) noexcept {
-	if (msg == WM_DESTROY) {
-		if (_isDestroying) return 0;
-		_isDestroying = true;
-		_stopRequested = false;
-		_pendingSourceTransition = 0;
-		_sourceStateCheckDeferred = false;
-		if (_cursorManager) _cursorManager->BeginShutdown();
-		if (_renderer) _renderer->ReleaseParameterInput();
-		if (_renderer) _renderer->BeginShutdown();
+	struct CallbackScope {
+		unsigned& depth;
+		explicit CallbackScope(unsigned& value) noexcept : depth(value) { ++depth; }
+		~CallbackScope() noexcept { --depth; }
+	} callbackScope(_windowCallbackDepth);
+	if (msg == WM_DESTROY) _BeginDestroy(Handle());
+	if (msg == WM_NCDESTROY) {
+		const HWND window = _retirement.Window();
+		_retirement.NonclientDestroyed();
+		// Preserve our identity until USER32 removes the old HWND; a null userdata
+		// during this callback would look like a recycled handle before destruction.
+		return DefWindowProc(window, msg, wParam, lParam);
+	}
+	if (_isDestroying && msg != WM_DESTROY) {
+		return DefWindowProc(Handle() ? Handle() : _retirement.Window(), msg, wParam, lParam);
 	}
 	if (_renderer && !_isDestroying) {
 		_renderer->MessageHandler(msg, wParam, lParam);
 	}
 
 	switch (msg) {
+	case WM_TIMER:
+		if (wParam == NvidiaForegroundCompatibility::ReferenceTimer) {
+			NvidiaForegroundCompatibility::Poll();
+			return 0;
+		}
+		break;
 	case WM_CREATE:
 	{
 		// 防止缩放 UWP 窗口时无法遮挡任务栏
@@ -969,10 +1168,10 @@ LRESULT ScalingWindow::_MessageHandler(UINT msg, WPARAM wParam, LPARAM lParam) n
 		// 1、未捕获光标且缩放后的位置未被遮挡而缩放前的位置被遮挡
 		// 2、光标位于叠加层或黑边上
 		// 这时鼠标点击将激活源窗口
-		const HWND hwndForground = GetForegroundWindow();
+		const HWND hwndForground = Win32Helper::GetRealForegroundWindow();
 		if (_renderer && _renderer->IsEditingParameters()) return 0;
-		if (hwndForground != _srcTracker.Handle()) {
-			if (!_srcTracker.SetFocus()) {
+		if (!IsSourceForeground()) {
+			if (!_srcTracker.SetFocus(hwndForground)) {
 				// 设置前台窗口失败，可能是因为前台窗口是开始菜单
 				if (WindowHelper::IsStartMenu(hwndForground)) {
 					using namespace std::chrono;
@@ -1025,7 +1224,7 @@ LRESULT ScalingWindow::_MessageHandler(UINT msg, WPARAM wParam, LPARAM lParam) n
 	}
 	case WM_NCACTIVATE:
 	{
-		wParam = _srcTracker.IsFocused();
+		wParam = _srcTracker.IsSessionForeground();
 		break;
 	}
 	case WM_MOUSEACTIVATE:
@@ -1092,7 +1291,8 @@ LRESULT ScalingWindow::_MessageHandler(UINT msg, WPARAM wParam, LPARAM lParam) n
 
 		// 阻止 OS 修改置顶状态。当源窗口中途置顶/取消置顶时，OS 会试图修改缩放窗口的置顶
 		// 状态，这不是我们想要的。
-		if (!(windowPos.flags & SWP_NOZORDER) && !_options.IsDebugMode()) {
+		if (!(windowPos.flags & SWP_NOZORDER) && !_options.IsDebugMode() &&
+			_sourceCoordinator.Mode() != WindowCoordinationMode::ManagedUnowned) {
 			if (_CalcTopmostState()) {
 				if (windowPos.hwndInsertAfter != HWND_TOP) {
 					windowPos.hwndInsertAfter = HWND_TOPMOST;
@@ -1183,7 +1383,7 @@ LRESULT ScalingWindow::_MessageHandler(UINT msg, WPARAM wParam, LPARAM lParam) n
 			// 焦点。进行下面的操作：调整缩放窗口尺寸，打开开始菜单然后关闭，缩放窗口便
 			// 得到焦点了。这应该是 OS 的 bug，下面的代码用于规避它。
 			if (!(windowPos.flags & SWP_NOACTIVATE) && (!_renderer || _renderer->AllowAutomaticSourceFocus())) {
-				_srcTracker.SetFocus();
+				_srcTracker.SetFocus(Handle());
 			}
 		}
 
@@ -1232,70 +1432,74 @@ LRESULT ScalingWindow::_MessageHandler(UINT msg, WPARAM wParam, LPARAM lParam) n
 		break;
 	}
 	case WM_DESTROY:
-	{
-		if (!SetScalingWindowOwner(Handle(), nullptr)) {
-			Logger::Get().Win32Warn("Detach scaling window owner before teardown failed");
-		}
-		const bool ngxWasFaulted = NgxRuntimeGuard::IsFaulted();
-		++_runId;
-		Logger::Get().Info("缩放结束");
-		if (_renderer) {
-			_renderer->BeginShutdown();
-			_renderer->ClearOverlayStates();
-		}
-		_frontendRenderPending = false;
-		_dlssFgFrameJobs.clear();
-
-		if (_exclModeMutex) {
-			_exclModeMutex.ReleaseMutex();
-			_exclModeMutex.reset();
-		}
-
-		for (wil::unique_hwnd& hWnd : _hwndTouchHoles) {
-			hWnd.reset();
-		}
-
-		_cursorManager.reset();
-		Logger::Get().Info("CursorManager 已析构");
-
-		_renderer.reset();
-		Logger::Get().Info("Renderer 已析构");
-		if (!ngxWasFaulted && NgxRuntimeGuard::IsFaulted()) {
-			if (const auto report = _options.reportErrorDetails) {
-				report(_srcTracker.Handle(), ScalingError::NgxRestartRequired,
-					fmt::format("NGX teardown fault at {:#x}, thread={}; restart required",
-						NgxRuntimeGuard::FaultAddress(), NgxRuntimeGuard::FaultThread()),
-					NgxRuntimeGuard::FaultCode());
-			} else {
-				ShowError(ScalingError::NgxRestartRequired);
-			}
-		}
-		// The backend has joined. Preserve its final applied snapshot for every
-		// automatic restart, without applying queued restart-only target values.
-		if (_isSrcRepositioning && _options.parameterSession) {
-			_options.effects = _options.parameterSession->Applied();
-		}
-
-		if (!_isSrcRepositioning) {
-			// 缩放结束时保存配置
-			_options.save(_options, NULL);
-			CleanAfterSrcRepositioned();
-		}
-
-		// 还原时钟精度
-		timeEndPeriod(1);
-
+		// Keep renderer/capture/swap-chain/cursor/input resources alive through
+		// every destruction callback. The outer pump or Destroy() finishes them.
 		_RemoveWindowProps();
-
-		// 广播停止缩放
-		PostMessage(HWND_BROADCAST, WM_MAGPIE_SCALINGCHANGED, 0, 0);
 		break;
-	}
 	}
 
 	const LRESULT result = base_type::_MessageHandler(msg, wParam, lParam);
-	if (msg == WM_DESTROY) _isDestroying = false;
 	return result;
+}
+
+void ScalingWindow::_FinishDestroy() noexcept {
+	Logger::Get().Info(fmt::format("Window retirement complete before blocking cleanup: output={:#x} run={}",
+		uintptr_t(_retirement.Window()), RunId()));
+	if (_renderer) _renderer->ReleaseParameterInput();
+	const bool ngxWasFaulted = NgxRuntimeGuard::IsFaulted();
+	Logger::Get().Info("缩放结束");
+	if (_renderer) {
+		_renderer->BeginShutdown();
+		_renderer->ClearOverlayStates();
+	}
+	_frontendRenderPending = false;
+	_dlssFgFrameJobs.clear();
+
+	if (_exclModeMutex) {
+		_exclModeMutex.ReleaseMutex();
+		_exclModeMutex.reset();
+	}
+
+	for (wil::unique_hwnd& hWnd : _hwndTouchHoles) {
+		hWnd.reset(); // Unowned touch holes remain alive after output destruction.
+	}
+
+	_cursorManager.reset();
+	Logger::Get().Info("CursorManager 已析构");
+
+	_renderer.reset();
+	NvidiaForegroundCompatibility::FinishRetire();
+	Logger::Get().Info("Renderer 已析构");
+	if (!ngxWasFaulted && NgxRuntimeGuard::IsFaulted()) {
+		if (const auto report = _options.reportErrorDetails) {
+			report(_srcTracker.Handle(), ScalingError::NgxRestartRequired,
+				fmt::format("NGX teardown fault at {:#x}, thread={}; restart required",
+					NgxRuntimeGuard::FaultAddress(), NgxRuntimeGuard::FaultThread()),
+				NgxRuntimeGuard::FaultCode());
+		} else {
+			ShowError(ScalingError::NgxRestartRequired);
+		}
+	}
+	// The backend has joined. Preserve its final applied snapshot for every
+	// automatic restart, without applying queued restart-only target values.
+	if (_isSrcRepositioning && _options.parameterSession) {
+		_options.effects = _options.parameterSession->Applied();
+	}
+
+	if (!_isSrcRepositioning) {
+		// 缩放结束时保存配置
+		_options.save(_options, NULL);
+		CleanAfterSrcRepositioned();
+	}
+
+	// 还原时钟精度
+	timeEndPeriod(1);
+
+
+	// 广播停止缩放
+	PostMessage(HWND_BROADCAST, WM_MAGPIE_SCALINGCHANGED, 0, 0);
+	_hwndRenderer = nullptr;
+	for (auto& helper : _hwndResizeHelpers) helper.release(); // Destroyed with their owner.
 }
 
 LRESULT ScalingWindow::_RendererWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
@@ -1626,14 +1830,20 @@ ScalingError ScalingWindow::_InitialMoveSrcWindowInFullscreen() noexcept {
 	return ScalingError::NoError;
 }
 
-void ScalingWindow::_Show() noexcept {
+bool ScalingWindow::_Show() noexcept {
+	if (!_sourceCoordinator.Ready() || _isDestroying || HasPendingSourceTransition()) return false;
+	if (!IsWindowVisible(SourceRoot()) || IsIconic(SourceRoot())) {
+		_DelayedStop(false, true);
+		return false;
+	}
+	if (!_EstablishWindowCoordination()) return false;
 	// 显示前设置窗口属性，这样其他程序可以根据缩放窗口是否可见判断当前是否处于缩放状态
 	_SetWindowProps();
 
 	if (Win32Helper::IsWindowHung(_srcTracker.Handle())) {
 		Logger::Get().Error("源窗口已挂起");
 		_DelayedStop(true);
-		return;
+		return false;
 	}
 
 	// 缩放窗口可能有 WS_MAXIMIZE 样式，因此使用 SetWindowsPos 而不是 ShowWindow
@@ -1641,15 +1851,22 @@ void ScalingWindow::_Show() noexcept {
 	//
 	// SWP_NOACTIVATE 可以避免干扰 OS 内部的前台窗口历史，否则关闭开始菜单时不会自
 	// 动激活源窗口。
-	SetWindowPos(
+	if (!SetWindowPos(
 		Handle(),
 		NULL,
 		0, 0, 0, 0,
 		SWP_SHOWWINDOW | SWP_NO_ACTIVATE_MOVE_SIZE
-	);
-
-	// 广播开始缩放
-	PostMessage(HWND_BROADCAST, WM_MAGPIE_SCALINGCHANGED, 1, (LPARAM)Handle());
+			| (_sourceCoordinator.Mode() == WindowCoordinationMode::ManagedUnowned ? SWP_NOZORDER : 0)
+	)) {
+		const DWORD error = GetLastError();
+		const std::string context = "First display SetWindowPos failed";
+		Logger::Get().Win32Error(context);
+		if (const auto report = _options.reportErrorDetails)
+			report(_srcTracker.Handle(), ScalingError::ScalingWindowCreationFailed, context, error);
+		else ShowError(ScalingError::ScalingWindowCreationFailed);
+		_DelayedStop();
+		return false;
+	}
 
 	if (_options.IsWindowedMode()) {
 		if (!_EnsureCaptionVisibleOnScreen()) {
@@ -1658,9 +1875,10 @@ void ScalingWindow::_Show() noexcept {
 	}
 
 	// 如果源窗口位于前台则将缩放窗口置顶
-	if (_srcTracker.IsFocused()) {
-		_UpdateFocusStateAsync();
-	}
+	if (_srcTracker.IsSessionForeground()) _UpdateFocusStateAsync();
+	if (_isDestroying || HasPendingSourceTransition() || !_sourceCoordinator.Ready() || !IsWindowVisible(Handle())) return false;
+	// Broadcast only after the real first display and coordination succeeded.
+	PostMessage(HWND_BROADCAST, WM_MAGPIE_SCALINGCHANGED, 1, (LPARAM)Handle());
 
 	if (_options.IsTouchSupportEnabled()) {
 		// 显示触控辅助窗口
@@ -1692,6 +1910,8 @@ void ScalingWindow::_Show() noexcept {
 			}
 		})();
 	};
+	NvidiaForegroundCompatibility::OutputShown();
+	return !_isDestroying && !HasPendingSourceTransition();
 }
 
 void ScalingWindow::_ResizeRenderer() noexcept {
@@ -1718,17 +1938,24 @@ bool ScalingWindow::_UpdateSrcState(
 	bool& srcFocusedChanged
 ) noexcept {
 	_sourceStateCheckDeferred = false;
+	if (!_sourceCoordinator.Ready()) {
+		_sourceStateChangeReason = "source identity retired";
+		return false;
+	}
 	_sourceRectBeforeCheck = _srcTracker.WindowRect();
-	HWND hwndFore = GetForegroundWindow();
 	if (_renderer) _renderer->UpdateParameterInputHost();
-	hwndFore = GetForegroundWindow();
+	HWND hwndFore = Win32Helper::GetRealForegroundWindow();
+	NvidiaForegroundCompatibility::FrontendWindows(_renderer ? _renderer->ParameterInputHandle() : nullptr, hwndFore);
+	NvidiaForegroundCompatibility::FrontendSuspended(_renderer &&
+		(_renderer->IsEditingParameters() || _renderer->IsParameterFocusSettling()));
 
-	if (hwndFore == Handle() && (!_renderer || _renderer->AllowAutomaticSourceFocus())) {
+	if (hwndFore == Handle() && !NvidiaForegroundCompatibility::ReferenceOwnsForeground() &&
+		(!_renderer || _renderer->AllowAutomaticSourceFocus())) {
 		// 缩放窗口不应该得到焦点，我们通过 WS_EX_NOACTIVATE 样式和处理 WM_MOUSEACTIVATE
 		// 等消息来做到这一点。但如果由于某种我们尚未了解的机制这些手段都失败了，这里
 		// 进行纠正。
-		_srcTracker.SetFocus();
-		hwndFore = GetForegroundWindow();
+		_srcTracker.SetFocus(Handle());
+		hwndFore = Win32Helper::GetRealForegroundWindow();
 	}
 
 	// 在 3D 游戏模式下需检测前台窗口变化
@@ -1752,7 +1979,10 @@ bool ScalingWindow::_UpdateSrcState(
 	bool srcRectChanged = false;
 	bool srcSizeChanged = false;
 	bool srcMovingChanged = false;
-	if (!_srcTracker.UpdateState(hwndFore, _options.IsWindowedMode(), _isResizingOrMoving,
+	// Only the bounded reference preserves baseline ordering using source focus.
+	// All normal business decisions continue to read the real foreground HWND.
+	const HWND trackerForeground = NvidiaForegroundCompatibility::ReferenceOwnsForeground() ? _srcTracker.Handle() : hwndFore;
+	if (!_srcTracker.UpdateState(trackerForeground, _options.IsWindowedMode(), _isResizingOrMoving,
 		isSrcInvisibleOrMinimized, srcFocusedChanged, srcRectChanged, srcSizeChanged, srcMovingChanged)) {
 		_sourceStateChangeReason = "source tracker rejected window";
 		return false;
@@ -1816,8 +2046,11 @@ bool ScalingWindow::_UpdateSrcState(
 
 // 返回真表示应继续缩放
 bool ScalingWindow::_CheckForegroundFor3DGameMode(HWND hwndFore) const noexcept {
-	if (!hwndFore || hwndFore == _srcTracker.Handle() || IsParameterInputWindow(hwndFore) ||
-		(hwndFore == Handle() && _renderer && _renderer->IsParameterFocusSettling())) {
+	if (NvidiaForegroundCompatibility::ReferenceOwnsForeground()) return true;
+	const auto kind = ClassifyForeground(hwndFore);
+	if (kind == SourceForegroundKind::InvalidSource) return false;
+	if (kind == SourceForegroundKind::None || IsSourceSessionForeground(kind,
+		_renderer && _renderer->IsParameterFocusSettling())) {
 		return true;
 	}
 
@@ -1841,8 +2074,34 @@ bool ScalingWindow::_CheckForegroundFor3DGameMode(HWND hwndFore) const noexcept 
 	return rectSize.cx < 8 || rectSize.cy < 8;
 }
 
+SourceForegroundKind ScalingWindow::ClassifyForeground(HWND foreground) const noexcept {
+	return ClassifySourceForeground(foreground, SourceIdentityValid(), SrcTracker().Handle(),
+		SourceRoot(), Handle(), _renderer ? _renderer->ParameterInputHandle() : nullptr, _options.mainUI);
+}
+
+void ScalingWindow::UpdateMainUI(SessionWindowIdentity identity) noexcept {
+	_options.mainUI = identity;
+	NvidiaForegroundCompatibility::MainUIChanged(identity);
+}
+
+bool ScalingWindow::IsSessionForeground(HWND foreground) const noexcept {
+	return IsSourceSessionForeground(ClassifyForeground(foreground), _renderer && _renderer->IsParameterFocusSettling());
+}
+
+bool ScalingWindow::IsParameterForeground(HWND foreground, bool outputTransition) const noexcept {
+	return !_isDestroying && IsSourceSessionForeground(ClassifyForeground(foreground), outputTransition) &&
+		IsWindowEnabled(SourceRoot()) && IsWindowEnabled(SrcTracker().Handle()) &&
+		!EnabledSourcePopup(SourceRoot(), Handle());
+}
+
+HWND ScalingWindow::SourceActivationTarget() const noexcept {
+	if (!SourceIdentityValid() || !IsWindowVisible(SourceRoot()) || IsIconic(SourceRoot())) return nullptr;
+	if (const HWND popup = EnabledSourcePopup(SourceRoot(), Handle())) return popup;
+	return IsWindowEnabled(SourceRoot()) && IsWindowEnabled(SrcTracker().Handle()) ? SourceRoot() : nullptr;
+}
+
 bool ScalingWindow::IsParameterInputWindow(HWND hwnd) const noexcept {
-	return hwnd && _renderer && hwnd == _renderer->ParameterInputHandle();
+	return ClassifyForeground(hwnd) == SourceForegroundKind::ParameterHost;
 }
 
 bool ScalingWindow::HasHeldParameterInput() const noexcept {
@@ -2338,11 +2597,24 @@ winrt::fire_and_forget ScalingWindow::_UpdateFocusStateAsync() const noexcept {
 	if (_options.IsWindowedMode()) {
 		// 根据源窗口状态绘制非客户区，我们必须自己控制非客户区是绘制成焦点状态还是非焦点
 		// 状态，因为缩放窗口实际上永远不会得到焦点。
-		DefWindowProc(Handle(), WM_NCACTIVATE, _srcTracker.IsFocused(), 0);
+		DefWindowProc(Handle(), WM_NCACTIVATE, _srcTracker.IsSessionForeground(), 0);
+	}
+
+	if (_isDestroying || !_sourceCoordinator.Ready()) co_return;
+	if (_sourceCoordinator.Mode() == WindowCoordinationMode::ManagedUnowned) {
+		if (!_options.IsDebugMode() && !_sourceCoordinator.UpdateManagedOrder(
+			_CalcTopmostState(), _srcTracker.IsSessionForeground(), _options.IsTopmostDisabled())) {
+			Logger::Get().Win32Error("Managed window order update failed");
+			_DelayedStop();
+			co_return;
+		}
+		PostMessage(HWND_BROADCAST, WM_MAGPIE_SCALINGCHANGED,
+			_srcTracker.IsSessionForeground() ? 1 : 0, _srcTracker.IsSessionForeground() ? LPARAM(Handle()) : 1);
+		co_return;
 	}
 
 	if (!_options.IsDebugMode()) {
-		if (Win32Helper::IsWindowHung(_srcTracker.Handle())) {
+		if (Win32Helper::IsWindowHung(SourceRoot())) {
 			Logger::Get().Error("源窗口已挂起");
 			_DelayedStop();
 			co_return;
@@ -2376,12 +2648,12 @@ winrt::fire_and_forget ScalingWindow::_UpdateFocusStateAsync() const noexcept {
 				const uint32_t runId = ScalingWindow::RunId();
 				bool isInBackground = false;
 
-				HWND hwndFore = GetForegroundWindow();
+				HWND hwndFore = Win32Helper::GetRealForegroundWindow();
 				if (!hwndFore) {
 					// 切换窗口时有一个瞬间无前台窗口，这里等待切换完成
 					co_await winrt::resume_after(1ms);
 					isInBackground = true;
-					hwndFore = GetForegroundWindow();
+					hwndFore = Win32Helper::GetRealForegroundWindow();
 				}
 
 				bool isForeMovable = true;
@@ -2405,7 +2677,7 @@ winrt::fire_and_forget ScalingWindow::_UpdateFocusStateAsync() const noexcept {
 					co_await ScalingWindow::Get().Dispatcher();
 
 					// 等待时源窗口重新回到前台了应放弃后续操作
-					if (runId != ScalingWindow::RunId() || _srcTracker.IsFocused()) {
+					if (runId != ScalingWindow::RunId() || _isDestroying || !_sourceCoordinator.Ready() || IsSessionForeground(Win32Helper::GetRealForegroundWindow())) {
 						co_return;
 					}
 				}
@@ -2420,13 +2692,13 @@ winrt::fire_and_forget ScalingWindow::_UpdateFocusStateAsync() const noexcept {
 					// 将缩放窗口恰好置于源窗口前
 					if (isForeMovable) {
 						// 这个方式没有中间状态，但会导致源窗口遮挡前台窗口，之后会手动将前台窗口移到顶部
-						hDwp = DeferWindowPos(hDwp, Handle(), _srcTracker.Handle(),
+						hDwp = DeferWindowPos(hDwp, Handle(), SourceRoot(),
 							0, 0, 0, 0, SWP_NO_ACTIVATE_MOVE_SIZE);
 					} else {
 						// 这个方式不会移动源窗口，但有中间状态。如果前台窗口 IL 更高，这是唯一的办法
-						hDwp = DeferWindowPos(hDwp, Handle(), _srcTracker.Handle(),
+						hDwp = DeferWindowPos(hDwp, Handle(), SourceRoot(),
 							0, 0, 0, 0, SWP_NO_ACTIVATE_MOVE_SIZE | SWP_NOOWNERZORDER);
-						hDwp = DeferWindowPos(hDwp, _srcTracker.Handle(), Handle(),
+						hDwp = DeferWindowPos(hDwp, SourceRoot(), Handle(),
 							0, 0, 0, 0, SWP_NO_ACTIVATE_MOVE_SIZE | SWP_NOOWNERZORDER);
 					}
 
@@ -2434,19 +2706,19 @@ winrt::fire_and_forget ScalingWindow::_UpdateFocusStateAsync() const noexcept {
 
 					// 确保缩放窗口刚好在源窗口前
 					if (IsTopmostWindow(Handle()) == newTopmost &&
-						GetWindow(_srcTracker.Handle(), GW_HWNDPREV) == Handle()) {
+						GetWindow(SourceRoot(), GW_HWNDPREV) == Handle()) {
 						break;
 					}
 				}
 
-				if (isForeMovable && hwndFore && GetForegroundWindow() == hwndFore) {
+				if (isForeMovable && hwndFore && Win32Helper::GetRealForegroundWindow() == hwndFore) {
 					SetWindowPos(hwndFore, HWND_TOP, 0, 0, 0, 0, SWP_NO_ACTIVATE_MOVE_SIZE);
 				}
 			}
 		}
 	}
 
-	if (_srcTracker.IsFocused()) {
+	if (_srcTracker.IsSessionForeground()) {
 		PostMessage(HWND_BROADCAST, WM_MAGPIE_SCALINGCHANGED, 1, (LPARAM)Handle());
 	} else {
 		// lParam 传 1 表示转到后台而非结束缩放
@@ -2455,18 +2727,7 @@ winrt::fire_and_forget ScalingWindow::_UpdateFocusStateAsync() const noexcept {
 }
 
 bool ScalingWindow::_CalcTopmostState() const noexcept {
-	// 源窗口置顶时缩放窗口必须置顶
-	if (IsTopmostWindow(_srcTracker.Handle())) {
-		return true;
-	}
-
-	// 源窗口位于前台时一般将缩放窗口置顶，这是为了防止有些窗口突破 OS 维护的所有者关系
-	// 顺序，如 GH#1232。一个例外是源窗口有弹窗时缩放窗口应在弹窗下方，除了常规弹窗，还
-	// 应检查模拟模态弹窗（见 ScalingService.cpp 的 IsPopupWindow）。
-	return !_options.IsTopmostDisabled() &&
-		_srcTracker.IsFocused() &&
-		!GetWindow(_srcTracker.Handle(), GW_ENABLEDPOPUP) &&
-		IsWindowEnabled(_srcTracker.Handle());
+	return _sourceCoordinator.NeedsTopmost(_srcTracker.IsSessionForeground(), _options.IsTopmostDisabled());
 }
 
 bool ScalingWindow::_IsBorderless() const noexcept {

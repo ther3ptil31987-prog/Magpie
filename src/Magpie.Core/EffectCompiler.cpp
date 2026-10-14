@@ -1,4 +1,5 @@
 #include "pch.h"
+#include "HdrParameterPolicy.h"
 #include "EffectCompiler.h"
 #include "CommonSharedConstants.h"
 #include "DirectXHelper.h"
@@ -1834,6 +1835,7 @@ uint32_t EffectCompiler::Compile(
 			return 1;
 		}
 	}
+	ApplyHdrParameterPolicy(desc.name, desc.params);
 
 	desc.textures.clear();
 	// 第一个元素为 INPUT

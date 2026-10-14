@@ -1,10 +1,20 @@
 // NVIDIA VideoSuperRes native backend replaces this placeholder pass.
 //!MAGPIE EFFECT
 //!VERSION 4
-//!SORT_NAME RTX Video VSR
+//!SORT_NAME Nvidia VFX VSR
 
 //!PARAMETER
-//!LABEL Strength
+//!LABEL Category
+//!DEFAULT 0
+//!OPTION 0 Standard
+//!OPTION 1 High bitrate
+//!OPTION 2 Streaming
+//!OPTION 3 Denoise
+//!OPTION 4 Deblur
+int category;
+
+//!PARAMETER
+//!LABEL Quality level
 //!DEFAULT 1
 //!OPTION 0 Low
 //!OPTION 1 Medium

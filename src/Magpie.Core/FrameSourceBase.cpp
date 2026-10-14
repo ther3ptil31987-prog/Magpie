@@ -173,12 +173,10 @@ FrameSourceState FrameSourceBase::_FilterDuplicateFrame(FrameSourceState state, 
 	}
 
 	const ScalingOptions& options = ScalingWindow::Get().Options();
-	const auto duplicateFrameDetectionMode = _duplicateFrameDetectionOverride.has_value()
-		? (*_duplicateFrameDetectionOverride ? DuplicateFrameDetectionMode::Always : DuplicateFrameDetectionMode::Never)
-		: options.duplicateFrameDetectionMode;
+	const auto duplicateFrameDetectionMode = options.duplicateFrameDetectionMode;
 	if (state != FrameSourceState::NewFrame || (newSequence && _prevFrame) || forceAccept ||
 		duplicateFrameDetectionMode == DuplicateFrameDetectionMode::Never ||
-		(!_duplicateFrameDetectionOverride.has_value() && options.Is3DGameMode())) {
+		options.Is3DGameMode()) {
 		if (forceAccept && _prevFrame && !newSequence) {
 			_deviceResources->GetD3DDC()->CopyResource(_prevFrame.get(), _output.get());
 			_isCheckingForDuplicateFrame = true;
@@ -186,7 +184,7 @@ FrameSourceState FrameSourceBase::_FilterDuplicateFrame(FrameSourceState state, 
 			_nextSkipCount = INITIAL_SKIP_COUNT;
 		}
 		if (forceAccept && !_prevFrame && duplicateFrameDetectionMode != DuplicateFrameDetectionMode::Never &&
-			(_duplicateFrameDetectionOverride.has_value() || !options.Is3DGameMode())) {
+			!options.Is3DGameMode()) {
 			if (_InitCheckingForDuplicateFrame()) {
 				_deviceResources->GetD3DDC()->CopyResource(_prevFrame.get(), _output.get());
 			} else {

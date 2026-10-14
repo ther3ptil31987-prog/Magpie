@@ -268,7 +268,7 @@ fire_and_forget ToastPage::ShowMessageOnWindow(
 		}
 
 		isTargetTopMost = GetWindowExStyle(hwndTarget) & WS_EX_TOPMOST;
-		if (isTargetTopMost || (!isOwned && GetForegroundWindow() == (HWND)hwndTarget)) {
+		if (isTargetTopMost || (!isOwned && Win32Helper::GetRealForegroundWindow() == (HWND)hwndTarget)) {
 			// 如果 hwndTarget 位于前台，定期将弹窗置顶。SWP_NOOWNERZORDER 可以避免修改 hwndTarget
 			// 的 Z 顺序，理论上不需要这个标志，可能是 OS 的 bug。
 			SetWindowPos(_hwndToast, HWND_TOPMOST, 0, 0, 0, 0,

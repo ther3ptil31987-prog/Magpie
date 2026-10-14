@@ -60,11 +60,13 @@ public:
 		return _srcRect;
 	}
 
-	bool IsFocused() const noexcept {
-		return _isFocused;
+	bool IsSessionForeground() const noexcept {
+		// Logical source/root/parameter-host membership, not game keyboard focus.
+		return _isSessionForeground;
 	}
 
-	bool SetFocus() const noexcept;
+	bool UpdateForeground(HWND foreground) noexcept;
+	bool SetFocus(HWND expectedForeground = nullptr) const noexcept;
 
 	// IsMaximized 已定义为宏
 	bool IsZoomed() const noexcept {
@@ -93,7 +95,8 @@ private:
 	RECT _srcRect{};
 	SrcWindowKind _windowKind = SrcWindowKind::Native;
 
-	bool _isFocused = false;
+	bool _isSessionForeground = false;
+	bool _isSourceForeground = false;
 	bool _isMaximized = false;
 	bool _isMoving = false;
 };

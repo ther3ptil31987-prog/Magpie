@@ -519,6 +519,7 @@ bool AmdOpticalFlowProvider::Initialize(
 	DeviceResources& resources,
 	FrameGuidanceExtent sourceExtent
 ) noexcept {
+	Logger::Get().Info("AMDOF capability v1: FSR3-FG required input");
 	_impl->hdrProtocol = _hdrProtocol;
 	return _impl->Create(resources, sourceExtent, _mode);
 }

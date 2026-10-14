@@ -1,0 +1,438 @@
+{
+  "schemaVersion": 1,
+  "date": "2026-10-09",
+  "baseReview": "20261002-effect-description-review.json",
+  "scope": "Source-only VFX supplement; no compilation, deployment or GPU acceptance",
+  "effects": [
+    {
+      "id": "RTXVideo\\RTXVideo_VSR",
+      "category": "upscale",
+      "purposes": [
+        "upscale",
+        "cleanup"
+      ],
+      "family": null,
+      "subfamily": null,
+      "level": "situational",
+      "source": {
+        "path": "src/Effects/RTXVideo/RTXVideo_VSR.hlsl",
+        "sha256": "ba22335376f5630eb8c3a034b771e5aa13b4f4418853ee04c3fe9285812cf6d2",
+        "output": {},
+        "passCount": 1,
+        "parameters": [
+          {
+            "name": "category",
+            "type": "int",
+            "options": [
+              {
+                "value": "0",
+                "label": "Standard"
+              },
+              {
+                "value": "1",
+                "label": "High bitrate"
+              },
+              {
+                "value": "2",
+                "label": "Streaming"
+              },
+              {
+                "value": "3",
+                "label": "Denoise"
+              },
+              {
+                "value": "4",
+                "label": "Deblur"
+              }
+            ],
+            "label": "Category",
+            "default": "0"
+          },
+          {
+            "name": "strength",
+            "type": "int",
+            "options": [
+              {
+                "value": "0",
+                "label": "Low"
+              },
+              {
+                "value": "1",
+                "label": "Medium"
+              },
+              {
+                "value": "2",
+                "label": "High"
+              },
+              {
+                "value": "3",
+                "label": "Ultra"
+              }
+            ],
+            "label": "Quality level",
+            "default": "1"
+          }
+        ],
+        "includes": []
+      },
+      "review": {
+        "status": "source-reviewed",
+        "recommendationBasis": "source-capability-only",
+        "runtimeEvidence": [
+          "src/Magpie.Core/NvidiaVfxImageBackend.cpp",
+          "src/Magpie.Core/include/NvidiaVfxParameterPolicy.h",
+          "src/Magpie.Core/include/NvidiaVfxParameters.h",
+          "src/Magpie.Core/ScalingRuntime.cpp",
+          "src/Magpie.Core/NvidiaVfxRuntime.cpp",
+          "src/Magpie.Core/HdrEffectBoundary.cpp",
+          "src/Magpie.Core/Renderer.cpp"
+        ],
+        "externalReferences": [
+          "https://docs.nvidia.com/maxine/vfx/1.3.0/"
+        ],
+        "notVerified": [
+          "C++ compilation",
+          "GPU feature execution",
+          "colour and performance acceptance",
+          "WinUI interaction"
+        ],
+        "scope": "2026-10-09 source integration; no build or deployment",
+        "copyReviewedOn": "2026-10-13",
+        "copyDisposition": "revised",
+        "copyScope": "User-focused bilingual purpose, content and starting steps; shared guidance moved to categories, parameter help and usage docs. Source review only; no build, deployment, UI or GPU acceptance.",
+        "runtimeEvidenceSha256": {
+          "src/Magpie.Core/NvidiaVfxImageBackend.cpp": "1598100bf522bae5c9add579477d8ed2d9d5ce14534da63d7ae4f5e811f87842",
+          "src/Magpie.Core/include/NvidiaVfxParameterPolicy.h": "1c1e36befa857dfbdeb5dc2f02d047fafdee72253139c287341ff98ce46ba1c8",
+          "src/Magpie.Core/include/NvidiaVfxParameters.h": "d7e192c7447ab2da701a70cee6075a09c6dc89af926cdc66ad844a9f0a4df6ac",
+          "src/Magpie.Core/ScalingRuntime.cpp": "b6ebadc2ed6fb6314fbc2d99bff2cbda480b06ed26f4a44a0b052ec1d41ef356",
+          "src/Magpie.Core/NvidiaVfxRuntime.cpp": "2d3f620c5a564f84dd6d819ecc8b9a9a36e4c22f53da40bea5e6f9e0afb916b8",
+          "src/Magpie.Core/HdrEffectBoundary.cpp": "75f166cd9c3c9cddf931b499f445f76c353d51000d1df36894f819a01809a8eb",
+          "src/Magpie.Core/Renderer.cpp": "b03b12ffcbc19f9f84b8cba6e765e2618de77a558105b46299de2f7792fa3eb2"
+        },
+        "evidenceBaseline": "cbe2c2cb + UWP fullscreen, HDR overlay, DLSSNR guidance and effect-description integration; copy contracts rechecked"
+      },
+      "zh-Hans": {
+        "name": "Nvidia VFX VSR",
+        "subcategory": "通用",
+        "summary": "AI 视频增强，可放大、降噪或去模糊。",
+        "details": "增强视频画面的清晰度，适合视频播放与串流内容。先按素材选择放大、降噪或去模糊分类，再调节质量档位；降噪和去模糊保持输入尺寸。需要受支持的 NVIDIA 渲染 GPU 与配套 VFX 运行库，流媒体分类需 Ampere 及更新架构。",
+        "search": "RTXVideo\\RTXVideo_VSR RTXVideo_VSR RTX Video VSR RTXVideo_VSR RTX Video Denoise RTXVideo_Denoise RTXVideo\\RTXVideo_VSR_Low RTXVideo\\RTXVideo_VSR_Medium RTXVideo\\RTXVideo_VSR_High RTXVideo\\RTXVideo_VSR_Ultra RTXVideo\\RTXVideo_Denoise_Low RTXVideo\\RTXVideo_Denoise_Medium RTXVideo\\RTXVideo_Denoise_High RTXVideo\\RTXVideo_Denoise_Ultra category Category Standard High bitrate Streaming Denoise Deblur strength Quality level Low Medium High Ultra Nvidia VFX VSR 放大与超分 通用 AI 视频增强，可放大、降噪或去模糊。 增强视频画面的清晰度，适合视频播放与串流内容。先按素材选择放大、降噪或去模糊分类，再调节质量档位；降噪和去模糊保持输入尺寸。需要受支持的 NVIDIA 渲染 GPU 与配套 VFX 运行库，流媒体分类需 Ampere 及更新架构。"
+      },
+      "en-US": {
+        "name": "Nvidia VFX VSR",
+        "subcategory": "General purpose",
+        "summary": "AI video enhancement with upscaling, denoising, or deblurring.",
+        "details": "Enhances clarity in video playback and streams. Choose an upscaling, denoising, or deblurring category for your content, then set the quality level; denoising and deblurring keep the input size. Requires a supported NVIDIA rendering GPU and matching VFX runtime. Streaming requires Ampere or newer.",
+        "search": "RTXVideo\\RTXVideo_VSR RTXVideo_VSR RTX Video VSR RTXVideo_VSR RTX Video Denoise RTXVideo_Denoise RTXVideo\\RTXVideo_VSR_Low RTXVideo\\RTXVideo_VSR_Medium RTXVideo\\RTXVideo_VSR_High RTXVideo\\RTXVideo_VSR_Ultra RTXVideo\\RTXVideo_Denoise_Low RTXVideo\\RTXVideo_Denoise_Medium RTXVideo\\RTXVideo_Denoise_High RTXVideo\\RTXVideo_Denoise_Ultra category Category Standard High bitrate Streaming Denoise Deblur strength Quality level Low Medium High Ultra Nvidia VFX VSR Upscaling and super resolution General purpose AI video enhancement with upscaling, denoising, or deblurring. Enhances clarity in video playback and streams. Choose an upscaling, denoising, or deblurring category for your content, then set the quality level; denoising and deblurring keep the input size. Requires a supported NVIDIA rendering GPU and matching VFX runtime. Streaming requires Ampere or newer."
+      }
+    },
+    {
+      "id": "RTXVideo\\RTXVideo_HDR",
+      "category": "hdr-components",
+      "purposes": [
+        "hdr-components"
+      ],
+      "family": null,
+      "subfamily": null,
+      "level": "situational",
+      "source": {
+        "path": "src/Effects/RTXVideo/RTXVideo_HDR.hlsl",
+        "sha256": "58cbc9a6c234ee0ad3c74d71d5f68418dc737b2619a1fee1277d638ab7d2ffb7",
+        "output": {
+          "WIDTH": "INPUT_WIDTH",
+          "HEIGHT": "INPUT_HEIGHT"
+        },
+        "passCount": 1,
+        "parameters": [
+          {
+            "name": "contrast",
+            "type": "int",
+            "options": [],
+            "label": "Contrast",
+            "default": "100",
+            "min": "0",
+            "max": "200",
+            "step": "1"
+          },
+          {
+            "name": "saturation",
+            "type": "int",
+            "options": [],
+            "label": "Saturation",
+            "default": "100",
+            "min": "0",
+            "max": "200",
+            "step": "1"
+          },
+          {
+            "name": "middleGray",
+            "type": "int",
+            "options": [],
+            "label": "Middle gray",
+            "default": "50",
+            "min": "10",
+            "max": "100",
+            "step": "1"
+          },
+          {
+            "name": "peakNits",
+            "type": "int",
+            "options": [],
+            "label": "Peak brightness (nits)",
+            "default": "1000",
+            "min": "400",
+            "max": "2000",
+            "step": "1"
+          },
+          {
+            "name": "debanding",
+            "type": "int",
+            "options": [],
+            "label": "Debanding",
+            "default": "1",
+            "min": "0",
+            "max": "1",
+            "step": "1"
+          }
+        ],
+        "includes": []
+      },
+      "review": {
+        "status": "source-reviewed",
+        "recommendationBasis": "source-capability-only",
+        "runtimeEvidence": [
+          "src/Magpie.Core/NvidiaVfxImageBackend.cpp",
+          "src/Magpie.Core/include/NvidiaVfxTrueHdrParameters.h",
+          "src/Magpie.Core/include/HdrComponents.h",
+          "src/Magpie.Core/NvidiaVfxRuntime.cpp",
+          "src/Magpie.Core/HdrEffectBoundary.cpp",
+          "src/Magpie.Core/Renderer.cpp"
+        ],
+        "externalReferences": [
+          "https://docs.nvidia.com/maxine/vfx/1.3.0/"
+        ],
+        "notVerified": [
+          "C++ compilation",
+          "GPU feature execution",
+          "colour and performance acceptance",
+          "WinUI interaction"
+        ],
+        "scope": "2026-10-09 source integration; no build or deployment",
+        "copyReviewedOn": "2026-10-13",
+        "copyDisposition": "revised",
+        "copyScope": "User-focused bilingual purpose, content and starting steps; shared guidance moved to categories, parameter help and usage docs. Source review only; no build, deployment, UI or GPU acceptance.",
+        "runtimeEvidenceSha256": {
+          "src/Magpie.Core/NvidiaVfxImageBackend.cpp": "1598100bf522bae5c9add579477d8ed2d9d5ce14534da63d7ae4f5e811f87842",
+          "src/Magpie.Core/include/NvidiaVfxTrueHdrParameters.h": "6e8952db6d110ff00c8a04a425206fbb22fc6619a68f93583f50e4bc15c7bed1",
+          "src/Magpie.Core/include/HdrComponents.h": "79d19e95eb13769c7ba58a92809b5441376ef2d2a02554621e15f59af8250ed2",
+          "src/Magpie.Core/NvidiaVfxRuntime.cpp": "2d3f620c5a564f84dd6d819ecc8b9a9a36e4c22f53da40bea5e6f9e0afb916b8",
+          "src/Magpie.Core/HdrEffectBoundary.cpp": "75f166cd9c3c9cddf931b499f445f76c353d51000d1df36894f819a01809a8eb",
+          "src/Magpie.Core/Renderer.cpp": "b03b12ffcbc19f9f84b8cba6e765e2618de77a558105b46299de2f7792fa3eb2"
+        },
+        "evidenceBaseline": "cbe2c2cb + UWP fullscreen, HDR overlay, DLSSNR guidance and effect-description integration; copy contracts rechecked"
+      },
+      "zh-Hans": {
+        "name": "Nvidia VFX TrueHDR",
+        "subcategory": "",
+        "summary": "用 AI 将 SDR 画面扩展为 HDR 亮度与颜色。",
+        "details": "重新塑造 SDR 画面的亮度和颜色，适合在 HDR 屏幕上观看视频与游戏，保持画面尺寸。先按显示器能力设置峰值亮度，再调节对比度与饱和度。需要 SDR 输入、受支持的 NVIDIA 渲染 GPU 与配套 VFX 运行库，输出屏幕须开启 Windows HDR。",
+        "search": "RTXVideo\\RTXVideo_HDR RTXVideo_HDR RTX Video HDR RTXVideo_HDR TrueHDR contrast Contrast saturation Saturation middleGray Middle gray peakNits Peak brightness (nits) debanding Debanding Nvidia VFX TrueHDR HDR 组件 用 AI 将 SDR 画面扩展为 HDR 亮度与颜色。 重新塑造 SDR 画面的亮度和颜色，适合在 HDR 屏幕上观看视频与游戏，保持画面尺寸。先按显示器能力设置峰值亮度，再调节对比度与饱和度。需要 SDR 输入、受支持的 NVIDIA 渲染 GPU 与配套 VFX 运行库，输出屏幕须开启 Windows HDR。"
+      },
+      "en-US": {
+        "name": "Nvidia VFX TrueHDR",
+        "subcategory": "",
+        "summary": "Uses AI to expand SDR brightness and color into HDR.",
+        "details": "Reshapes SDR brightness and color for viewing video and games on an HDR display, keeping the image size. Set peak brightness for your display, then adjust contrast and saturation. Requires SDR input, a supported NVIDIA rendering GPU, the matching VFX runtime, and Windows HDR enabled on the output display.",
+        "search": "RTXVideo\\RTXVideo_HDR RTXVideo_HDR RTX Video HDR RTXVideo_HDR TrueHDR contrast Contrast saturation Saturation middleGray Middle gray peakNits Peak brightness (nits) debanding Debanding Nvidia VFX TrueHDR HDR components Uses AI to expand SDR brightness and color into HDR. Reshapes SDR brightness and color for viewing video and games on an HDR display, keeping the image size. Set peak brightness for your display, then adjust contrast and saturation. Requires SDR input, a supported NVIDIA rendering GPU, the matching VFX runtime, and Windows HDR enabled on the output display."
+      }
+    },
+    {
+      "id": "NvidiaVFX\\Upscale",
+      "category": "upscale",
+      "purposes": [
+        "upscale"
+      ],
+      "level": "advanced",
+      "family": null,
+      "subfamily": null,
+      "zh-Hans": {
+        "name": "Nvidia VFX Upscale",
+        "subcategory": "通用",
+        "summary": "放大视频画面，并调节边缘清晰度。",
+        "details": "适合视频播放和串流画面的放大。可选择固定倍率，或自动适配目标尺寸；通过锐化强度调整画面的清晰程度。需要受支持的 NVIDIA 渲染 GPU 与配套 VFX 运行库。",
+        "search": "NvidiaVFX\\Upscale Upscale sharpness Sharpness Nvidia VFX Upscale 放大与超分 通用 放大视频画面，并调节边缘清晰度。 适合视频播放和串流画面的放大。可选择固定倍率，或自动适配目标尺寸；通过锐化强度调整画面的清晰程度。需要受支持的 NVIDIA 渲染 GPU 与配套 VFX 运行库。"
+      },
+      "en-US": {
+        "name": "Nvidia VFX Upscale",
+        "subcategory": "General purpose",
+        "summary": "Upscales video with adjustable edge sharpness.",
+        "details": "Enlarges video playback and streams. Choose a fixed scale or automatically fit the target size, then adjust sharpness to refine edge definition. Requires a supported NVIDIA rendering GPU and matching VFX runtime.",
+        "search": "NvidiaVFX\\Upscale Upscale sharpness Sharpness Nvidia VFX Upscale Upscaling and super resolution General purpose Upscales video with adjustable edge sharpness. Enlarges video playback and streams. Choose a fixed scale or automatically fit the target size, then adjust sharpness to refine edge definition. Requires a supported NVIDIA rendering GPU and matching VFX runtime."
+      },
+      "source": {
+        "path": "src/Effects/NvidiaVFX/Upscale.hlsl",
+        "sha256": "5b4054e65beba11cc713a19701be6bdac331c781cb68f2ab56bba31fbd0212a2",
+        "output": {},
+        "passCount": 1,
+        "parameters": [
+          {
+            "name": "sharpness",
+            "type": "float",
+            "options": [],
+            "label": "Sharpness",
+            "default": "0.4",
+            "min": "0",
+            "max": "1",
+            "step": "0.01"
+          }
+        ],
+        "includes": []
+      },
+      "review": {
+        "status": "source-reviewed",
+        "recommendationBasis": "source-capability-only",
+        "runtimeEvidence": [
+          "src/Magpie.Core/NvidiaVfxImageBackend.cpp",
+          "src/Magpie.Core/include/NvidiaVfxParameters.h",
+          "src/Magpie.Core/NvidiaVfxRuntime.cpp",
+          "src/Magpie.Core/HdrEffectBoundary.cpp",
+          "src/Magpie.Core/Renderer.cpp"
+        ],
+        "externalReferences": [
+          "https://docs.nvidia.com/maxine/vfx/1.3.0/"
+        ],
+        "notVerified": [
+          "C++ compilation",
+          "GPU feature execution",
+          "colour and performance acceptance",
+          "WinUI interaction"
+        ],
+        "scope": "2026-10-09 source integration; no build or deployment",
+        "copyReviewedOn": "2026-10-13",
+        "copyDisposition": "revised",
+        "copyScope": "User-focused bilingual purpose, content and starting steps; shared guidance moved to categories, parameter help and usage docs. Source review only; no build, deployment, UI or GPU acceptance.",
+        "runtimeEvidenceSha256": {
+          "src/Magpie.Core/NvidiaVfxImageBackend.cpp": "1598100bf522bae5c9add579477d8ed2d9d5ce14534da63d7ae4f5e811f87842",
+          "src/Magpie.Core/include/NvidiaVfxParameters.h": "d7e192c7447ab2da701a70cee6075a09c6dc89af926cdc66ad844a9f0a4df6ac",
+          "src/Magpie.Core/NvidiaVfxRuntime.cpp": "2d3f620c5a564f84dd6d819ecc8b9a9a36e4c22f53da40bea5e6f9e0afb916b8",
+          "src/Magpie.Core/HdrEffectBoundary.cpp": "75f166cd9c3c9cddf931b499f445f76c353d51000d1df36894f819a01809a8eb",
+          "src/Magpie.Core/Renderer.cpp": "b03b12ffcbc19f9f84b8cba6e765e2618de77a558105b46299de2f7792fa3eb2"
+        },
+        "evidenceBaseline": "cbe2c2cb + UWP fullscreen, HDR overlay, DLSSNR guidance and effect-description integration; copy contracts rechecked"
+      }
+    },
+    {
+      "id": "NvidiaVFX\\VFG",
+      "category": "frame",
+      "purposes": [
+        "frame"
+      ],
+      "level": "advanced",
+      "family": null,
+      "subfamily": null,
+      "zh-Hans": {
+        "name": "Nvidia VFX VFG",
+        "subcategory": "补帧",
+        "summary": "在视频帧之间补帧，提供 2×～8× 帧数倍率。",
+        "details": "为连续视频画面生成中间帧，让运动呈现更连贯，保持画面尺寸。可从 2×、均衡模型开始，再按处理余量调整倍率。处理 SDR 输入；需要 Windows x64、Ada／Blackwell 架构的 NVIDIA 渲染 GPU 与配套 VFX 运行库。",
+        "search": "NvidiaVFX\\VFG VFG multiplier Frame multiplier model Model Performance Balanced automaticShotDetection Automatic shot detection Nvidia VFX VFG 补帧与帧率 补帧 在视频帧之间补帧，提供 2×～8× 帧数倍率。 为连续视频画面生成中间帧，让运动呈现更连贯，保持画面尺寸。可从 2×、均衡模型开始，再按处理余量调整倍率。处理 SDR 输入；需要 Windows x64、Ada／Blackwell 架构的 NVIDIA 渲染 GPU 与配套 VFX 运行库。"
+      },
+      "en-US": {
+        "name": "Nvidia VFX VFG",
+        "subcategory": "Frame generation",
+        "summary": "Generates intermediate video frames at 2x–8x frame multipliers.",
+        "details": "Adds intermediate frames to continuous video for smoother motion while keeping the image size. Start with 2x and the Balanced model, then adjust the multiplier to suit processing headroom. Takes SDR input; requires Windows x64, an Ada/Blackwell NVIDIA rendering GPU, and the matching VFX runtime.",
+        "search": "NvidiaVFX\\VFG VFG multiplier Frame multiplier model Model Performance Balanced automaticShotDetection Automatic shot detection Nvidia VFX VFG Frame generation and frame rate Frame generation Generates intermediate video frames at 2x–8x frame multipliers. Adds intermediate frames to continuous video for smoother motion while keeping the image size. Start with 2x and the Balanced model, then adjust the multiplier to suit processing headroom. Takes SDR input; requires Windows x64, an Ada/Blackwell NVIDIA rendering GPU, and the matching VFX runtime."
+      },
+      "source": {
+        "path": "src/Effects/NvidiaVFX/VFG.hlsl",
+        "sha256": "4be9299ad31bea98c059700b74760dab28f1f77e96637d46f6573f86edca06a0",
+        "output": {
+          "WIDTH": "INPUT_WIDTH",
+          "HEIGHT": "INPUT_HEIGHT"
+        },
+        "passCount": 1,
+        "parameters": [
+          {
+            "name": "multiplier",
+            "type": "int",
+            "options": [],
+            "label": "Frame multiplier",
+            "default": "2",
+            "min": "2",
+            "max": "8",
+            "step": "1"
+          },
+          {
+            "name": "model",
+            "type": "int",
+            "options": [
+              {
+                "value": "0",
+                "label": "Performance"
+              },
+              {
+                "value": "1",
+                "label": "Balanced"
+              }
+            ],
+            "label": "Model",
+            "default": "1"
+          },
+          {
+            "name": "automaticShotDetection",
+            "type": "int",
+            "options": [],
+            "label": "Automatic shot detection",
+            "default": "1",
+            "min": "0",
+            "max": "1",
+            "step": "1"
+          }
+        ],
+        "includes": []
+      },
+      "review": {
+        "status": "source-reviewed",
+        "recommendationBasis": "source-capability-only",
+        "runtimeEvidence": [
+          "src/Magpie.Core/NvidiaVfxFrameGenerator.cpp",
+          "src/Magpie.Core/include/NvidiaVfxExecutionPlan.h",
+          "src/Magpie.Core/include/NvidiaVfxParameters.h",
+          "src/Magpie.Core/Renderer.cpp",
+          "src/Magpie.Core/NvidiaVfxRuntime.cpp",
+          "src/Magpie.Core/HdrEffectBoundary.cpp"
+        ],
+        "externalReferences": [
+          "https://docs.nvidia.com/maxine/vfx/1.3.0/"
+        ],
+        "notVerified": [
+          "C++ compilation",
+          "GPU feature execution",
+          "colour and performance acceptance",
+          "WinUI interaction"
+        ],
+        "scope": "2026-10-09 source integration; no build or deployment",
+        "settingsRevision": "2026-10-12 FG common filtering and idle redraw; source only, uncompiled",
+        "copyReviewedOn": "2026-10-13",
+        "copyDisposition": "revised",
+        "copyScope": "User-focused bilingual purpose, content and starting steps; shared guidance moved to categories, parameter help and usage docs. Source review only; no build, deployment, UI or GPU acceptance.",
+        "runtimeEvidenceSha256": {
+          "src/Magpie.Core/NvidiaVfxFrameGenerator.cpp": "801a58fbd0d468087f04f099f7c78283414227e420d247dda7cd5fdf5b6d284b",
+          "src/Magpie.Core/include/NvidiaVfxExecutionPlan.h": "fefa7a5209c35e481f2921d768b660b534ac08803dbef66beef56a71fbef0e0a",
+          "src/Magpie.Core/include/NvidiaVfxParameters.h": "d7e192c7447ab2da701a70cee6075a09c6dc89af926cdc66ad844a9f0a4df6ac",
+          "src/Magpie.Core/Renderer.cpp": "b03b12ffcbc19f9f84b8cba6e765e2618de77a558105b46299de2f7792fa3eb2",
+          "src/Magpie.Core/NvidiaVfxRuntime.cpp": "2d3f620c5a564f84dd6d819ecc8b9a9a36e4c22f53da40bea5e6f9e0afb916b8",
+          "src/Magpie.Core/HdrEffectBoundary.cpp": "75f166cd9c3c9cddf931b499f445f76c353d51000d1df36894f819a01809a8eb"
+        },
+        "evidenceBaseline": "cbe2c2cb + UWP fullscreen, HDR overlay, DLSSNR guidance and effect-description integration; copy contracts rechecked"
+      }
+    }
+  ],
+  "copyRevision": {
+    "date": "2026-10-13",
+    "guide": "docs/experimental/EFFECT-DESCRIPTION-GUIDE.md",
+    "review": "docs/experimental/reviews/20261013-effect-description-user-copy-revision.md",
+    "scope": "User-focused bilingual rewrite; preserve IDs, parameters, behavior and source evidence. No compilation or deployment."
+  }
+}

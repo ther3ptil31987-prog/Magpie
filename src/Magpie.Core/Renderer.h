@@ -8,6 +8,7 @@
 #include "FrameGuidanceService.h"
 #include "NgxD3D12Core.h"
 #include "OverlayDrawer.h"
+#include "IdlePresentationClock.h"
 #include "PassThroughFrames.h"
 #include "PresenterBase.h"
 #include "ReflexController.h"
@@ -15,11 +16,15 @@
 #include "FramePresentationTiming.h"
 #include "ScalingOptions.h"
 #include "ScalingSessionLifetime.h"
+#include "SceneScreenshot.h"
 #include "StepTimer.h"
+#include "NvidiaVfxExecutionPlan.h"
+#include "NvidiaVfxMeasurements.h"
 #include <mutex>
 #include <unordered_map>
 
 namespace Magpie {
+struct NvidiaVfxCudaFrame;
 
 class FrameSourceBase;
 
@@ -39,6 +44,7 @@ public:
 
 	ScalingError Initialize(HWND hwndAttach, OverlayOptions& overlayOptions) noexcept;
 	void BeginShutdown() noexcept;
+	bool IsStopping() const noexcept { return _sessionLifetime->IsStopping(); }
 	const std::string& InitializationContext() const noexcept { return _backendInitContext; }
 	uint32_t InitializationSystemError() const noexcept { return _backendInitSystemError; }
 	const std::wstring& MotionConfigurationNotice() const noexcept { return _motionConfigurationNotice; }
@@ -47,6 +53,12 @@ public:
 	bool RenderOverlay() noexcept;
 	bool HasFrameGeneration() const noexcept { return _hasFrameGeneration; }
 	PresentationRateSnapshot PresentationRate() const noexcept { return _presentationRate.Get(); }
+	bool IsWaitingForNewContent() const noexcept {
+		return _hasFrameGeneration && _captureAllowsIdle.load(std::memory_order_acquire) &&
+			!HasPendingContent() && !_backendContentInFlight.load(std::memory_order_acquire) &&
+			_presentationRate.WaitingForContent();
+	}
+	std::string NvidiaVfxProcessDescription(size_t effect) const;
 	DLSSFGFrameRenderResult RenderDLSSFGFrame(
 		uint32_t sharedTextureSlot,
 		uint32_t sharedTextureGeneration,
@@ -58,6 +70,7 @@ public:
 	std::chrono::nanoseconds FrontendPollInterval() const noexcept {
 		return std::min(_overlayPresentationClock.PollInterval(), _cursorDrawer.PollInterval());
 	}
+	std::optional<std::chrono::nanoseconds> TimeUntilIdleRedraw() const noexcept;
 
 	// Sleep in the outer message pump, never inside a prepared frame.
 	void WaitForFrontendWork(std::chrono::nanoseconds maximumWait) noexcept;
@@ -85,9 +98,7 @@ public:
 	void RestoreOverlayState(const OverlaySessionState& state) noexcept;
 	bool IsPassThroughActive() const noexcept { return _isPassThroughActive; }
 	bool SetPassThroughActive(bool value) noexcept;
-	void TakeDisplayedScreenshot() noexcept {
-		TakeScreenshot(std::numeric_limits<uint32_t>::max());
-	}
+	void TakeDisplayedScreenshot() noexcept;
 
 	const RECT& SrcRect() const noexcept;
 
@@ -144,6 +155,26 @@ public:
 	) noexcept;
 
 private:
+	// Frontend-only admission; backend-only request/candidate; per-slot pointers
+	// use the same lock as frame metadata and scene copies.
+	std::shared_ptr<SceneScreenshotRequest> _sceneScreenshotRequest;
+	uint64_t _nextScreenshotRequestId = 0;
+	std::shared_ptr<SceneScreenshotRequest> _backendScreenshotRequest;
+	std::shared_ptr<SceneScreenshotFrame> _backendScreenshotFrame;
+	std::shared_ptr<SceneScreenshotFrame> _frontendScreenshotFrame;
+	void _SnapshotScreenshotInput() noexcept;
+	static void _QueueScreenshotCleanup(std::shared_ptr<SceneScreenshotRequest> request) noexcept;
+	static winrt::fire_and_forget _WatchScreenshotRequest(std::shared_ptr<SceneScreenshotRequest> request);
+	static winrt::fire_and_forget _SaveSceneScreenshot(
+		std::shared_ptr<SceneScreenshotRequest> request,
+		winrt::com_ptr<ID3D11Device5> device,
+		winrt::com_ptr<ID3D11DeviceContext4> context,
+		winrt::DispatcherQueue dispatcher,
+		winrt::com_ptr<ID3D11Texture2D> output,
+		HdrFrameMetadata outputMetadata,
+		std::shared_ptr<SceneScreenshotFrame> input = {});
+	static void _FailScreenshotRequest(const std::shared_ptr<SceneScreenshotRequest>& request,
+		std::string_view stage, uint32_t code = 0) noexcept;
 	bool _frameTraceStarted = false;
 	// Set before starting the backend; immutable for this session.
 	bool _frameSyncEnabled = false;
@@ -178,13 +209,23 @@ private:
 		bool independentOverlay = false;
 		bool waitForGpu = false;
 		bool paced = false;
+		bool idleRedraw = false;
 		uint64_t overlayRevision = 0;
 		uint64_t contentKey = 0;
+		uint32_t diagnosticReasons = 0;
 	};
 	std::optional<PendingFrontendFrame> _pendingFrontendFrame;
 	bool _SubmitFrontendFrame() noexcept;
+	bool _TryIdleRedraw() noexcept;
+	IdlePresentationClock _idlePresentationClock;
+	std::atomic<double> _idleRedrawRate = 0;
+	std::atomic<bool> _captureAllowsIdle = false;
+	std::atomic<bool> _backendContentInFlight = false;
+	uint32_t _FrontendDiagnosticReasons() noexcept;
 	OverlayPresentationClock _overlayPresentationClock;
 	HMONITOR _overlayMonitor = nullptr;
+	HMONITOR _overlayWhiteMonitor = nullptr;
+	float _overlayMonitorSdrWhiteNits = 0;
 	uint64_t _overlayActionRevision = 0;
 	uint64_t _presentedOverlayActionRevision = 0;
 	bool _HasPendingOverlayAction() const noexcept {
@@ -204,9 +245,11 @@ private:
 		uint32_t sharedTextureSlot = std::numeric_limits<uint32_t>::max(),
 		FrontendRenderTimings* timings = nullptr,
 		bool stableBaseOnly = false,
-		bool* droppedFrame = nullptr
+		bool* droppedFrame = nullptr,
+		bool idleRedraw = false
 	) noexcept;
 	bool _FrontendOverlayRender(bool contentChanged = false) noexcept;
+	void _DrawOverlay(ID3D11Texture2D* target, const HdrFrameMetadata& frame, POINT drawOffset) noexcept;
 	enum class FrontendBaseResult { Ready, Retry, Dropped };
 	FrontendBaseResult _UpdateFrontendBase(uint32_t sharedTextureSlot) noexcept;
 	bool _OpenFrontendSharedTextures() noexcept;
@@ -221,7 +264,7 @@ private:
 
 	void _BackendThreadProc() noexcept;
 	bool _IsDLSSFGQueueFull() const noexcept {
-		return _dlssFrameGenerator && _synchronousFramePresentationEnabled.load(std::memory_order_acquire) &&
+		return _HasSoftwareFrameGenerator() && _synchronousFramePresentationEnabled.load(std::memory_order_acquire) &&
 			_pendingDLSSFGFrontendFrames.load(std::memory_order_acquire) >= _sharedTextureSlotCount;
 	}
 
@@ -246,6 +289,11 @@ private:
 	ID3D11Texture2D* _ResizeEffects() noexcept;
 
 	void _BuildEffectParameterRuntimeInfos() noexcept;
+	void _SetDlssNrStatus(uint32_t index, DlssNrState state, DlssNrFailure failure = {}) noexcept;
+	std::vector<DlssNrStatus> _dlssNrStatuses;
+	uint32_t _dlssNrRunId = 0;
+	std::shared_ptr<DlssNrSessionState> _dlssNrSession;
+	std::function<void(uint32_t, uint32_t, const DlssNrStatus&)> _dlssNrStatusChanged;
 	void _ApplyPendingEffectParameters() noexcept;
 	void _UpdateFrameRateLimits() noexcept;
 
@@ -274,7 +322,7 @@ private:
 	void _HandleDLSSFrameGenerationFailure(ID3D11Texture2D* input) noexcept;
 	void _DisableDLSSFrameGenerationForSession() noexcept;
 	bool _DrainNgxConsumers() noexcept;
-	void _ReleaseNgxConsumers() noexcept;
+	bool _ReleaseNgxConsumers() noexcept;
 
 	bool _UpdateDynamicConstants(uint32_t frameCount) const noexcept;
 
@@ -297,7 +345,11 @@ private:
 	PassThroughFrames _passThroughFrames;
 	bool _isPassThroughActive = false;
 
-	static constexpr uint32_t MAX_SHARED_TEXTURE_SLOTS = 4;
+	// Ring capacity is independent of the SDK's 2–8x multiplier. Reuse the
+	// reference-image capacity and apply backpressure rather than allocating
+	// seven extra HDR outputs before the frontend can consume them.
+	static constexpr uint32_t MAX_SHARED_TEXTURE_SLOTS = PassThroughFrames::MAX_SLOTS;
+	std::array<std::shared_ptr<SceneScreenshotFrame>, MAX_SHARED_TEXTURE_SLOTS> _sharedScreenshotFrames{};
 	std::array<winrt::com_ptr<ID3D11Texture2D>, MAX_SHARED_TEXTURE_SLOTS>
 		_frontendSharedTextures;
 	std::array<winrt::com_ptr<IDXGIKeyedMutex>, MAX_SHARED_TEXTURE_SLOTS>
@@ -314,6 +366,7 @@ private:
 	winrt::com_ptr<ID3D11Texture2D> _frontendMotionTexture;
 	FrameGuidanceFrameId _frontendMotionFrameId = 0;
 	bool _frontendMotionValid = false;
+	FrameGuidanceAvailability _frontendMotionAvailability = FrameGuidanceAvailability::Unavailable;
 	bool _frontendMotionReset = true;
 	bool _frontendBaseValid = false;
 	bool _frontendPresentedBaseValid = false;
@@ -350,6 +403,33 @@ private:
 	bool _forceNextRender = false;
 	std::vector<std::unique_ptr<class NativeEffectBackend>> _nativeEffectBackends;
 	std::unique_ptr<class DLSSFrameGenerator> _dlssFrameGenerator;
+	std::unique_ptr<class NvidiaVfxFrameGenerator> _nvidiaVfxFrameGenerator;
+	NvidiaVfxExecutionPlan _vfxExecutionPlan;
+	winrt::com_ptr<ID3D11Texture2D> _vfxSourceTexture, _vfxPostInput;
+	EffectsProfiler _vfxPostProfiler;
+	uint64_t _vfxUpstreamHistoryRevision = 0, _vfxParameterRevision = 1;
+	uint32_t _vfxOutputIndex = 0, _vfxOutputMultiplier = 1;
+	uint32_t _vfxPairSamples = 0, _vfxPostSamples = 0;
+	double _vfxPairTotalMs = 0, _vfxPairMaxMs = 0, _vfxPostTotalMs = 0;
+	double _vfxPublicationCpuMs = 0, _vfxMutexWaitCpuMs = 0;
+	std::atomic<uint64_t> _vfxRingWaitNanoseconds = 0;
+	uint64_t _vfxLastReportedRingWaitNs = 0;
+	NvidiaVfxD3dTimings _vfxPostGpuTimings, _vfxPublicationGpuTimings;
+	std::mutex _vfxPresentTimingMutex;
+	NativeBackendTiming::Clock::time_point _vfxLastPresentTime{};
+	uint64_t _vfxPresentedOutputs = 0, _vfxPresentIntervals = 0;
+	uint64_t _vfxPresentSequence = 0, _vfxPresentGeneration = 0;
+	double _vfxPresentIntervalTotalMs = 0, _vfxPresentIntervalMaxMs = 0;
+	int64_t _vfxPreviousTimestamp100ns = 0;
+	mutable std::mutex _vfxDescriptionMutex;
+	std::vector<std::string> _vfxDescriptions;
+	void _UpdateNvidiaVfxDescriptions();
+	bool _HasSoftwareFrameGenerator() const noexcept { return _dlssFrameGenerator || _nvidiaVfxFrameGenerator; }
+	uint32_t _SoftwareFrameMultiplier() const noexcept;
+	bool _InitializeNvidiaVfxFrameGenerator() noexcept;
+	bool _DrawNvidiaVfxPostEffects(ID3D11Texture2D* input, uint32_t index, uint32_t multiplier,
+		const NvidiaVfxCudaFrame* cudaFrame = nullptr) noexcept;
+	void _LogNvidiaVfxMeasurements() noexcept;
 	uint32_t _dlssFgConsecutiveFailures = 0;
 	uint32_t _dlssFgRecoveryAttempts = 0;
 
@@ -408,7 +488,10 @@ private:
 		_sharedTextureResourceGenerations{};
 	std::array<std::atomic<int64_t>, MAX_SHARED_TEXTURE_SLOTS>
 		_sharedTextureTimestamps{};
+	std::array<FrameGuidanceAvailability, MAX_SHARED_TEXTURE_SLOTS> _sharedMotionAvailability{};
 	std::array<HdrFrameMetadata, MAX_SHARED_TEXTURE_SLOTS> _sharedFrameMetadata{};
+	uint64_t _backendOutputHistoryRevision = 0, _lastPublishedOutputHistoryRevision = 0;
+	bool _backendOutputRedraw = false;
 	HdrFrameMetadata _frontendFrameMetadata{};
 	// Protected by the slot's existing publication/consumption mutex. These
 	// IDs survive retries and stay paired with exactly the copied colour image.
@@ -460,9 +543,13 @@ private:
 	uint32_t _dlssFgRealPublishFailure = 0;
 	bool _dlssFgPresentationStopping = false;
 	bool _isXeSSFrameGenerationActive = false;
+	bool _isFSR3FrameGenerationActive = false;
+	bool _presenterFailureReported = false;
+	bool _HasProxyFrameGenerator() const noexcept { return _isXeSSFrameGenerationActive || _isFSR3FrameGenerationActive; }
+	void _ReportPresenterFailure() noexcept;
 	FrameGenerationEffectKind _xessFrameGenerationKind =
 		FrameGenerationEffectKind::None;
-	MotionVectorRequest _xessMotionRequest{};
+	MotionVectorRequest _proxyMotionRequest{};
 
 	// INVALID_HANDLE_VALUE 表示后端初始化失败
 	std::atomic<HANDLE> _sharedTextureHandle{ NULL };
@@ -485,6 +572,9 @@ private:
 	std::unordered_map<uint64_t, PendingEffectParameterUpdate>
 		_effectParameterMailbox;
 	bool _effectParameterWakeQueued = false;
+	std::optional<double> _reportedContentTarget;
+	bool _reportedFixedContent = false;
+	bool _reportedContentConstraint = false;
 };
 
 }

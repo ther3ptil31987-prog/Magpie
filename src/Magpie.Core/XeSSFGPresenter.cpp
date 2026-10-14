@@ -134,6 +134,16 @@ struct XeSSFGPresenter::Impl {
 	uint32_t consecutiveFailures = 0;
 	uint64_t sdkMotionSamples = 0;
 	bool frameGenerationEnabled = false;
+	bool idlePresentation = false, idleGenerationSuspended = false;
+	bool limiterEnabled = true;
+	bool fatal = false;
+	std::chrono::steady_clock::time_point capacityWaitStarted{};
+	PresenterFailure failure;
+	bool Fail(std::string_view context, HRESULT code = E_FAIL) noexcept {
+		fatal = true; failure = { std::string(context), static_cast<uint32_t>(code) };
+		Logger::Get().Error(context); return false;
+	}
+	double baseFrameRateLimit = 0;
 	bool externalMotionEnabled = false;
 	bool externalMotionValid = false;
 	bool externalMotionReset = true;
@@ -588,6 +598,7 @@ bool XeSSFGPresenter::_Initialize(HWND hwndAttach) noexcept {
 	impl->multiplier = _requestedMultiplier;
 
 	DXGI_SWAP_CHAIN_DESC1 swapChainDesc{};
+	_VRRPathAvailable(true);
 	swapChainDesc.Width = impl->width;
 	swapChainDesc.Height = impl->height;
 	swapChainDesc.Format = ColorFormat(impl->hdrEnabled);
@@ -597,7 +608,7 @@ bool XeSSFGPresenter::_Initialize(HWND hwndAttach) noexcept {
 	swapChainDesc.SwapEffect = DXGI_SWAP_EFFECT_FLIP_DISCARD;
 	swapChainDesc.AlphaMode = DXGI_ALPHA_MODE_IGNORE;
 	swapChainDesc.Flags = DXGI_SWAP_CHAIN_FLAG_FRAME_LATENCY_WAITABLE_OBJECT |
-		(_deviceResources->IsTearingSupported() && ScalingWindow::Get().Options().isVRREnabled ? DXGI_SWAP_CHAIN_FLAG_ALLOW_TEARING : 0);
+		_vrr.CreationFlags();
 
 	xefg_swapchain_d3d12_init_params_t initParams{};
 	initParams.maxInterpolatedFrames = interpolatedFrames;
@@ -615,6 +626,15 @@ bool XeSSFGPresenter::_Initialize(HWND hwndAttach) noexcept {
 		LogXeFGResult("get proxy swap chain failed", result);
 		return false;
 	}
+	// Validate the proxy's actual descriptor; preserve it for every resize.
+	DXGI_SWAP_CHAIN_DESC1 actualDesc{};
+	const HRESULT descHr = impl->swapChain->GetDesc1(&actualDesc);
+	if (FAILED(descHr)) {
+		Logger::Get().ComError("Get XeSSFG proxy swap-chain descriptor failed", descHr);
+		return false;
+	}
+	_vrr.Created(actualDesc.Flags);
+	_BindVRRSwapChain(impl->swapChain.get());
 	if (impl->hdrEnabled) {
 		HRESULT colorSpaceHr = impl->swapChain->SetColorSpace1(
 			DXGI_COLOR_SPACE_RGB_FULL_G2084_NONE_P2020);
@@ -631,7 +651,10 @@ bool XeSSFGPresenter::_Initialize(HWND hwndAttach) noexcept {
 		Logger::Get().Error("Get XeSSFG frame latency object failed");
 		return false;
 	}
-	impl->factory->MakeWindowAssociation(hwndAttach, DXGI_MWA_NO_ALT_ENTER);
+	const HRESULT associationHr = impl->factory->MakeWindowAssociation(hwndAttach, DXGI_MWA_NO_ALT_ENTER);
+	_vrr.AltEnterDisabled(SUCCEEDED(associationHr));
+	_UpdateForegroundCompatibility();
+	if (FAILED(associationHr)) Logger::Get().ComWarn("XeSSFG MakeWindowAssociation failed", associationHr);
 
 	result = xefgSwapChainSetNumInterpolatedFrames(impl->xefg, interpolatedFrames);
 	if (!XeFGSucceeded(result)) {
@@ -716,15 +739,17 @@ void XeSSFGPresenter::SetFrameGuidance(
 bool XeSSFGPresenter::SetBaseFrameRateLimit(double baseFPS) noexcept {
 	if (!_impl) return false;
 	auto& impl = *_impl;
-	const double outputFPS = baseFPS * (impl.frameGenerationEnabled ? impl.multiplier : 1u);
+	impl.baseFrameRateLimit = baseFPS;
+	const double outputFPS = impl.idleGenerationSuspended ? 0 :
+		baseFPS * (impl.frameGenerationEnabled ? impl.multiplier : 1u);
 	const uint32_t intervalUs = outputFPS > 0 ?
 		static_cast<uint32_t>(std::max(1.0, std::round(1'000'000.0 / outputFPS))) : 0;
-	if (intervalUs == impl.limiterIntervalUs) return true;
+	if (intervalUs == impl.limiterIntervalUs && impl.limiterEnabled == !impl.idleGenerationSuspended) return true;
 	// Only configuration changes drain outstanding work, never every frame.
 	_WaitForGpu();
 	if (!WaitForQueue(impl)) return false;
 	xell_sleep_params_t params{};
-	params.bLowLatencyMode = 1;
+	params.bLowLatencyMode = !impl.idleGenerationSuspended;
 	params.minimumIntervalUs = intervalUs;
 	const auto result = xellSetSleepMode(impl.xell, &params);
 	if (!XeLLSucceeded(result)) {
@@ -732,6 +757,7 @@ bool XeSSFGPresenter::SetBaseFrameRateLimit(double baseFPS) noexcept {
 		return false;
 	}
 	impl.limiterIntervalUs = intervalUs;
+	impl.limiterEnabled = !impl.idleGenerationSuspended;
 	Logger::Get().Info(fmt::format("XeLL input pacing: baseTarget={:.3f} outputTarget={:.3f} intervalUs={} VRR={}",
 		baseFPS, outputFPS, intervalUs, ScalingWindow::Get().Options().isVRREnabled));
 	return true;
@@ -749,24 +775,55 @@ void XeSSFGPresenter::SetSourceTiming(uint64_t frameId, uint64_t sequence,
 	_impl->sourceSample = {frameId, sequence, generation, timestamp100ns};
 }
 
-bool XeSSFGPresenter::BeginFrame(
-	winrt::com_ptr<ID3D11Texture2D>& frameTex,
-	winrt::com_ptr<ID3D11RenderTargetView>& frameRtv,
-	POINT& drawOffset
-) noexcept {
-	if (!_impl || !_impl->color11 || !_impl->colorRtv11) {
+bool XeSSFGPresenter::BeginFrame(winrt::com_ptr<ID3D11Texture2D>& frameTex,
+	winrt::com_ptr<ID3D11RenderTargetView>& frameRtv, POINT& drawOffset) noexcept {
+	return _BeginFrame(frameTex, frameRtv, drawOffset, false);
+}
+
+bool XeSSFGPresenter::BeginIdleFrame(winrt::com_ptr<ID3D11Texture2D>& frameTex,
+	winrt::com_ptr<ID3D11RenderTargetView>& frameRtv, POINT& drawOffset) noexcept {
+	return _BeginFrame(frameTex, frameRtv, drawOffset, true);
+}
+
+bool XeSSFGPresenter::_BeginFrame(winrt::com_ptr<ID3D11Texture2D>& frameTex,
+	winrt::com_ptr<ID3D11RenderTargetView>& frameRtv, POINT& drawOffset, bool idle) noexcept {
+	if (!_impl || _impl->fatal || !_impl->color11 || !_impl->colorRtv11) {
 		return false;
 	}
 	Impl& impl = *_impl;
+	if (impl.frameGenerationEnabled && idle != impl.idleGenerationSuspended) {
+		// Toggle only on entering/leaving idle, never on every cached present.
+		_WaitForGpu();
+		if (!WaitForQueue(impl)) return impl.Fail("XeSSFG idle transition queue timed out");
+		// XeLL must be enabled before enabling FG. When entering idle,
+		// disable FG first, then remove XeLL low-latency/limiter pacing.
+		if (!idle) {
+			impl.idleGenerationSuspended = false;
+			if (!SetBaseFrameRateLimit(impl.baseFrameRateLimit)) return impl.Fail("XeLL resume failed");
+		}
+		const auto result = xefgSwapChainSetEnabled(impl.xefg, !idle);
+		if (!XeFGSucceeded(result)) { LogXeFGResult("idle transition failed", result); return impl.Fail("XeSSFG idle transition failed"); }
+		impl.idleGenerationSuspended = idle;
+		if (idle && !SetBaseFrameRateLimit(impl.baseFrameRateLimit)) return impl.Fail("XeLL idle configuration failed");
+		impl.resetHistory = true;
+		impl.timing.Reset();
+		if (impl.compatibility.Patched()) impl.compatibility.Reset();
+	}
+	impl.idlePresentation = idle;
 	const DWORD capacity = impl.frameLatencyGate.TryAcquire(impl.frameLatencyWaitableObject.get());
 	if (capacity == WAIT_TIMEOUT) {
+		const auto now = std::chrono::steady_clock::now();
+		if (impl.capacityWaitStarted == std::chrono::steady_clock::time_point{}) impl.capacityWaitStarted = now;
+		if (now - impl.capacityWaitStarted >= std::chrono::seconds(3)) return impl.Fail("XeSSFG frame capacity stalled for 3 seconds");
 		return false;
 	}
+	impl.capacityWaitStarted = {};
 	if (capacity != WAIT_OBJECT_0) {
 		Logger::Get().Win32Error("XeSSFG frame latency wait failed");
-		return false;
+		return impl.Fail("XeSSFG frame capacity wait failed");
 	}
 	const auto sleepStart = std::chrono::steady_clock::now();
+	// Keep the SDK marker lifecycle even with XeLL pacing disabled.
 	xellSleep(impl.xell, impl.frameId);
 	impl.xellWaitMs = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - sleepStart).count();
 	xellAddMarkerData(impl.xell, impl.frameId, XELL_INPUT_SAMPLE);
@@ -777,13 +834,16 @@ bool XeSSFGPresenter::BeginFrame(
 	return true;
 }
 
+bool XeSSFGPresenter::HasFatalError() const noexcept { return _impl && _impl->fatal; }
+const PresenterFailure* XeSSFGPresenter::GetFailure() const noexcept { return _impl ? &_impl->failure : nullptr; }
+
 bool XeSSFGPresenter::WaitForFrameCapacity(DWORD timeout) noexcept {
 	if (!_impl) return false;
 	DWORD result = WAIT_TIMEOUT;
 	if (!_impl->frameLatencyGate.Wait(_impl->frameLatencyWaitableObject.get(), timeout, result)) return false;
 	if (result == WAIT_FAILED) {
 		Logger::Get().Win32Error("XeSSFG capacity event wait failed");
-		return false;
+		return _impl->Fail("XeSSFG capacity event wait failed");
 	}
 	return true;
 }
@@ -855,26 +915,21 @@ bool XeSSFGPresenter::EndFrame(bool waitForGpu) noexcept {
 
 	const uint64_t inputReady = ++impl.fenceValue;
 	HRESULT hr = impl.context11->Signal(impl.fence11.get(), inputReady);
-	if (FAILED(hr)) {
-		return false;
-	}
+	if (FAILED(hr)) return impl.Fail("XeSSFG frame resource command failed", hr);
 	impl.context11->Flush();
-	if (FAILED(impl.queue12->Wait(impl.fence12.get(), inputReady))) {
-		return false;
-	}
+	hr = impl.queue12->Wait(impl.fence12.get(), inputReady);
+	if (FAILED(hr)) return impl.Fail("XeSSFG input fence handoff failed", hr);
 
 	const uint32_t bufferIndex = impl.swapChain->GetCurrentBackBufferIndex();
+	if (bufferIndex >= BUFFER_COUNT) return impl.Fail("XeSSFG invalid back buffer index");
 	if (!WaitForFence(impl, impl.allocatorFenceValues[bufferIndex])) {
-		Logger::Get().Error("XeSSFG command allocator wait timed out");
-		return false;
+		return impl.Fail("XeSSFG command allocator wait timed out");
 	}
 	hr = impl.allocators12[bufferIndex]->Reset();
 	if (SUCCEEDED(hr)) {
 		hr = impl.commandList12->Reset(impl.allocators12[bufferIndex].get(), nullptr);
 	}
-	if (FAILED(hr)) {
-		return false;
-	}
+	if (FAILED(hr)) return impl.Fail("XeSSFG frame resource command failed", hr);
 
 	D3D12_RESOURCE_BARRIER barriers[2]{};
 	barriers[0].Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
@@ -895,13 +950,11 @@ bool XeSSFGPresenter::EndFrame(bool waitForGpu) noexcept {
 	}
 	impl.commandList12->ResourceBarrier(2, barriers);
 	hr = impl.commandList12->Close();
-	if (FAILED(hr)) {
-		return false;
-	}
+	if (FAILED(hr)) return impl.Fail("XeSSFG frame resource command failed", hr);
 	ID3D12CommandList* lists[]{ impl.commandList12.get() };
 	impl.queue12->ExecuteCommandLists(1, lists);
 
-	if (impl.frameGenerationEnabled) {
+	if (impl.frameGenerationEnabled && !impl.idlePresentation) {
 		xefg_swapchain_d3d12_resource_data_t motion{};
 		motion.type = XEFG_SWAPCHAIN_RES_MOTION_VECTOR;
 		motion.validity = XEFG_SWAPCHAIN_RV_UNTIL_NEXT_PRESENT;
@@ -965,27 +1018,30 @@ bool XeSSFGPresenter::EndFrame(bool waitForGpu) noexcept {
 		}
 	}
 
+	if (impl.idlePresentation) {
+		const auto result = xefgSwapChainSetPresentId(impl.xefg, impl.frameId);
+		if (!XeFGSucceeded(result)) { LogXeFGResult("idle present ID failed", result); return impl.Fail("XeSSFG idle present ID failed"); }
+	}
 
 	xellAddMarkerData(impl.xell, impl.frameId, XELL_RENDERSUBMIT_END);
 	xellAddMarkerData(impl.xell, impl.frameId, XELL_PRESENT_START);
-	const UINT flags = ScalingWindow::Get().Options().isVRREnabled && _deviceResources->IsTearingSupported()
-		? DXGI_PRESENT_ALLOW_TEARING : 0;
 	const auto presentStart = std::chrono::steady_clock::now();
 	const auto tracePresent = FrameTrace::Tick();
 	const auto extraBefore = XeSSFGCompatibility::Pacing::extraWaitNs.load(std::memory_order_relaxed);
-	hr = impl.swapChain->Present(0, flags);
+	hr = _PresentWithVRR(impl.swapChain.get(), false);
 	impl.presentMs = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - presentStart).count();
 	impl.extraWaitMs = static_cast<double>(XeSSFGCompatibility::Pacing::extraWaitNs.load(std::memory_order_relaxed) - extraBefore) / 1000000.0;
 	FrameTrace::Presentation(tracePresent, FrameTrace::Tick(), hr,
 		reinterpret_cast<uintptr_t>(impl.swapChain.get()));
 	_lastPresentedFrameCount = hr == S_OK ? std::optional<uint32_t>(1) : std::optional<uint32_t>(0);
 	xellAddMarkerData(impl.xell, impl.frameId, XELL_PRESENT_END);
-	impl.lastPresent = presentStart;
+	if (!impl.idlePresentation) impl.lastPresent = presentStart;
+	if (SUCCEEDED(hr)) _lastSubmissionTime = std::chrono::steady_clock::now();
 
 	if (FAILED(hr)) {
 		Logger::Get().ComError("XeSSFG proxy Present failed", hr);
 		impl.resetHistory = true;
-	} else if (hr == S_OK && impl.frameGenerationEnabled) {
+	} else if (hr == S_OK && impl.frameGenerationEnabled && !impl.idlePresentation) {
 		xefg_swapchain_present_status_t status{};
 		const xefg_swapchain_result_t statusResult =
 			xefgSwapChainGetLastPresentStatus(impl.xefg, &status);
@@ -1045,21 +1101,19 @@ bool XeSSFGPresenter::EndFrame(bool waitForGpu) noexcept {
 	if (FAILED(syncResult)) {
 		Logger::Get().ComError("XeSSFG post-present input synchronization failed", syncResult);
 		impl.resetHistory = true;
-		return false;
+		return impl.Fail("XeSSFG post-present synchronization failed", syncResult);
 	}
 	impl.allocatorFenceValues[bufferIndex] = copyDone;
 
-	if (waitForGpu) {
-		WaitForFence(impl, copyDone);
-	}
+	if (waitForGpu && !WaitForFence(impl, copyDone)) return impl.Fail("XeSSFG post-present fence timed out");
 	impl.context11->DiscardView(impl.colorRtv11.get());
-	if (impl.externalMotionValid) {
+	if (!impl.idlePresentation && impl.externalMotionValid) {
 		impl.lastSubmittedGuidanceFrameId = impl.guidanceFrameId;
 	}
 	impl.externalMotionValid = false;
 	impl.externalMotionReset = true;
 	++impl.frameId;
-	return SUCCEEDED(hr);
+	return SUCCEEDED(hr) || impl.Fail("XeSSFG proxy Present failed", hr);
 }
 
 bool XeSSFGPresenter::OnResize() noexcept {
@@ -1084,8 +1138,8 @@ bool XeSSFGPresenter::OnResize() noexcept {
 	ReleaseSizeDependentResources(impl);
 	impl.frameLatencyGate.Reset();
 	impl.frameLatencyWaitableObject.reset();
-	const UINT flags = DXGI_SWAP_CHAIN_FLAG_FRAME_LATENCY_WAITABLE_OBJECT |
-		(_deviceResources->IsTearingSupported() && ScalingWindow::Get().Options().isVRREnabled ? DXGI_SWAP_CHAIN_FLAG_ALLOW_TEARING : 0);
+	_RefreshVRREnvironment(true);
+	const UINT flags = _vrr.ResizeFlags();
 	HRESULT hr = impl.swapChain->ResizeBuffers(
 		BUFFER_COUNT, width, height, ColorFormat(impl.hdrEnabled), flags);
 	if (FAILED(hr)) {
@@ -1108,12 +1162,15 @@ bool XeSSFGPresenter::OnResize() noexcept {
 	if (!impl.frameLatencyWaitableObject || !CreateSizeDependentResources(impl)) {
 		return false;
 	}
+	impl.idleGenerationSuspended = false;
+	if (!SetBaseFrameRateLimit(impl.baseFrameRateLimit)) return impl.Fail("XeLL resize resume failed");
 	const xefg_swapchain_result_t result = xefgSwapChainSetEnabled(impl.xefg, true);
 	if (!XeFGSucceeded(result)) {
 		LogXeFGResult("re-enable after resize failed", result);
 		return false;
 	}
 	impl.frameGenerationEnabled = true;
+	impl.idleGenerationSuspended = impl.idlePresentation = false;
 	impl.resetHistory = true;
 	impl.consecutiveFailures = 0;
 	return _ResizeOverlaySurface();
@@ -1149,8 +1206,12 @@ bool XeSSFGPresenter::BeginFrame(
 	POINT&) noexcept {
 	return false;
 }
+bool XeSSFGPresenter::BeginIdleFrame(winrt::com_ptr<ID3D11Texture2D>&, winrt::com_ptr<ID3D11RenderTargetView>&, POINT&) noexcept { return false; }
+bool XeSSFGPresenter::_BeginFrame(winrt::com_ptr<ID3D11Texture2D>&, winrt::com_ptr<ID3D11RenderTargetView>&, POINT&, bool) noexcept { return false; }
 bool XeSSFGPresenter::EndFrame(bool) noexcept { return false; }
 bool XeSSFGPresenter::SetBaseFrameRateLimit(double) noexcept { return false; }
+bool XeSSFGPresenter::HasFatalError() const noexcept { return false; }
+const PresenterFailure* XeSSFGPresenter::GetFailure() const noexcept { return nullptr; }
 bool XeSSFGPresenter::WaitForFrameCapacity(DWORD) noexcept { return false; }
 void XeSSFGPresenter::SetFrameGuidance(
 	ID3D11Texture2D*, FrameGuidanceFrameId, bool, const RECT&) noexcept {}

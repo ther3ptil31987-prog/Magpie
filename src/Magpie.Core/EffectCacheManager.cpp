@@ -55,7 +55,7 @@ void serialize(Archive& ar, EffectParameterChoice& o) {
 
 template <typename Archive>
 void serialize(Archive& ar, EffectParameterDesc& o) {
-	ar& o.name& o.label& o.group& o.constant& o.choices;
+	ar& o.name& o.label& o.group& o.constant& o.choices& o.inputStep& o.sliderStep& o.coarseStep& o.segmentedSteps& o.editMinimum;
 }
 
 template <typename Archive>
@@ -82,7 +82,7 @@ static constexpr uint32_t MAX_CACHE_COUNT = 127;
 
 // 缓存版本
 // 当缓存文件结构有更改时更新它，使旧缓存失效
-static constexpr uint32_t EFFECT_CACHE_VERSION = 17;
+static constexpr uint32_t EFFECT_CACHE_VERSION = 18;
 
 
 static std::wstring GetLinearEffectName(std::wstring_view effectName) {

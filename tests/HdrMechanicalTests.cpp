@@ -233,6 +233,9 @@ void TestProductionFrameGenerationRoutes() {
             "effect chain cannot accidentally consume a presenter terminal");
     }
     const auto xess = EffectProtocolC::XeSS();
+	Check(EffectProtocolC::FSR3FG().front().inputFormat == DXGI_FORMAT_R8G8B8A8_UNORM &&
+		!EffectProtocolC::FSR3FG().front().defaultForHdr,
+		"FSR3 FG endpoint is SDR-only until HDR acceptance");
     const auto* selected = HdrEffectBoundary::SelectRoute(true, xess);
     Check(selected && selected->inputFormat == DXGI_FORMAT_R16G16B16A16_FLOAT,
         "XeSS compile/runtime selection chooses declared default rather than first R10 entry");

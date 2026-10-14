@@ -38,9 +38,12 @@
       <Code Type="Fragment" Language="cs"><![CDATA[
 List<ITaskItem> conanFiles = new List<ITaskItem>();
 
-// 搜索 conanfile.txt
+// Prefer a Python recipe for conditional platform dependencies.
 foreach (string projectDir in Directory.GetDirectories(SrcDir)) {
-    string conanfilePath = Path.Combine(projectDir, "conanfile.txt");
+    string conanfilePath = Path.Combine(projectDir, "conanfile.py");
+    if (!File.Exists(conanfilePath)) {
+        conanfilePath = Path.Combine(projectDir, "conanfile.txt");
+    }
     if (!File.Exists(conanfilePath)) {
         continue;
     }

@@ -1,6 +1,8 @@
 #pragma once
 #include "ScalingOptions.h"
 #include "Win32Helper.h"
+#include "Logger.h"
+#include "StrHelper.h"
 
 namespace Magpie {
 
@@ -49,8 +51,17 @@ inline ScalingError CheckHdrComponentPrerequisites(HWND source, const ScalingOpt
 	for (const auto& stage : plan.stages) {
 		if (stage.kind != HdrComponentKind::RtxVideoHdr) continue;
 		const auto directory = Win32Helper::GetExePath().parent_path();
-		if (!Win32Helper::FileExists((directory / L"Magpie.RtxVideo.dll").c_str()) ||
-			!Win32Helper::FileExists((directory / L"nvngx_truehdr.dll").c_str())) return ScalingError::RtxHdrUnavailable;
+#ifdef MP_ENABLE_NVIDIA_VFX
+		constexpr const wchar_t* required[] = { L"nvngxruntime.dll", L"NVCVImage.dll",
+			L"NVVideoEffects.dll", L"nvngx_truehdr.dll", L"nvVFXTrueHDR.dll" };
+#else
+		constexpr const wchar_t* required[] = { L"Magpie.RtxVideo.dll", L"nvngx_truehdr.dll" };
+#endif
+		for (const auto* component : required) {
+			if (Win32Helper::FileExists((directory / component).c_str())) continue;
+			Logger::Get().Error("HDR component missing: " + StrHelper::UTF16ToUTF8(component));
+			return ScalingError::RtxHdrUnavailable;
+		}
 		break;
 	}
 	const HMONITOR sourceMonitor = MonitorFromWindow(source, MONITOR_DEFAULTTONEAREST);

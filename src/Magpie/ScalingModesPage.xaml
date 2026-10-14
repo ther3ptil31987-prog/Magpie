@@ -182,7 +182,13 @@
 														<TextBlock Grid.Column="1"
 														           HorizontalAlignment="Right"
 														           VerticalAlignment="Center"
+														           Visibility="{x:Bind IsLegacyNumeric, Mode=OneTime}"
 														           Text="{x:Bind ValueText, Mode=OneWay}" />
+														<TextBox Grid.Column="1" MinWidth="0" Padding="4,2"
+														         IsEnabled="{x:Bind IsEnabled, Mode=OneWay}"
+														         Visibility="{x:Bind IsPreciseInput, Mode=OneTime}"
+														         KeyDown="ParameterValue_KeyDown"
+														         Text="{x:Bind EditableValue, Mode=TwoWay}" />
 													</Grid>
 													<Grid Visibility="{x:Bind HasDescriptionLine, Mode=OneTime}">
 														<Grid.RowDefinitions>
@@ -208,24 +214,34 @@
 														           Grid.Column="1"
 														           HorizontalAlignment="Right"
 														           VerticalAlignment="Center"
+														           Visibility="{x:Bind IsLegacyNumeric, Mode=OneTime}"
 														           Text="{x:Bind ValueText, Mode=OneWay}" />
+														<TextBox Grid.Row="0" Grid.Column="1" MinWidth="0" Padding="4,2"
+														         IsEnabled="{x:Bind IsEnabled, Mode=OneWay}"
+														         Visibility="{x:Bind IsPreciseInput, Mode=OneTime}"
+														         KeyDown="ParameterValue_KeyDown"
+														         Text="{x:Bind EditableValue, Mode=TwoWay}" />
 														<TextBlock Grid.Row="1"
 														           Grid.ColumnSpan="2"
 														           Text="{x:Bind DescriptionLabel, Mode=OneTime}"
 														           TextWrapping="WrapWholeWords" />
 													</Grid>
+									<TextBlock Text="{x:Bind InputError, Mode=OneWay}" TextWrapping="Wrap"
+									           Visibility="{x:Bind HasInputError, Mode=OneWay}" />
 									<Slider HorizontalAlignment="Stretch"
 									        Loaded="ParameterSlider_Loaded"
 									        Unloaded="ParameterSlider_Unloaded"
 									        LostFocus="ParameterSlider_LostFocus"
 									        DataContextChanged="ParameterSlider_DataContextChanged"
 									        ValueChanged="ParameterSlider_ValueChanged"
+									        KeyDown="ParameterSlider_KeyDown"
+									        PointerWheelChanged="ParameterSlider_WheelChanged"
 									        IsEnabled="{x:Bind IsEnabled, Mode=OneWay}"
 									        IsThumbToolTipEnabled="False"
-									        Maximum="{x:Bind Maximum, Mode=OneTime}"
-									        Minimum="{x:Bind Minimum, Mode=OneTime}"
-									        StepFrequency="{x:Bind Step, Mode=OneTime}"
-									        Value="{x:Bind Value, Mode=TwoWay}" />
+									        Maximum="{x:Bind SliderMaximum, Mode=OneTime}"
+									        Minimum="{x:Bind SliderMinimum, Mode=OneTime}"
+									        StepFrequency="{x:Bind SliderStep, Mode=OneTime}"
+									        Value="{x:Bind SliderValue, Mode=TwoWay}" />
 								</local:SimpleStackPanel>
 								<local:SimpleStackPanel Spacing="4"
 								                        Visibility="{x:Bind IsChoice, Mode=OneTime}">
@@ -304,8 +320,9 @@
 		                        Orientation="Vertical">
 			<muxc:InfoBar x:Uid="ScalingModes_DuplicateNames" IsClosable="False"
 			              IsOpen="{x:Bind ViewModel.HasDuplicateNames, Mode=OneWay}" Severity="Warning" />
+			<muxc:InfoBar x:Name="IssueTargetNotice" IsOpen="False" IsClosable="True" Severity="Informational" />
 			<!--  Padding 是为了缓解一个动画 bug  -->
-			<ListView Padding="0,0,0,44"
+			<ListView x:Name="ScalingModeList" Padding="0,0,0,44"
 			          ItemsSource="{x:Bind ViewModel.ScalingModes, Mode=OneTime}"
 			          SelectionMode="None"
 			          TabNavigation="Local">
@@ -466,7 +483,7 @@
 								</Grid>
 							</local:SimpleStackPanel>
 							<local:SettingsExpander.Items>
-							<ListView ItemsSource="{x:Bind Effects, Mode=OneTime}"
+							<ListView x:Name="IssueEffectList" ItemsSource="{x:Bind Effects, Mode=OneTime}"
 								          SelectionMode="None"
 								          TabNavigation="Local">
 									<ListView.ItemContainerTransitions>
@@ -531,7 +548,7 @@
 																		<!--  https://github.com/microsoft/microsoft-ui-xaml/issues/3612  -->
 																		<ComboBox HorizontalAlignment="Stretch"
 																		          DropDownOpened="ComboBox_DropDownOpened"
-																		          ItemsSource="{x:Bind ScalingTypes, Mode=OneTime}"
+																		          ItemsSource="{x:Bind ScalingTypes, Mode=OneWay}"
 																		          SelectedIndex="{x:Bind ScalingType, Mode=TwoWay}">
 																			<ComboBox.Resources>
 																				<Style x:Key="Description"

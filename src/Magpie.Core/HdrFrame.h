@@ -97,6 +97,19 @@ struct HdrFrameMetadata {
     std::string routeId;
     bool generated = false;
     bool valid = false;
+	uint64_t parameterRevision = 0;
+	uint64_t previousFrameId = 0;
+	uint32_t frameIndex = 0, frameMultiplier = 1;
+	// Optional CPU observation at backend acceptance of a NEW captured frame.
+	// Separate clock/provenance from timestamp100ns; not game render time and
+	// never refreshed by publication retries, generated frames or UI redraws.
+	int64_t captureAdmissionTime100ns = 0;
+	// Effect history epoch and non-capture redraw travel with the published color.
+	uint64_t outputHistoryRevision = 0;
+	bool contentRedraw = false;
+	// UI paper white travels with processed/published pixels. Legacy native SDR
+	// mapping applies exposure; paired restoration does not. Zero is unspecified.
+	float overlayReferenceWhiteNits = 0;
     bool IsValid() const noexcept;
 };
 

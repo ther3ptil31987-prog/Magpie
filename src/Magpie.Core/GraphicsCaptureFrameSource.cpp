@@ -121,6 +121,7 @@ FrameSourceState GraphicsCaptureFrameSource::_Update() noexcept {
 	FrameTrace::Scope traceAcquire(FrameTrace::Event::WgcAcquire);
 	if (_captureStopping) return FrameSourceState::Waiting;
 	if (_captureFailed) return FrameSourceState::Error;
+	if (_targetLifetime && _targetLifetime->IsClosed()) return _FailCapture("WGC capture target closed or replaced", RO_E_CLOSED);
 	if (!_captureSession || !_captureFramePool) {
 		return _FailCapture("WGC capture session unavailable", E_UNEXPECTED);
 	}
@@ -399,7 +400,7 @@ bool GraphicsCaptureFrameSource::_CaptureWindow(IGraphicsCaptureItemInterop* int
 				_taskbarList->AddTab(hwndSrc);
 
 				// 修正 Alt+Tab 切换顺序
-				if (GetForegroundWindow() == hwndSrc) {
+				if (Win32Helper::GetRealForegroundWindow() == hwndSrc) {
 					SetForegroundWindow(GetDesktopWindow());
 					SetForegroundWindow(hwndSrc);
 				}
@@ -435,6 +436,10 @@ bool GraphicsCaptureFrameSource::_TryCreateGraphicsCaptureItem(IGraphicsCaptureI
 			Logger::Get().ComError("创建 GraphicsCaptureItem 失败", hr);
 			return false;
 		}
+		_targetLifetime = std::make_shared<CaptureTargetLifetime>(GetCurrentThreadId());
+		_itemClosedToken = _captureItem.Closed([lifetime = _targetLifetime](const auto&, const auto&) noexcept {
+			lifetime->Close();
+		});
 	} catch (const winrt::hresult_error& e) {
 		Logger::Get().Info(StrHelper::Concat("源窗口无法使用窗口捕获: ", StrHelper::UTF16ToUTF8(e.message())));
 		return false;
@@ -445,6 +450,10 @@ bool GraphicsCaptureFrameSource::_TryCreateGraphicsCaptureItem(IGraphicsCaptureI
 
 bool GraphicsCaptureFrameSource::_StartCapture(const char* reason) noexcept {
 	FrameTrace::Scope traceStart(FrameTrace::Event::WgcStart);
+	if (_targetLifetime && _targetLifetime->IsClosed()) {
+		_FailCapture("WGC restart rejected after target closed", RO_E_CLOSED);
+		return false;
+	}
 	if (_captureSession) {
 		return true;
 	}
@@ -587,24 +596,26 @@ FrameSourceState GraphicsCaptureFrameSource::_FailCapture(const char* operation,
 }
 
 GraphicsCaptureFrameSource::~GraphicsCaptureFrameSource() {
+	if (_targetLifetime) _targetLifetime->Retire();
+	if (_captureItem && _itemClosedToken.value) _captureItem.Closed(std::exchange(_itemClosedToken, {}));
 	_StopCapture();
 	_FinishRecovery();
 
 	const HWND hwndSrc = ScalingWindow::Get().SrcTracker().Handle();
 
 	// 还原源窗口样式
-	if (_isSrcStyleChanged) {
+	if (_isSrcStyleChanged && ScalingWindow::Get().SourceIdentityValid()) {
 		const DWORD srcExStyle = GetWindowExStyle(hwndSrc);
 		SetWindowLongPtr(hwndSrc, GWL_EXSTYLE, srcExStyle & ~WS_EX_APPWINDOW);
 	}
 
 	// 还原 Kirikiri 窗口
-	if (_taskbarList) {
+	if (_taskbarList && ScalingWindow::Get().SourceIdentityValid()) {
 		_taskbarList->DeleteTab(hwndSrc);
 		_taskbarList->AddTab(GetWindowOwner(hwndSrc));
 
 		// 修正任务栏焦点窗口和 Alt+Tab 切换顺序
-		if (GetForegroundWindow() == hwndSrc) {
+		if (Win32Helper::GetRealForegroundWindow() == hwndSrc) {
 			SetForegroundWindow(GetDesktopWindow());
 			SetForegroundWindow(hwndSrc);
 		}

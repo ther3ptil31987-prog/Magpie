@@ -67,6 +67,7 @@ void ScalingOptions::Log() const noexcept {
 	frontEdgeSync: {}
 	frontEdgeSyncFrameRate: {}
 	frameSyncMode: {}
+	simpleFrameRefresh: {}
 	vrr: {}
 	cursorScaling: {}
 	cursorPreferOriginalFrames: {}
@@ -109,6 +110,7 @@ void ScalingOptions::Log() const noexcept {
 		isFrontEdgeSyncEnabled,
 		frontEdgeSyncFrameRate,
 		static_cast<uint32_t>(frameSyncMode),
+		isSimpleFrameRefresh,
 		isVRREnabled,
 		cursorScaling,
 		cursorRefresh.preferOriginalFrames,

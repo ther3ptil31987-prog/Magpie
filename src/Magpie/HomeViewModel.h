@@ -8,6 +8,9 @@ namespace winrt::Magpie::implementation {
 
 struct HomeViewModel : HomeViewModelT<HomeViewModel>, wil::notify_property_changed_base<HomeViewModel> {
 	HomeViewModel();
+	bool ShowDlssNrStatus() const;
+	hstring DlssNrStatusSummary() const;
+	void OpenDlssNrEffects();
 	bool ShowRecentIssue() const noexcept;
 	void ShowRecentIssue(bool value);
 	hstring RecentIssueSummary() const noexcept;
@@ -62,6 +65,8 @@ struct HomeViewModel : HomeViewModelT<HomeViewModel>, wil::notify_property_chang
 	void WindowedInitialToolbarState(int value);
 
 	hstring ScreenshotSaveDirectory() const noexcept;
+	int ScreenshotContent() const noexcept;
+	void ScreenshotContent(int value);
 
 	void OpenScreenshotSaveDirectory() const noexcept;
 
@@ -133,6 +138,7 @@ struct HomeViewModel : HomeViewModelT<HomeViewModel>, wil::notify_property_chang
 private:
 	::Magpie::Event<>::EventRevoker _duplicateFrameDetectionModeChangedRevoker;
 	::Magpie::Event<::Magpie::Profile&>::EventRevoker _frameRefreshChangedRevoker;
+	::Magpie::Event<>::EventRevoker _frameRefreshModeChangedRevoker;
 	void _ScalingService_IsTimerOnChanged(bool value, bool windowedMode);
 
 	void _ScalingService_TimerTick(double);

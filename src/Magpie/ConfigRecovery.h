@@ -10,7 +10,7 @@
 namespace Magpie::ConfigRecovery {
 
 // Increment when the recovery policy changes, independently of release versions.
-inline constexpr uint32_t POLICY_VERSION = 5;
+inline constexpr uint32_t POLICY_VERSION = 7;
 enum class Kind { None, Backup, Partial, Defaults, Repaired };
 struct Plan {
 	rapidjson::Document document;
@@ -112,6 +112,8 @@ inline Plan Prepare(std::string_view source, std::string_view backup,
 	};
 	for (const char* key : { "windowPos", "shortcuts", "hotkeys", "overlay" })
 		check(doc, key, "", object);
+	if (doc.HasMember("overlay"))
+		enumeration(doc["overlay"], "screenshotContent", "/overlay", 3);
 	for (const char* objectKey : { "shortcuts", "hotkeys" }) {
 		if (!doc.HasMember(objectKey)) continue;
 		for (const char* key : { "scale", "windowedModeScale", "toolbar", "overlay",
@@ -131,6 +133,7 @@ inline Plan Prepare(std::string_view source, std::string_view backup,
 	enumeration(doc, "frameSyncMode", "", 3);
 	enumeration(doc, "theme", "", 3);
 	enumeration(doc, "duplicateFrameDetectionMode", "", 3);
+	check(doc, "simpleFrameRefresh", "", [](const auto& value) { return value.IsBool(); });
 	if (doc.HasMember("windowPos")) {
 		auto& pos = doc["windowPos"];
 		for (const char* key : { "centerX", "centerY", "x", "y" })
@@ -159,6 +162,21 @@ inline Plan Prepare(std::string_view source, std::string_view backup,
 					static_cast<rapidjson::SizeType>(recoveredGroupName.size()), allocator), allocator);
 				note(path + "/name");
 			}
+			// The HDR migration loader validates the complete group and keeps its
+			// raw object on failure. Generic repairs must not erase or clamp nodes
+			// before it sees them, nor rewrite an already unfolded manual chain.
+			const bool hdrMigrationData = mode.HasMember("hdr") || mode.HasMember("hdrManualMigration") ||
+				mode.HasMember("hdrRecoveryInvalid") || [&] {
+					if (!mode.HasMember("effects") || !mode["effects"].IsArray()) return false;
+					for (const auto& effect : mode["effects"].GetArray())
+						if (effect.IsObject() && (effect.HasMember("hdrManagedRole") || [&] {
+							if (!effect.HasMember("name") || !effect["name"].IsString()) return false;
+							const std::string_view name(effect["name"].GetString(), effect["name"].GetStringLength());
+							return name == "Color\\HDR_to_SDR" || name == "Color\\SDR_to_HDR" || name == "RTXVideo\\RTXVideo_HDR";
+						}())) return true;
+					return false;
+				}();
+			if (hdrMigrationData) continue;
 			// Retain each healthy item and its index. A broken chain/item is a
 			// visible placeholder, never an automatic replacement image filter.
 			if (mode.HasMember("effects") && !mode["effects"].IsArray()) {
@@ -275,7 +293,7 @@ inline Plan Prepare(std::string_view source, std::string_view backup,
 				check(refresh, "legacySourceTarget", refreshPath, [](const auto& value) {
 					return value.IsNumber() && (value.GetDouble() == -1 || value.GetDouble() == 0 || FloatInRange(value, 1, 1000));
 				});
-				for (const char* field : { "idleEnabled", "legacyLimiterOnly", "legacyResponsiveMinimum" })
+				for (const char* field : { "idleEnabled", "vrrEnabled", "legacyLimiterOnly", "legacyResponsiveMinimum" })
 					check(refresh, field, refreshPath, [](const auto& value) { return value.IsBool(); });
 			}
 			number(profile, "customInitialWindowedScaleFactor", path, 1, 1e4);

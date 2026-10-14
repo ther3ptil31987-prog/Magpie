@@ -57,9 +57,10 @@ assert all("ViewModel.IsDeveloperMode" in n.get("IsEnabled", "") for n in dev.it
 uid = "Home_Advanced_DeveloperOptions_DuplicateFrameDetection"
 assert not any(n.get(x + "Uid") == uid for n in home.iter())
 profile_ui = ET.fromstring(read("src/Magpie/ProfilePage.xaml"))
-advanced = next(n for n in profile_ui.iter() if n.get(x + "Uid") == "FrameRefresh_Advanced")
+advanced = next(n for n in profile_ui.iter() if n.get(x + "Name") == "FrameRefreshGroup")
 cards = [n for n in advanced.iter() if n.get(x + "Uid") == uid]
 assert len(cards) == 1
+assert cards[0].get("Visibility") == "{x:Bind ViewModel.IsAdvancedFrameRefresh, Mode=OneWay}"
 new_uids = {n.get(x + "Uid") for n in profile_ui.iter() if n.get(x + "Uid", "").startswith("FrameRefresh") and n.tag in (ns+"SettingsCard", ns+"SettingsExpander", ns+"SettingsGroup")}
 rate = next(n for n in profile_ui.iter() if "ViewModel.CursorSupplementRate" in n.get("Value", ""))
 assert rate.get("Minimum") == "15" and rate.get("Maximum") == "360"
@@ -68,7 +69,11 @@ for lang in ("en-US", "zh-Hans", "zh-Hant"):
     names = [n.get("name") for n in root.findall("data")]
     assert len(names) == len(set(names)), f"Duplicate resource in {lang}"
     for prefix in new_uids:
-        assert prefix + ".Header" in names and prefix + ".Description" in names
+        assert prefix + ".Header" in names, (lang, prefix)
+        # The cursor strategy is a label-only child of the described cursor group.
+        # Keep description coverage for the existing groups and settings.
+        if prefix != "FrameRefresh_CursorStrategy":
+            assert prefix + ".Description" in names, (lang, prefix)
     assert uid + ".Description" in names
 assert '<DefaultLanguage>en-US</DefaultLanguage>' in read("src/Common.Pre.props")
 idl = read("src/Magpie/ProfileViewModel.idl")

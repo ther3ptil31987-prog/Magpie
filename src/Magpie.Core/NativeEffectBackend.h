@@ -2,11 +2,13 @@
 #include "FrameGuidanceTypes.h"
 #include "ScalingOptions.h"
 #include "HdrEffectBoundary.h"
+#include "NvidiaVfxMeasurements.h"
 #include <utility>
 
 namespace Magpie {
 
 class DeviceResources;
+struct NvidiaVfxCudaFrame;
 
 struct NativeEffectDrawContext {
 	ID3D11Texture2D* input = nullptr;
@@ -43,6 +45,12 @@ public:
 		return {};
 	}
 	virtual bool Drain() noexcept { return true; }
+	virtual DlssNrFailure GetDlssNrFailure() const { return {}; }
+	virtual bool IsDlssNrProcessing() const noexcept { return false; }
+	virtual NvidiaVfxRuntimeMeasurements TakeNvidiaVfxMeasurements() noexcept { return {}; }
+	virtual bool SupportsNvidiaVfxCudaInput(ID3D11Texture2D*) const noexcept { return false; }
+	virtual bool DrawNvidiaVfxCudaInput(const NativeEffectDrawContext&,
+		const NvidiaVfxCudaFrame&) noexcept { return false; }
 
 	virtual EffectParameterApplyMode GetParameterApplyMode(
 		std::string_view /*parameterName*/

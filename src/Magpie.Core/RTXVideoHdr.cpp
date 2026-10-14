@@ -7,7 +7,16 @@
 
 namespace Magpie {
 RTXVideoHdr::~RTXVideoHdr() {
-	if (_instance && _destroy && FAILED(_destroy(_instance))) NgxRuntimeGuard::MarkShutdownFailed();
+	if (_instance && _destroy) {
+		RtxHdrCleanupStage stage{};
+		uint32_t status = 0;
+		const HRESULT result = _destroyEx ? _destroyEx(_instance, &stage, &status) : _destroy(_instance);
+		if (FAILED(result)) {
+			Logger::Get().Error(fmt::format("RTX Video HDR cleanup failed: stage={} HRESULT={:#x} NGX/exception={:#x}; restart required",
+				RtxHdrCleanupStageName(stage), static_cast<uint32_t>(result), status));
+			NgxRuntimeGuard::MarkShutdownFailed();
+		}
+	}
 	// A faulted SDK may still own driver callbacks. Retain its module until the
 	// process restarts rather than unloading executable code underneath them.
 	if (NgxRuntimeGuard::IsFaulted()) (void)_module.release();
@@ -26,6 +35,7 @@ bool RTXVideoHdr::Initialize(DeviceResources& resources, ID3D11Texture2D* input,
 	const auto create = reinterpret_cast<RtxHdrCreateFn>(GetProcAddress(_module.get(), "MagpieRtxHdrCreate"));
 	_draw = reinterpret_cast<RtxHdrDrawFn>(GetProcAddress(_module.get(), "MagpieRtxHdrDraw"));
 	_destroy = reinterpret_cast<RtxHdrDestroyFn>(GetProcAddress(_module.get(), "MagpieRtxHdrDestroy"));
+	_destroyEx = reinterpret_cast<RtxHdrDestroyExFn>(GetProcAddress(_module.get(), "MagpieRtxHdrDestroyEx"));
 	if (!create || !_draw || !_destroy) return false;
 	uint32_t status = 0;
 	const auto result = create(resources.GetD3DDevice(), directory.c_str(), &_instance, &status);

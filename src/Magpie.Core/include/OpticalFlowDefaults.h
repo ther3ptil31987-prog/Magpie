@@ -16,8 +16,12 @@ inline bool IsOpticalFlowConsumer(std::wstring_view name) noexcept {
 template<class Modes>
 bool ApplyOpticalFlowDefaultsMigration(Modes& modes, uint32_t& version) {
 	if (version >= 1) return false;
-	for (auto& mode : modes) for (auto& effect : mode.effects) {
-		if (IsOpticalFlowConsumer(effect.name)) effect.parameters[L"opticalFlowMethod"] = 0.0f;
+	for (auto& mode : modes) {
+		if constexpr (requires { mode.hdrMigrationInvalid; mode.hdrMigrationBackup; }) {
+			if (mode.hdrMigrationInvalid || !mode.hdrMigrationBackup.empty()) continue;
+		}
+		for (auto& effect : mode.effects)
+			if (IsOpticalFlowConsumer(effect.name)) effect.parameters[L"opticalFlowMethod"] = 0.0f;
 	}
 	version = 1;
 	return true;

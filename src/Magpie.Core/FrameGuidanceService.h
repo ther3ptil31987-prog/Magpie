@@ -1,5 +1,6 @@
 #pragma once
 #include "ZeroFrameGuidanceProvider.h"
+#include "FrameGuidanceAvailability.h"
 
 namespace Magpie {
 
@@ -10,6 +11,7 @@ struct FrameGuidanceConsumerViews {
 	FrameGuidanceView zero{};
 	bool adapted = false;
 	bool usedFallback = false;
+	FrameGuidanceAvailability motionAvailability = FrameGuidanceAvailability::Unavailable;
 };
 
 class FrameGuidanceService {

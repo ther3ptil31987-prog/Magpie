@@ -1,12 +1,15 @@
 #pragma once
 #include "Event.h"
+#include <optional>
 
 namespace Magpie {
 
 struct EffectOption;
 struct FrameRefreshSettings;
 struct ToolbarShortcutLabels;
+struct SessionWindowIdentity;
 enum class OverlayAction;
+enum class ScreenshotContent : uint32_t;
 
 enum class ScalingState {
 	Idle,
@@ -31,8 +34,10 @@ public:
 	void Stop();
 	// Main-thread system-key notification; cancels pending fullscreen restarts too.
 	bool StopForTaskSwitch();
-	void UpdateFrameRefreshSettings(FrameRefreshSettings settings);
+	void UpdateFrameRefreshSettings(FrameRefreshSettings settings, std::optional<bool> simpleMode = std::nullopt, bool policyChanged = false);
 	void UpdateToolbarShortcutLabels(ToolbarShortcutLabels labels);
+	void UpdateScreenshotContent(ScreenshotContent content);
+	void UpdateMainUI(SessionWindowIdentity identity);
 
 	uint32_t RunId() const noexcept;
 	void UpdateEffectParameterFromSettings(uint32_t modeIdx, std::wstring modeName,

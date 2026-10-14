@@ -22,6 +22,10 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="pch.h" />
+    <ClInclude Include="OverlayColor.h"><Filter>Render</Filter></ClInclude>
+    <ClInclude Include="SceneScreenshot.h"><Filter>Render</Filter></ClInclude>
+    <ClInclude Include="ScreenshotNaming.h"><Filter>Helpers</Filter></ClInclude>
+    <ClInclude Include="include\ScreenshotContent.h"><Filter>Include</Filter></ClInclude>
     <ClInclude Include="EffectCacheManager.h" />
     <ClInclude Include="EffectHelper.h">
       <Filter>Helpers</Filter>
@@ -131,6 +135,7 @@
     <ClInclude Include="FramePacingWait.h" />
     <ClInclude Include="include\FramePacingOptions.h" />
     <ClInclude Include="include\SourceWindowGeometry.h" />
+    <ClInclude Include="include\WindowIdentity.h" />
     <ClInclude Include="FrameGuidanceTypes.h">
       <Filter>Render</Filter>
     </ClInclude>
@@ -195,6 +200,13 @@
     <ClInclude Include="PresenterBase.h">
       <Filter>Presenter</Filter>
     </ClInclude>
+    <ClInclude Include="ForegroundCompatibilityState.h" />
+    <ClInclude Include="VRRPerformance.h" />
+    <ClInclude Include="VRROutputProbe.h" />
+    <ClInclude Include="NvidiaForegroundCompatibility.h" />
+    <ClInclude Include="VRRPresentationPolicy.h">
+      <Filter>Presenter</Filter>
+    </ClInclude>
     <ClInclude Include="ScreenshotHelper.h">
       <Filter>Helpers</Filter>
     </ClInclude>
@@ -224,6 +236,7 @@
       <Filter>Helpers</Filter>
     </ClCompile>
     <ClCompile Include="ScalingWindow.cpp" />
+    <ClCompile Include="NvidiaForegroundCompatibility.cpp" />
     <ClCompile Include="CursorManager.cpp" />
     <ClCompile Include="GraphicsCaptureFrameSource.cpp">
       <Filter>Capture</Filter>
@@ -271,6 +284,7 @@
     <ClCompile Include="Renderer.cpp">
       <Filter>Render</Filter>
     </ClCompile>
+    <ClCompile Include="RendererScreenshot.cpp"><Filter>Render</Filter></ClCompile>
     <ClCompile Include="FrameGuidanceService.cpp">
       <Filter>Render</Filter>
     </ClCompile>
@@ -365,5 +379,13 @@
   <ItemGroup>
     <Natvis Include="$(MSBuildThisFileDirectory)..\..\natvis\wil.natvis" />
     <Natvis Include="$(MSBuildThisFileDirectory)..\..\natvis\wil.natstepfilter" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="FSR3FGPresenter.h"><Filter>Presenter</Filter></ClInclude>
+    <ClInclude Include="FSR3FGPolicy.h"><Filter>Presenter</Filter></ClInclude>
+    <ClInclude Include="FSR3FGMotion.h"><Filter>Presenter</Filter></ClInclude>
+    <ClInclude Include="FrontendMotionTexture.h"><Filter>Presenter</Filter></ClInclude>
+    <ClInclude Include="PresenterFailure.h"><Filter>Presenter</Filter></ClInclude>
+    <ClCompile Include="FSR3FGPresenter.cpp"><Filter>Presenter</Filter></ClCompile>
   </ItemGroup>
 </Project>

@@ -5,6 +5,7 @@
 namespace Magpie {
 
 class DeviceResources;
+class NgxFeatureDiscovery;
 
 struct DLSSSRSettings {
 	MotionVectorRequest motionRequest{};
@@ -14,7 +15,7 @@ struct DLSSSRSettings {
 // and a zero-depth contract.
 class DLSSSRUpscaler final : public NativeEffectBackend {
 public:
-	DLSSSRUpscaler() = default;
+	DLSSSRUpscaler();
 	DLSSSRUpscaler(const DLSSSRUpscaler&) = delete;
 	DLSSSRUpscaler& operator=(const DLSSSRUpscaler&) = delete;
 	~DLSSSRUpscaler() override;
@@ -66,6 +67,7 @@ private:
 	[[maybe_unused]] void* _parameters = nullptr;
 	[[maybe_unused]] void* _feature = nullptr;
 	[[maybe_unused]] bool _ngxInitialized = false;
+	[[maybe_unused]] std::unique_ptr<NgxFeatureDiscovery> _featureDiscovery;
 	[[maybe_unused]] bool _resetHistory = true;
 	[[maybe_unused]] DLSSSRSettings _settings{};
 	[[maybe_unused]] uint8_t _lastGuidanceBinding = UINT8_MAX;

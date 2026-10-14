@@ -1,5 +1,8 @@
 #pragma once
 #include "EffectDesc.h"
+#include <algorithm>
+#include <cmath>
+#include <limits>
 
 namespace Magpie {
 
@@ -44,7 +47,7 @@ inline float NormalizeEffectParameterValue(
 			value = constant.defaultValue;
 		}
 		value = std::clamp(value, constant.minValue, constant.maxValue);
-		if (std::isfinite(constant.step) && constant.step > 0.0f) {
+		if (parameter.inputStep <= 0 && std::isfinite(constant.step) && constant.step > 0.0f) {
 			const double minValue = constant.minValue;
 			const double maxValue = constant.maxValue;
 			const double step = constant.step;
@@ -69,7 +72,7 @@ inline float NormalizeEffectParameterValue(
 		: constant.defaultValue;
 	int intValue = static_cast<int>(std::llround(finiteValue));
 	intValue = std::clamp(intValue, constant.minValue, constant.maxValue);
-	if (constant.step > 0) {
+	if (parameter.inputStep <= 0 && constant.step > 0) {
 		const int64_t regularValue = std::clamp<int64_t>(
 			int64_t(constant.minValue) + static_cast<int64_t>(std::llround(
 				double(int64_t(intValue) - constant.minValue) / constant.step)) * constant.step,
@@ -85,6 +88,51 @@ inline float NormalizeEffectParameterValue(
 		intValue, constant.minValue, constant.maxValue));
 }
 
+inline float NormalizeEffectParameterInput(const EffectParameterDesc& parameter, float value) noexcept {
+	if (parameter.inputStep <= 0) return NormalizeEffectParameterValue(parameter, value);
+	const auto minimum = std::visit([](auto& c) { return float(c.minValue); }, parameter.constant);
+	const auto maximum = std::visit([](auto& c) { return float(c.maxValue); }, parameter.constant);
+	value = NormalizeEffectParameterValue(parameter, value);
+	value = float(std::round(double(value) / parameter.inputStep) * parameter.inputStep);
+	return std::clamp(value, std::max(minimum, parameter.editMinimum), maximum);
+}
+
+inline std::vector<float> GetEffectParameterInteractionTicks(const EffectParameterDesc& parameter,
+	bool coarse = false) {
+	std::vector<float> ticks;
+	if (parameter.inputStep <= 0) return ticks;
+	const float minimum = std::max(parameter.editMinimum,
+		std::visit([](auto& c) { return float(c.minValue); }, parameter.constant));
+	const float maximum = std::visit([](auto& c) { return float(c.maxValue); }, parameter.constant);
+	const float defaultValue = std::visit([](auto& c) { return float(c.defaultValue); }, parameter.constant);
+	auto addBand = [&](float low, float high, float step) {
+		if (!std::isfinite(step) || step <= 0 || low > high || (high - low) / step > 100000) return;
+		for (double v = std::ceil(double(low) / step) * step; v <= high; v += step) ticks.push_back(float(v));
+	};
+	if (parameter.segmentedSteps && !coarse) {
+		addBand(minimum, std::min(maximum, 400.f), 5);
+		addBand(std::max(minimum, 400.f), std::min(maximum, 1000.f), 10);
+		addBand(std::max(minimum, 1000.f), maximum, 50);
+	} else addBand(minimum, maximum, coarse ? parameter.coarseStep : parameter.sliderStep);
+	ticks.push_back(minimum); ticks.push_back(maximum);
+	if (defaultValue >= minimum && defaultValue <= maximum) ticks.push_back(defaultValue);
+	std::ranges::sort(ticks);
+	ticks.erase(std::unique(ticks.begin(), ticks.end()), ticks.end());
+	return ticks;
+}
+
+inline float StepEffectParameter(const EffectParameterDesc& parameter, float value, bool up,
+	bool coarse = false) {
+	const auto ticks = GetEffectParameterInteractionTicks(parameter, coarse);
+	if (ticks.empty()) return value;
+	if (up) {
+		const auto next = std::upper_bound(ticks.begin(), ticks.end(), value + 1e-5f);
+		return next == ticks.end() ? ticks.back() : *next;
+	}
+	const auto next = std::lower_bound(ticks.begin(), ticks.end(), value - 1e-5f);
+	return next == ticks.begin() ? ticks.front() : *std::prev(next);
+}
+
 inline bool GetEffectParameterTicks(
 	const EffectParameterDesc& parameter,
 	float value,
@@ -93,6 +141,15 @@ inline bool GetEffectParameterTicks(
 ) noexcept {
 	if (IsChoiceEffectParameter(parameter)) {
 		return false;
+	}
+	if (parameter.inputStep > 0) {
+		const auto ticks = GetEffectParameterInteractionTicks(parameter);
+		if (ticks.size() < 2) return false;
+		maximumTick = int(ticks.size()) - 1;
+		const auto next = std::lower_bound(ticks.begin(), ticks.end(), value);
+		currentTick = next == ticks.end() ? maximumTick : int(next - ticks.begin());
+		if (currentTick > 0 && std::abs(ticks[currentTick - 1] - value) < std::abs(ticks[currentTick] - value)) --currentTick;
+		return true;
 	}
 	double minValue;
 	double maxValue;
@@ -144,6 +201,10 @@ inline float GetEffectParameterValueFromTick(
 	int maximumTick
 ) noexcept {
 	tick = std::clamp(tick, 0, maximumTick);
+	if (parameter.inputStep > 0) {
+		const auto ticks = GetEffectParameterInteractionTicks(parameter);
+		return ticks.empty() ? NormalizeEffectParameterValue(parameter, 0) : ticks[std::min<size_t>(tick, ticks.size() - 1)];
+	}
 	if (parameter.constant.index() == 0) {
 		const EffectConstant<float>& constant = std::get<0>(parameter.constant);
 		const double value = tick == maximumTick
@@ -165,7 +226,7 @@ inline int GetEffectParameterDisplayPrecision(
 	if (parameter.constant.index() != 0) {
 		return 0;
 	}
-	const double step = std::get<0>(parameter.constant).step;
+	const double step = parameter.inputStep > 0 ? parameter.inputStep : std::get<0>(parameter.constant).step;
 	if (!std::isfinite(step) || step <= 0.0) {
 		return 3;
 	}

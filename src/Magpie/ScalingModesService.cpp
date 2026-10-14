@@ -7,11 +7,13 @@
 #include "EffectHelper.h"
 #include "EffectsService.h"
 #include "JsonHelper.h"
+#include "HdrManualMigration.h"
 #include "Logger.h"
 #include "ScalingMode.h"
 #include "ScalingModeNames.h"
 #include "ScalingModesService.h"
 #include "StrHelper.h"
+#include <span>
 
 using namespace ::Magpie;
 using namespace winrt;
@@ -37,8 +39,14 @@ void ScalingModesService::AddScalingMode(std::wstring_view name, int copyFrom) {
 		scalingModes.emplace_back().name = uniqueName;
 	} else {
 		scalingModes.emplace_back(scalingModes[copyFrom]).name = uniqueName;
+		auto& copy = scalingModes.back();
+		copy.runtimeIdentity = std::make_shared<const uint8_t>(uint8_t{0});
+		for (auto& effect : copy.effects) effect.runtimeIdentity = std::make_shared<const uint8_t>(uint8_t{0});
 	}
 
+	for (auto& effect : scalingModes.back().effects) {
+		if (!effect.isRecoveryInvalid) NormalizeFrameGenerationParameters(effect);
+	}
 	ScalingModeAdded.Invoke(copyFrom < 0 ? EffectAddedWay::Add : EffectAddedWay::Duplicate);
 
 	AppSettings::Get().SaveAsync();
@@ -136,13 +144,32 @@ void ScalingModesService::ResetScalingModes() {
 }
 
 static void WriteScalingMode(rapidjson::PrettyWriter<rapidjson::StringBuffer>& writer, const ScalingMode& scaleMode) {
+	if (scaleMode.hdrMigrationInvalid && !scaleMode.hdrMigrationRecovery.empty()) {
+		rapidjson::Document original;
+		original.Parse(scaleMode.hdrMigrationRecovery.data(), scaleMode.hdrMigrationRecovery.size());
+		const auto name = StrHelper::UTF16ToUTF8(scaleMode.name);
+		original["name"].SetString(name.data(), static_cast<rapidjson::SizeType>(name.size()), original.GetAllocator());
+		original.Accept(writer);
+		return;
+	}
 	writer.StartObject();
 	writer.Key("name");
 	writer.String(StrHelper::UTF16ToUTF8(scaleMode.name).c_str());
+	if (!scaleMode.hdrMigrationBackup.empty()) {
+		writer.Key("hdrManualMigration");
+		writer.StartObject();
+		writer.Key("version"); writer.Uint(1);
+		writer.Key("original"); writer.String(scaleMode.hdrMigrationBackup.data(), static_cast<rapidjson::SizeType>(scaleMode.hdrMigrationBackup.size()));
+		if (scaleMode.legacyHdrCaptureIntent) {
+			writer.Key("captureHdr"); writer.Bool(*scaleMode.legacyHdrCaptureIntent);
+		}
+		writer.EndObject();
+	}
 	if (!scaleMode.effects.empty()) {
 		writer.Key("effects");
 		writer.StartArray();
-		for (const auto& effect : scaleMode.effects) {
+		for (auto effect : scaleMode.effects) {
+			if (!effect.isRecoveryInvalid) NormalizeFrameGenerationParameters(effect);
 			writer.StartObject();
 			writer.Key("name");
 			writer.String(StrHelper::UTF16ToUTF8(effect.name).c_str());
@@ -207,13 +234,36 @@ static bool LoadScalingMode(
 		return false;
 	}
 	if (!loadingSettings && ScalingModeNames::Trim(scalingMode.name).empty()) return false;
+	if (!JsonHelper::ReadBool(scalingModeObj, "hdrRecoveryInvalid", scalingMode.hdrMigrationInvalid))
+		scalingMode.hdrMigrationInvalid = true;
+	const bool hdrSchema = scalingModeObj.FindMember("hdr") != scalingModeObj.MemberEnd() ||
+		scalingModeObj.FindMember("hdrManualMigration") != scalingModeObj.MemberEnd() ||
+		scalingModeObj.FindMember("hdrRecoveryInvalid") != scalingModeObj.MemberEnd() || [&] {
+			const auto node = scalingModeObj.FindMember("effects");
+			if (node == scalingModeObj.MemberEnd() || !node->value.IsArray()) return false;
+			for (const auto& effect : node->value.GetArray())
+				if (effect.IsObject() && (effect.HasMember("hdrManagedRole") || [&] {
+					const auto name = effect.FindMember("name");
+					return name != effect.MemberEnd() && name->value.IsString() &&
+						ClassifyHdrComponent(std::string_view(name->value.GetString(), name->value.GetStringLength())) != HdrComponentKind::None;
+				}())) return true;
+			return false;
+		}();
+	auto retainInvalidHdrEffect = [&](EffectItem& effect, const rapidjson::Value& original) {
+		scalingMode.hdrMigrationInvalid = true; effect.isRecoveryInvalid = true;
+		rapidjson::StringBuffer raw;
+		rapidjson::Writer<rapidjson::StringBuffer> writer(raw); original.Accept(writer);
+		effect.recoveryOriginal.assign(raw.GetString(), raw.GetSize());
+	};
 
 	auto effectsNode = scalingModeObj.FindMember("effects");
 	if (effectsNode == scalingModeObj.MemberEnd()) {
-		return true;
+		return HdrManualMigration::ReadOrMigrate(scalingModeObj, scalingMode) || loadingSettings;
 	}
 
 	if (!effectsNode->value.IsArray()) {
+		if (loadingSettings && hdrSchema) retainInvalidHdrEffect(scalingMode.effects.emplace_back(),effectsNode->value);
+		HdrManualMigration::ReadOrMigrate(scalingModeObj, scalingMode);
 		return loadingSettings;
 	}
 
@@ -223,6 +273,7 @@ static bool LoadScalingMode(
 	for (const auto& elem : effectsArray) {
 		if (!elem.IsObject()) {
 			if (loadingSettings) {
+				if (hdrSchema) retainInvalidHdrEffect(scalingMode.effects.emplace_back(),elem);
 				continue;
 			} else {
 				return false;
@@ -234,14 +285,15 @@ static bool LoadScalingMode(
 
 		if (!JsonHelper::ReadString(elemObj, "name", effect.name)) {
 			if (loadingSettings) {
-				scalingMode.effects.pop_back();
+				if (hdrSchema) retainInvalidHdrEffect(effect,elem);
+				else scalingMode.effects.pop_back();
 				continue;
 			} else {
 				return false;
 			}
 		}
 		JsonHelper::ReadBool(elemObj, "recoveryInvalid", effect.isRecoveryInvalid);
-		if (auto raw = elemObj.FindMember("recoveryOriginal"); raw != elemObj.MemberEnd() && raw->value.IsString())
+		if (auto raw = elemObj.FindMember("recoveryOriginal"); raw != elemObj.MemberEnd() && raw->value.IsString() && effect.recoveryOriginal.empty())
 			effect.recoveryOriginal.assign(raw->value.GetString(), raw->value.GetStringLength());
 		// Frame Rate Filter used to live in the Utility folder. Keep existing
 		// user scaling modes working after moving it to the root effect list.
@@ -249,8 +301,10 @@ static bool LoadScalingMode(
 			effect.name = L"FrameRate_Filter";
 		}
 
-		if (!JsonHelper::ReadUInt(elemObj, "scalingType", (uint32_t&)effect.scalingType) && !loadingSettings) {
-			return false;
+		if (!JsonHelper::ReadUInt(elemObj, "scalingType", (uint32_t&)effect.scalingType) ||
+			(hdrSchema && uint32_t(effect.scalingType)>uint32_t(ScalingType::Fill))) {
+			if (!loadingSettings) return false;
+			if (hdrSchema) retainInvalidHdrEffect(effect,elem);
 		}
 
 		auto scaleNode = elemObj.FindMember("scale");
@@ -261,18 +315,20 @@ static bool LoadScalingMode(
 				float x, y;
 				if (JsonHelper::ReadFloat(scaleObj, "x", x, true)
 					&& JsonHelper::ReadFloat(scaleObj, "y", y, true)
-					&& x > 0 && y > 0)
+					&& x > 0 && y > 0 && (!hdrSchema || (std::isfinite(x) && std::isfinite(y))))
 				{
 					effect.scale = { x,y };
 				} else {
 					if (!loadingSettings) {
 						return false;
 					}
+					if (hdrSchema) retainInvalidHdrEffect(effect,elem);
 				}
 			} else {
 				if (!loadingSettings) {
 					return false;
 				}
+				if (hdrSchema) retainInvalidHdrEffect(effect,elem);
 			}
 		}
 
@@ -283,8 +339,9 @@ static bool LoadScalingMode(
 
 				effect.parameters.reserve(paramsObj.MemberCount());
 				for (const auto& param : paramsObj) {
-					if (!param.value.IsNumber()) {
+					if (!param.value.IsNumber() || (hdrSchema && !std::isfinite(param.value.GetFloat()))) {
 						if (loadingSettings) {
+							if (hdrSchema) retainInvalidHdrEffect(effect,elem);
 							continue;
 						} else {
 							return false;
@@ -298,10 +355,12 @@ static bool LoadScalingMode(
 				if (!loadingSettings) {
 					return false;
 				}
+				if (hdrSchema) retainInvalidHdrEffect(effect,elem);
 			}
 		}
 	}
 
+	if (!HdrManualMigration::ReadOrMigrate(scalingModeObj, scalingMode) && !loadingSettings) return false;
 	return true;
 }
 
@@ -331,6 +390,7 @@ static V065NormalizationStats NormalizeV065ScalingModes(
 ) noexcept {
 	V065NormalizationStats stats;
 	for (ScalingMode& scalingMode : scalingModes) {
+		if (scalingMode.hdrMigrationInvalid || !scalingMode.hdrMigrationBackup.empty()) continue;
 		for (EffectItem& effect : scalingMode.effects) {
 			if (effect.isRecoveryInvalid) continue;
 
@@ -490,6 +550,7 @@ bool ScalingModesService::Import(const rapidjson::GenericObject<true, rapidjson:
 
 	std::vector<ScalingMode> scalingModes;
 	scalingModes.reserve(size);
+	bool hdrMigrated = false;
 
 	for (const auto& elem : scalingModesArray) {
 		if (!elem.IsObject()) {
@@ -507,22 +568,70 @@ bool ScalingModesService::Import(const rapidjson::GenericObject<true, rapidjson:
 				return false;
 			}
 		}
+		else if (elem.HasMember("hdr") && !scalingModes.back().hdrMigrationBackup.empty()) hdrMigrated = true;
 	}
 
 	if (scalingModes.empty()) {
 		return true;
 	}
+	if (loadingSettings && hdrMigrated) {
+		// AppSettings preserves the complete original configuration before the
+		// first migration write; each group also retains its original JSON.
+		AppSettings::Get().MarkConfigMigrationNeeded();
+	}
 
-	if (MigrateXeSSFGEffects(scalingModes) && loadingSettings) {
+	// Existing trial modes are already materialized. Older generic migrations
+	// can remove or normalize nodes and must not rewrite their recovered chain.
+	bool migratedXeSS = false;
+	for (auto& mode : scalingModes) {
+		if (mode.hdrMigrationInvalid || !mode.hdrMigrationBackup.empty()) continue;
+		auto eligible = std::span(&mode, 1);
+		migratedXeSS |= MigrateXeSSFGEffects(eligible);
+	}
+	if (migratedXeSS && loadingSettings) {
 		AppSettings::Get().MarkConfigMigrationNeeded();
 	}
 
 	bool migratedR1 = false;
-	for (auto& mode : scalingModes) for (auto& effect : mode.effects)
-		migratedR1 |= MigrateEffectParametersR1(effect);
+	for (auto& mode : scalingModes) {
+		if (mode.hdrMigrationInvalid) continue;
+		for (auto& effect : mode.effects) {
+			if (effect.isRecoveryInvalid) continue;
+			// Recovered chains retain their raw backup and non-RTX nodes. Exact
+			// legacy RTX identities still need the supported canonical mapping.
+			if (!mode.hdrMigrationBackup.empty() && RTXVideoFamily(std::wstring_view(effect.name)) < 0) continue;
+			migratedR1 |= MigrateEffectParametersR1(effect);
+		}
+	}
 	if (migratedR1) {
 		Logger::Get().Info("v0.6.7-r1: migrated RTX Video strength / DLSSNR automatic HDR parameters");
 		if (loadingSettings) AppSettings::Get().MarkConfigMigrationNeeded();
+	}
+
+	// Independent compatibility migration also applies to valid recovered
+	// HDR chains. Their original JSON/backup strings are never rewritten.
+	bool migratedVfg = false;
+	for (auto& mode : scalingModes) {
+		if (mode.hdrMigrationInvalid) continue;
+		for (auto& effect : mode.effects) {
+			if (!effect.isRecoveryInvalid) migratedVfg |= MigrateNvidiaVfxVfgModel(effect);
+		}
+	}
+	if (migratedVfg) {
+		Logger::Get().Info("Nvidia VFX VFG: migrated retired High model to Balanced");
+		if (loadingSettings) AppSettings::Get().MarkConfigMigrationNeeded();
+	}
+
+	bool migratedFg = false;
+	for (auto& mode : scalingModes) {
+		if (mode.hdrMigrationInvalid) continue;
+		for (auto& effect : mode.effects) {
+			if (!effect.isRecoveryInvalid) migratedFg |= NormalizeFrameGenerationParameters(effect);
+		}
+	}
+	if (migratedFg) {
+		if (loadingSettings) AppSettings::Get().MarkConfigMigrationNeeded();
+		Logger::Get().Info("FG settings migration: FSR3 requires optical flow (default AMDOF Quality); retired per-effect duplicate filter removed; common settings preserved");
 	}
 
 	const V065NormalizationStats normalization =

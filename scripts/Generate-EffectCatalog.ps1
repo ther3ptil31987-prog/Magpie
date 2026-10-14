@@ -3,7 +3,7 @@ param([switch]$Check)
 $ErrorActionPreference = 'Stop'
 $repoRoot = Split-Path $PSScriptRoot -Parent
 # Current bilingual review is authoritative; the 20260908 audits remain historical.
-$review = Get-Content -LiteralPath (Join-Path $repoRoot 'docs/experimental/reviews/20261002-effect-description-review.json') -Raw | ConvertFrom-Json
+$review = & (Join-Path $repoRoot 'scripts/Read-EffectCatalogReview.ps1')
 $labels = @{
     'zh-Hans' = @{ first_try = '优先尝试'; situational = '特定场景推荐'; advanced = '进阶／实验'; diagnostic = '调试用途' }
     'en-US' = @{ first_try = 'Try first'; situational = 'Situational'; advanced = 'Advanced / experimental'; diagnostic = 'Diagnostic' }

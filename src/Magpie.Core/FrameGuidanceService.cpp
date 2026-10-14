@@ -579,15 +579,28 @@ FrameGuidanceConsumerViews FrameGuidanceService::GetConsumerViews(
 	request = FrameGuidanceRequirements::ResolveConsumer(request, _selectedMotionRequest);
 	const auto it = std::ranges::find(_providers, request, &ProviderEntry::request);
 	const FrameGuidanceView& requestedView = it != _providers.end() ? it->view : _zeroView;
+	// Preserve provider failure provenance even if adaptation/coherence fails.
+	const auto finish = [&](FrameGuidanceConsumerViews result) noexcept {
+		if (request.method == OpticalFlowMethod::None || it == _providers.end()) return result;
+		if (!it->ready) result.motionAvailability = FrameGuidanceAvailability::ProviderStopped;
+		else if (it->consecutiveFailures) result.motionAvailability = FrameGuidanceAvailability::ProviderFailed;
+		else if (result.produced.IsValidFor(frameId, targetExtent)) {
+			const auto& motion = result.produced.motion.metadata;
+			if (!motion.isZero) result.motionAvailability = FrameGuidanceAvailability::Valid;
+			else if (motion.requiresHistoryReset && motion.resetReason != FrameGuidanceResetReason::ProviderFailure)
+				result.motionAvailability = FrameGuidanceAvailability::ResetOnly;
+		}
+		return result;
+	};
 	if (!targetExtent.IsValid() ||
 		!requestedView.IsValidFor(frameId, _sourceExtent) ||
 		!_zeroView.IsValidFor(frameId, _sourceExtent)) {
-		return {};
+		return finish({});
 	}
 	if (targetExtent == _sourceExtent) {
-		return { requestedView, _zeroView, false,
+		return finish({ requestedView, _zeroView, false,
 			request.method != OpticalFlowMethod::None &&
-			requestedView.motion.metadata.isZero };
+			requestedView.motion.metadata.isZero });
 	}
 	if (!_adapterCache) {
 		_adapterCache = std::make_unique<AdapterCache>();
@@ -595,12 +608,12 @@ FrameGuidanceConsumerViews FrameGuidanceService::GetConsumerViews(
 			_adapterCache.reset();
 			Logger::Get().Warn(
 				"Frame Guidance consumer-size adaptation is unavailable");
-			return {};
+			return finish({});
 		}
 	}
-	return _adapterCache->Adapt(
+	return finish(_adapterCache->Adapt(
 		requestedView, _zeroView, frameId, _sourceExtent, targetExtent,
-		request);
+		request));
 }
 
 void FrameGuidanceService::ResetHistory(

@@ -4,11 +4,15 @@
 #include <string_view>
 #include <memory>
 #include "EffectParameterPersistence.h"
+#include "FrameGenerationParameters.h"
 #include "FramePacingOptions.h"
 #include "FrameRefreshSettings.h"
+#include "SourceWindowRelations.h"
 #include "HdrComponents.h"
 #include "OverlayWindowGeometry.h"
 #include "ToolbarPlacement.h"
+#include "ScreenshotContent.h"
+#include "DlssNrStatus.h"
 #include <mutex>
 #include <functional>
 
@@ -103,12 +107,16 @@ enum class FrameGenerationEffectKind : uint8_t {
 	None,
 	DLSS,
 	XeSSX2,
-	XeSSMultiFrame
+	XeSSMultiFrame,
+	NvidiaVfx,
+	FSR3
 };
 
 inline FrameGenerationEffectKind ClassifyFrameGenerationEffect(
 	std::string_view name
 ) noexcept {
+	if (name == "FSR3FG\\FSR3_FrameGeneration") return FrameGenerationEffectKind::FSR3;
+	if (name == "NvidiaVFX\\VFG") return FrameGenerationEffectKind::NvidiaVfx;
 	if (name == "DLSSFG\\DLSS_FrameGeneration") {
 		return FrameGenerationEffectKind::DLSS;
 	}
@@ -124,6 +132,8 @@ inline FrameGenerationEffectKind ClassifyFrameGenerationEffect(
 inline FrameGenerationEffectKind ClassifyFrameGenerationEffect(
 	std::wstring_view name
 ) noexcept {
+	if (name == L"FSR3FG\\FSR3_FrameGeneration") return FrameGenerationEffectKind::FSR3;
+	if (name == L"NvidiaVFX\\VFG") return FrameGenerationEffectKind::NvidiaVfx;
 	if (name == L"DLSSFG\\DLSS_FrameGeneration") {
 		return FrameGenerationEffectKind::DLSS;
 	}
@@ -169,7 +179,8 @@ FrameGenerationChainValidation ValidateFrameGenerationChain(
 enum class EffectParameterApplyMode : uint8_t {
 	Unavailable,
 	Live,
-	RestartRequired
+	RestartRequired,
+	Restricted
 };
 
 enum class EffectParameterRestartReason : uint8_t {
@@ -198,10 +209,16 @@ struct EffectParameterSessionState {
 		uint64_t revision = 0;
 		bool applying = false;
 		bool applyFailed = false;
+		bool simpleFrameRefresh = false;
+		bool refreshPolicyChanged = false;
 	};
 
 	explicit EffectParameterSessionState(const std::vector<EffectOption>& effects,
-		FrameRefreshSettings frameRefresh = {}) : _snapshot{ effects, effects, frameRefresh, 1 } {}
+		FrameRefreshSettings frameRefresh = {}, bool simpleFrameRefresh = false)
+		: _snapshot{ effects, effects, frameRefresh, 1, false, false, simpleFrameRefresh } {
+		for (auto& effect : _snapshot.applied) NormalizeFrameGenerationParameters(effect);
+		_snapshot.desired = _snapshot.applied;
+	}
 	// Save receipts survive automatic rebuilds too. The revision is allocated
 	// only by the scaling/UI thread; completion itself is atomic.
 	std::shared_ptr<EffectParametersSaveState> saveState = std::make_shared<EffectParametersSaveState>();
@@ -224,23 +241,28 @@ struct EffectParameterSessionState {
 	void Applied(const std::vector<EffectOption>& effects) {
 		std::scoped_lock lock(_mutex);
 		_snapshot.applied = effects;
+		for (auto& effect : _snapshot.applied) NormalizeFrameGenerationParameters(effect);
 		++_snapshot.revision;
 	}
 	void Desired(const std::vector<EffectOption>& effects) {
 		std::scoped_lock lock(_mutex);
 		_snapshot.desired = effects;
+		for (auto& effect : _snapshot.desired) NormalizeFrameGenerationParameters(effect);
 		++_snapshot.revision;
 	}
 	void Desired(uint32_t effect, const std::string& parameter, float value) {
 		std::scoped_lock lock(_mutex);
 		if (effect >= _snapshot.desired.size()) return;
 		_snapshot.desired[effect].parameters[parameter] = value;
+		NormalizeFrameGenerationParameters(_snapshot.desired[effect]);
 		++_snapshot.revision;
 	}
-	void DesiredFrameRefresh(FrameRefreshSettings value) {
+	void DesiredFrameRefresh(FrameRefreshSettings value, std::optional<bool> simpleMode = std::nullopt, bool policyChanged = false) {
 		std::scoped_lock lock(_mutex);
-		if (_snapshot.frameRefresh == value) return;
+		if (!policyChanged && _snapshot.frameRefresh == value && (!simpleMode || *simpleMode == _snapshot.simpleFrameRefresh)) return;
 		_snapshot.frameRefresh = value;
+		if (simpleMode) _snapshot.simpleFrameRefresh = *simpleMode;
+		_snapshot.refreshPolicyChanged |= policyChanged;
 		++_snapshot.revision;
 	}
 	void Applying(bool applying, bool failed = false) {
@@ -411,7 +433,11 @@ enum class ScalingError {
 	HdrDisplayRequired,
 	HdrCaptureMethodRequired,
 	RtxHdrUnavailable,
-	DuplicateScalingModeNames
+	DuplicateScalingModeNames,
+	FSR3FGEffectChainUnsupported,
+	FSR3FGHdrUnsupported,
+	WindowIntegrityQueryFailed,
+	DlssNrStopped
 };
 
 struct ScalingFlags {
@@ -464,6 +490,7 @@ struct ScalingOptions {
 	// Session-only plan. Persisted HDR flags remain retired; explicit components
 	// select capture and output independently before creating graphics resources.
 	HdrComponentPlan hdrComponents;
+	std::optional<bool> legacyHdrCaptureIntent;
 	bool IsHdrCaptureEnabled() const noexcept {
 		return hdrComponents.enabled ? hdrComponents.captureHdr : IsHdrCompatibilityEnabled();
 	}
@@ -473,6 +500,9 @@ struct ScalingOptions {
 	}
 	uint32_t scalingModeIdx = 0;
 	std::shared_ptr<EffectParameterSessionState> parameterSession;
+	std::shared_ptr<DlssNrSessionState> dlssNrSession = std::make_shared<DlssNrSessionState>();
+	std::function<void(uint32_t runId, uint32_t effectIndex, const DlssNrStatus&)> dlssNrStatusChanged;
+	std::function<void(uint32_t effectIndex)> openDlssNrHelp;
 	std::wstring scalingModeName;
 	uint32_t flags = ScalingFlags::AdjustCursorSpeed;
 	Cropping cropping{};
@@ -480,11 +510,14 @@ struct ScalingOptions {
 	float minFrameRate = 0.0f;
 	std::optional<float> maxFrameRate;
 	FrameRefreshSettings frameRefresh;
+	// Immutable for this running session; settings-page changes apply on restart.
+	bool isSimpleFrameRefresh = true;
 	// Stable, weak identity of the profile used to start this session.
 	std::weak_ptr<const uint8_t> frameSyncProfileIdentity;
 	bool isFrontEdgeSyncEnabled = true;
 	bool isParameterFocusSwitchingEnabled = false;
 	bool isVRREnabled = false;
+	SessionWindowIdentity mainUI;
 	// 0 targets the display refresh rate, divided by FG multiplier for base FPS.
 	float frontEdgeSyncFrameRate = 60.0f;
 	FrameSyncMode frameSyncMode = FrameSyncMode::FrontEdge;
@@ -496,12 +529,13 @@ struct ScalingOptions {
 	DestAlignment destAlignment = DestAlignment::Center;
 	CursorInterpolationMode cursorInterpolationMode = CursorInterpolationMode::NearestNeighbor;
 	std::optional<float> autoHideCursorDelay;
-	DuplicateFrameDetectionMode duplicateFrameDetectionMode = DuplicateFrameDetectionMode::Dynamic;
+	DuplicateFrameDetectionMode duplicateFrameDetectionMode = DuplicateFrameDetectionMode::Never;
 	ToolbarState fullscreenInitialToolbarState = ToolbarState::AutoHide;
 	ToolbarState windowedInitialToolbarState = ToolbarState::AutoHide;
 	ToolbarDockSettings toolbarDocks;
 	float initialWindowedScaleFactor = 0.0f;
 	std::filesystem::path screenshotsDir;
+	ScreenshotContent screenshotContent = ScreenshotContent::OutputOnly;
 
 	// 下面的成员支持在缩放时修改
 	OverlayOptions overlayOptions;
@@ -514,6 +548,8 @@ struct ScalingOptions {
 	std::function<void(uint32_t, const EffectOption&, const std::string&, float, float)> revertEffectParameter;
 	void (*save)(const ScalingOptions& options, HWND hwndScaling) noexcept = nullptr;
 	std::function<void(bool windowed, ToolbarDock dock, uint32_t runId)> saveToolbarDock;
+	// Change notification only; the frontend marshals external-tool work off the renderer.
+	std::function<void(HWND source, bool fixedContent, double effectiveBaseRate, bool constrained)> contentTargetChanged;
 	bool (*requestEffectParameters)(
 		const ScalingOptions& sessionOptions,
 		EffectParametersRequest&& request

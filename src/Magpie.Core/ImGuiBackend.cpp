@@ -13,6 +13,12 @@ struct VERTEX_CONSTANT_BUFFER {
 	float mvp[4][4];
 };
 
+struct PIXEL_CONSTANT_BUFFER {
+	float hdrWhiteScale;
+	float padding[3]{};
+};
+static_assert(sizeof(PIXEL_CONSTANT_BUFFER) == 16);
+
 bool ImGuiBackend::Initialize(DeviceResources& deviceResources) noexcept {
 	_deviceResources = &deviceResources;
 
@@ -61,6 +67,10 @@ void ImGuiBackend::_SetupRenderState(const ImDrawData& drawData, POINT viewportO
 	}
 	d3dDC->PSSetShader(_pixelShader.get(), nullptr, 0);
 	{
+		ID3D11Buffer* t = _pixelConstantBuffer.get();
+		d3dDC->PSSetConstantBuffers(0, 1, &t);
+	}
+	{
 		// 默认需要线性采样。设置 "io.Fonts->Flags |= ImFontAtlasFlags_NoBakedLines" 或
 		// "style.AntiAliasedLinesUseTex = false" 来允许最近邻采样
 		ID3D11SamplerState* t = _deviceResources->GetSampler(
@@ -73,7 +83,7 @@ void ImGuiBackend::_SetupRenderState(const ImDrawData& drawData, POINT viewportO
 	d3dDC->RSSetState(_rasterizerState.get());
 }
 
-void ImGuiBackend::RenderDrawData(const ImDrawData& drawData, POINT viewportOffset) noexcept {
+void ImGuiBackend::RenderDrawData(const ImDrawData& drawData, POINT viewportOffset, float hdrWhiteScale) noexcept {
 	ID3D11DeviceContext4* d3dDC = _deviceResources->GetD3DDC();
 	ID3D11Device5* d3dDevice = _deviceResources->GetD3DDevice();
 
@@ -171,6 +181,18 @@ void ImGuiBackend::RenderDrawData(const ImDrawData& drawData, POINT viewportOffs
 		d3dDC->Unmap(_vertexConstantBuffer.get(), 0);
 	}
 
+	{
+		const PIXEL_CONSTANT_BUFFER data{ hdrWhiteScale };
+		D3D11_MAPPED_SUBRESOURCE mapped;
+		const HRESULT hr = d3dDC->Map(_pixelConstantBuffer.get(), 0, D3D11_MAP_WRITE_DISCARD, 0, &mapped);
+		if (FAILED(hr)) {
+			Logger::Get().ComError("Map UI color constants failed", hr);
+			return;
+		}
+		std::memcpy(mapped.pData, &data, sizeof(data));
+		d3dDC->Unmap(_pixelConstantBuffer.get(), 0);
+	}
+
 	_SetupRenderState(drawData, viewportOffset);
 
 	// Render command lists
@@ -250,6 +272,20 @@ bool ImGuiBackend::_CreateDeviceObjects() noexcept {
 	if (FAILED(hr)) {
 		Logger::Get().ComError("CreatePixelShader 失败", hr);
 		return false;
+	}
+
+	{
+		const D3D11_BUFFER_DESC desc{
+			.ByteWidth = sizeof(PIXEL_CONSTANT_BUFFER),
+			.Usage = D3D11_USAGE_DYNAMIC,
+			.BindFlags = D3D11_BIND_CONSTANT_BUFFER,
+			.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE
+		};
+		hr = d3dDevice->CreateBuffer(&desc, nullptr, _pixelConstantBuffer.put());
+		if (FAILED(hr)) {
+			Logger::Get().ComError("Create UI color constants failed", hr);
+			return false;
+		}
 	}
 
 	{

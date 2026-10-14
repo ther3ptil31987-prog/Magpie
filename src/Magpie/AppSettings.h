@@ -56,20 +56,24 @@ struct _AppSettingsData {
 	std::chrono::system_clock::time_point _updateCheckDate;
 
 	DuplicateFrameDetectionMode _duplicateFrameDetectionMode =
-		DuplicateFrameDetectionMode::Dynamic;
+		DuplicateFrameDetectionMode::Never;
 
 	bool _isStopEffectsOnTaskSwitchEnabled = false;
 	bool _isVRREnabled = false;
+	bool _isSimpleFrameRefresh = true;
 
 	ToolbarState _fullscreenInitialToolbarState = ToolbarState::AutoHide;
 	ToolbarState _windowedInitialToolbarState = ToolbarState::AutoHide;
 	// 为空表示 FOLDERID_Screenshots，支持绝对路径和相对路径
 	std::filesystem::path _screenshotsDir;
+	::Magpie::ScreenshotContent _screenshotContent = ::Magpie::ScreenshotContent::OutputOnly;
 
 	OverlayOptions _overlayOptions;
 	
 	bool _isPortableMode = false;
-	bool _isAlwaysRunAsAdmin = false;
+	bool _isAlwaysRunAsAdmin = true;
+	uint32_t _adminStartupDefaultsVersion = 1;
+	uint32_t _adminAutoStartDefaultsVersion = 0;
 	bool _isDeveloperMode = false;
 	bool _isDebugMode = false;
 	bool _isBenchmarkMode = false;
@@ -261,6 +265,7 @@ public:
 	}
 
 	void IsAlwaysRunAsAdmin(bool value) noexcept;
+	void UpdateAdminAutoStart() noexcept;
 
 	bool IsShowNotifyIcon() const noexcept {
 		return _isShowNotifyIcon;
@@ -319,6 +324,14 @@ public:
 		_updateCheckDate = value;
 	}
 
+	bool IsSimpleFrameRefresh() const noexcept { return _isSimpleFrameRefresh; }
+	void IsSimpleFrameRefresh(bool value) noexcept {
+		if (_isSimpleFrameRefresh == value) return;
+		_isSimpleFrameRefresh = value;
+		SaveAsync();
+		FrameRefreshModeChanged.Invoke();
+	}
+
 	DuplicateFrameDetectionMode DuplicateFrameDetectionMode() const noexcept {
 		return _duplicateFrameDetectionMode;
 	}
@@ -370,6 +383,11 @@ public:
 	}
 
 	std::filesystem::path ScreenshotsDir() const noexcept;
+	::Magpie::ScreenshotContent ScreenshotContent() const noexcept { return _screenshotContent; }
+	void ScreenshotContent(::Magpie::ScreenshotContent value) noexcept {
+		_screenshotContent = NormalizeScreenshotContent(static_cast<uint32_t>(value));
+		SaveAsync();
+	}
 
 	void ScreenshotsDir(const std::filesystem::path& value) noexcept;
 
@@ -383,6 +401,7 @@ public:
 	Event<bool> IsShowNotifyIconChanged;
 	Event<bool> IsAutoCheckForUpdatesChanged;
 	Event<> DuplicateFrameDetectionModeChanged;
+	Event<> FrameRefreshModeChanged;
 
 private:
 	std::filesystem::path _recoveredConfigPath;

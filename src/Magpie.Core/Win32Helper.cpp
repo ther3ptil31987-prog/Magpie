@@ -1,7 +1,9 @@
 #include "pch.h"
 #include "FrameTrace.h"
 #include "Win32Helper.h"
+#include "NvidiaForegroundCompatibility.h"
 #include "StrHelper.h"
+#include <atomic>
 #include <dcomp.h>
 #include <dwmapi.h>
 #include <io.h>
@@ -14,6 +16,10 @@
 #include <span>
 
 namespace Magpie {
+
+HWND Win32Helper::GetRealForegroundWindow() noexcept {
+	return NvidiaForegroundCompatibility::RealForegroundWindow();
+}
 
 namespace {
 
@@ -266,7 +272,17 @@ std::wstring Win32Helper::GetWindowTitle(HWND hWnd) noexcept {
 wil::unique_process_handle Win32Helper::GetWindowProcessHandle(HWND hWnd) noexcept {
 	wil::unique_process_handle result;
 
-	if (DWORD dwProcId = 0; GetWindowThreadProcessId(hWnd, &dwProcId)) {
+	DWORD dwProcId = 0;
+	bool usedThreadQuery = false;
+	const char* failureStage = nullptr;
+	if (const DWORD tid = QueryWindowThreadProcessId(hWnd, dwProcId, &usedThreadQuery, &failureStage)) {
+		if (usedThreadQuery) {
+			static std::atomic_flag reported = ATOMIC_FLAG_INIT;
+			if (!reported.test_and_set(std::memory_order_relaxed)) {
+				Logger::Get().Info(fmt::format("Window identity: thread-query fallback hwnd=0x{:x} pid={} tid={}",
+					uintptr_t(hWnd), dwProcId, tid));
+			}
+		}
 		result.reset(OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, FALSE, dwProcId));
 		if (result) {
 			return result;
@@ -274,7 +290,10 @@ wil::unique_process_handle Win32Helper::GetWindowProcessHandle(HWND hWnd) noexce
 			Logger::Get().Win32Error("OpenProcess 失败");
 		}
 	} else {
-		Logger::Get().Win32Error("GetWindowThreadProcessId 失败");
+		const DWORD error = GetLastError();
+		const auto message = fmt::format("Window identity query failed: stage={}", failureStage);
+		SetLastError(error);
+		Logger::Get().Win32Error(message);
 	}
 
 	// 在某些窗口上 OpenProcess 会失败（如暗黑 2），尝试使用 GetProcessHandleFromHwnd

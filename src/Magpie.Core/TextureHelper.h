@@ -1,5 +1,6 @@
 #pragma once
 #include "EffectDesc.h"
+#include "HdrFrame.h"
 
 namespace Magpie {
 
@@ -18,11 +19,18 @@ public:
 		const wchar_t* fileName,
 		uint32_t width,
 		uint32_t height,
-		EffectIntermediateTextureFormat format,
+		DXGI_FORMAT format,
 		std::span<uint8_t> pixelData,
 		uint32_t rowPitch,
-		TextureSaveError* error = nullptr
+		TextureSaveError* error = nullptr,
+		const ColorDescription* hdrColor = nullptr
 	) noexcept;
+	// Encode privately and commit with a no-replace move. Existing files survive
+	// another process creating the destination after directory enumeration.
+	static bool SaveTextureExclusive(const wchar_t* fileName, uint32_t width,
+		uint32_t height, DXGI_FORMAT format, std::span<uint8_t> pixelData,
+		uint32_t rowPitch, TextureSaveError* error = nullptr,
+		const ColorDescription* hdrColor = nullptr) noexcept;
 };
 
 }

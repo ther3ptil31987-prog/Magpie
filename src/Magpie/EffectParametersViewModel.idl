@@ -17,6 +17,15 @@ namespace Magpie {
 		String PrimaryLabel { get; };
 		String DescriptionLabel { get; };
 		String ValueText { get; };
+		Boolean IsPreciseInput { get; };
+		Boolean IsLegacyNumeric { get; };
+		String EditableValue;
+		String InputError { get; };
+		Boolean HasInputError { get; };
+		Double SliderValue;
+		Double SliderMinimum { get; };
+		Double SliderMaximum { get; };
+		Double SliderStep { get; };
 		Double Minimum { get; };
 		Double Maximum { get; };
 		Double Step { get; };

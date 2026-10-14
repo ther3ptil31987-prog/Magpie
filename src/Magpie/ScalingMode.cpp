@@ -16,6 +16,7 @@ EffectItem::operator EffectOption()  const noexcept {
 		result.parameters.emplace(StrHelper::UTF16ToUTF8(pair.first), pair.second);
 	}
 
+	NormalizeFrameGenerationParameters(result);
 	return result;
 }
 

@@ -1,5 +1,6 @@
 #include "pch.h"
 #include "ScalingModesPage.h"
+#include "ScalingMode.h"
 #if __has_include("ScalingModesPage.g.cpp")
 #include "ScalingModesPage.g.cpp"
 #endif
@@ -8,6 +9,7 @@
 #include "EffectsService.h"
 #include "EffectHelper.h"
 #include "EffectParametersViewModel.h"
+#include "SettingsExpander.h"
 #include "EffectParameterPopupLayout.h"
 #include "App.h"
 #include "AppSettings.h"
@@ -30,6 +32,73 @@ using namespace Windows::UI::Xaml::Input;
 namespace winrt::Magpie::implementation {
 
 ScalingModesPage::ScalingModesPage() {
+}
+
+template<class T>
+static T FindIssueElement(const DependencyObject& parent, std::wstring_view name = {}) {
+	if (!parent) return nullptr;
+	if (const auto match = parent.try_as<T>(); match && (name.empty() || std::wstring_view(match.Name()) == name)) return match;
+	for (int i = 0; i < VisualTreeHelper::GetChildrenCount(parent); ++i)
+		if (const auto found = FindIssueElement<T>(VisualTreeHelper::GetChild(parent, i), name)) return found;
+	return nullptr;
+}
+
+void ScalingModesPage::RevealIssueTarget(const ::Magpie::IssueContext& context) {
+	_issueTarget = context;
+	_issueModeName = context.scalingModeName;
+	_issueEffectNames = context.effectNames;
+	_issueEffectIndex = context.effectIndex;
+	if (_issueLayoutToken.value) { LayoutUpdated(_issueLayoutToken); _issueLayoutToken = {}; }
+	// The view model loads groups incrementally; resolve again after layout.
+	_issueLayoutToken = LayoutUpdated([weak = get_weak()](const IInspectable&, const IInspectable&) {
+		if (const auto self = weak.get(); self && self->_TryRevealIssueTarget()) {
+			self->LayoutUpdated(self->_issueLayoutToken);
+			self->_issueLayoutToken = {};
+		}
+	});
+}
+
+bool ScalingModesPage::_TryRevealIssueTarget() {
+	const auto loader = ResourceLoader::GetForViewIndependentUse(CommonSharedConstants::APP_RESOURCE_MAP_ID);
+	const auto& modes = AppSettings::Get().ScalingModes();
+	size_t target = modes.size();
+	bool ambiguous = false;
+	for (size_t i = 0; i < modes.size(); ++i) if (modes[i].name == _issueModeName) {
+		if (target != modes.size()) ambiguous = true;
+		target = i;
+	}
+	bool matches = !ambiguous && target < modes.size() && modes[target].effects.size() == _issueEffectNames.size();
+	if (matches) matches = modes[target].runtimeIdentity == _issueTarget.scalingModeIdentity.lock() &&
+		_issueTarget.effectIdentities.size() == _issueEffectNames.size();
+	if (matches) for (size_t i = 0; i < _issueEffectNames.size(); ++i)
+		matches &= modes[target].effects[i].name == _issueEffectNames[i] &&
+			modes[target].effects[i].runtimeIdentity == _issueTarget.effectIdentities[i].lock();
+	IssueTargetNotice().IsOpen(true);
+	if (!matches || (_issueEffectIndex != UINT32_MAX && _issueEffectIndex >= _issueEffectNames.size())) {
+		IssueTargetNotice().Message(loader.GetString(L"ErrorDetails_EffectsChanged"));
+		return true;
+	}
+	IssueTargetNotice().Message(hstring(fmt::format(fmt::runtime(std::wstring(loader.GetString(L"ErrorDetails_EffectsLocated"))),
+		_issueModeName, _issueEffectIndex == UINT32_MAX ? L"" : fmt::format(L" / #{} {}", _issueEffectIndex + 1, _issueEffectNames[_issueEffectIndex]))));
+	const auto items = _viewModel->ScalingModes();
+	if (target >= items.Size()) return false;
+	const auto item = items.GetAt(static_cast<uint32_t>(target));
+	ScalingModeList().ScrollIntoView(item);
+	const auto container = ScalingModeList().ContainerFromItem(item);
+	const auto expander = FindIssueElement<winrt::Magpie::SettingsExpander>(container);
+	if (!expander) return false;
+	expander.IsExpanded(true);
+	if (_issueEffectIndex == UINT32_MAX) { expander.StartBringIntoView(); return true; }
+	const auto effects = FindIssueElement<ListView>(expander, L"IssueEffectList");
+	if (!effects || _issueEffectIndex >= effects.Items().Size()) return false;
+	const auto effect = effects.Items().GetAt(_issueEffectIndex);
+	effects.ScrollIntoView(effect);
+	if (const auto control = effects.ContainerFromItem(effect).try_as<Control>()) {
+		control.StartBringIntoView();
+		control.Focus(FocusState::Programmatic);
+		return true;
+	}
+	return false;
 }
 
 void ScalingModesPage::ComboBox_DropDownOpened(IInspectable const& sender, IInspectable const&) {
@@ -88,6 +157,38 @@ void ScalingModesPage::ParameterSlider_LostFocus(IInspectable const&, RoutedEven
 	_resetHeldSlider = {};
 }
 
+void ScalingModesPage::ParameterSlider_KeyDown(IInspectable const& sender, KeyRoutedEventArgs const& args) {
+	const auto parameter = sender.as<Slider>().DataContext().try_as<Magpie::ScalingModeParameter>();
+	if (!parameter) return;
+	const auto impl = get_self<ScalingModeParameter>(parameter);
+	if (!impl->IsPreciseInput()) return;
+	const auto key = args.Key();
+	using Windows::System::VirtualKey;
+	if (key != VirtualKey::Left && key != VirtualKey::Right && key != VirtualKey::Up && key != VirtualKey::Down) return;
+	impl->StepValue(key == VirtualKey::Right || key == VirtualKey::Up, (GetKeyState(VK_SHIFT) & 0x8000) != 0);
+	args.Handled(true);
+}
+
+void ScalingModesPage::ParameterValue_KeyDown(IInspectable const& sender, KeyRoutedEventArgs const& args) {
+	if (args.Key() != Windows::System::VirtualKey::Enter) return;
+	const auto input = sender.as<TextBox>();
+	if (const auto parameter = input.DataContext().try_as<Magpie::ScalingModeParameter>())
+		get_self<ScalingModeParameter>(parameter)->EditableValue(input.Text());
+	args.Handled(true);
+}
+
+void ScalingModesPage::ParameterSlider_WheelChanged(IInspectable const& sender, PointerRoutedEventArgs const& args) {
+	const auto slider = sender.as<Slider>();
+	const auto parameter = slider.DataContext().try_as<Magpie::ScalingModeParameter>();
+	if (!slider.IsEnabled() || !parameter) return;
+	const auto impl = get_self<ScalingModeParameter>(parameter);
+	if (!impl->IsPreciseInput()) return;
+	const auto delta = args.GetCurrentPoint(slider).Properties().MouseWheelDelta();
+	if (!delta) return;
+	impl->StepValue(delta > 0, (GetKeyState(VK_SHIFT) & 0x8000) != 0);
+	args.Handled(true);
+}
+
 void ScalingModesPage::ParameterSlider_DataContextChanged(
 	FrameworkElement const& sender, DataContextChangedEventArgs const&) {
 	_parameterResetGesture.Clear();
@@ -102,7 +203,7 @@ void ScalingModesPage::ParameterSlider_ValueChanged(
 	if (auto parameter = held.DataContext().try_as<Magpie::ScalingModeParameter>()) {
 		auto impl = get_self<ScalingModeParameter>(parameter);
 		impl->ResetToDefault();
-		if (held.Value() != impl->DefaultValue()) held.Value(impl->DefaultValue());
+		if (held.Value() != impl->SliderValue()) held.Value(impl->SliderValue());
 	}
 }
 
@@ -127,7 +228,7 @@ void ScalingModesPage::_ParameterSlider_Pressed(
 	_capturingResetPointer = false;
 	auto impl = get_self<ScalingModeParameter>(parameter);
 	impl->ResetToDefault();
-	slider.Value(impl->DefaultValue());
+	slider.Value(impl->SliderValue());
 	args.Handled(true);
 }
 

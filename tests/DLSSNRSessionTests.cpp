@@ -2,6 +2,7 @@
 #include <filesystem>
 #include <iostream>
 #include <memory>
+#include "DlssNrStatus.h"
 #include <string_view>
 
 namespace Magpie {
@@ -15,6 +16,8 @@ struct DeviceRef {
 };
 struct DLSSNRFilter {
 	struct Impl {
+		DlssNrFailure failure;
+		std::string libraryInfo;
 		inline static int initCount = 0, shutdownCount = 0;
 		DeviceRef device12;
 		std::shared_ptr<Impl> snippetSession;

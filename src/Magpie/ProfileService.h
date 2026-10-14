@@ -35,6 +35,7 @@ public:
 	uint32_t GetProfileCount() noexcept;
 
 	Event<Profile&> FrameRefreshChanged;
+	Event<Profile&> RtssSettingsChanged;
 	Event<Profile&> ProfileAdded;
 	Event<uint32_t> ProfileRenamed;
 	Event<uint32_t> ProfileRemoved;

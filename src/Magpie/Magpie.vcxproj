@@ -100,6 +100,7 @@
       <AdditionalDependencies Condition="($(EnableDLSSFrameGeneration) Or $(EnableDLSSNR)) And '$(Platform)' == 'x64'">D3D12.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalDependencies Condition="$(EnableXeSSZeroMV) And '$(Platform)' == 'x64'">$(XeSSSdkDir)\lib\libxess.lib;D3D12.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalDependencies Condition="$(EnableXeSSFrameGeneration) And '$(Platform)' == 'x64'">$(XeSSSdkDir)\lib\libxess_fg.lib;$(XeSSSdkDir)\lib\libxell.lib;D3D12.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies Condition="$(EnableFSR3FrameGeneration) And '$(Platform)' == 'x64'">D3D12.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <DelayLoadDLLs>d3dcompiler_47.dll;Magnification.dll;Imagehlp.dll;%(DelayLoadDLLs)</DelayLoadDLLs>
     </Link>
   </ItemDefinitionGroup>
@@ -116,6 +117,8 @@
       <SubType>Code</SubType>
     </ClInclude>
     <ClInclude Include="AdaptersService.h" />
+    <ClInclude Include="AdminStartupSettings.h" />
+    <ClInclude Include="RtssProfileExpression.h" />
     <ClInclude Include="AppSettings.h" />
     <ClInclude Include="ErrorService.h" />
     <ClInclude Include="ErrorGuidance.h" />
@@ -212,7 +215,12 @@
       <SubType>Code</SubType>
     </ClInclude>
     <ClInclude Include="ScalingMode.h" />
+    <ClInclude Include="HdrManualMigration.h" />
     <ClInclude Include="Profile.h" />
+    <ClInclude Include="RtssSettings.h" />
+    <ClInclude Include="RtssProfileAccess.h" />
+    <ClInclude Include="RtssService.h" />
+    <ClInclude Include="ProfileRtss.h" />
     <ClInclude Include="ProfileFrameRefresh.h" />
     <ClInclude Include="ProfilePage.h">
       <DependentUpon>ProfilePage.xaml</DependentUpon>
@@ -389,6 +397,8 @@
     <ClCompile Include="JsonHelper.cpp" />
     <ClCompile Include="LocalizationService.cpp" />
     <ClCompile Include="ScalingService.cpp" />
+    <ClCompile Include="RtssProfileAccess.cpp" />
+    <ClCompile Include="RtssService.cpp" />
     <ClCompile Include="NewProfileViewModel.cpp">
       <DependentUpon>NewProfileViewModel.idl</DependentUpon>
       <SubType>Code</SubType>
@@ -727,7 +737,7 @@
     <PRIResource Include="Resources.language-vi.resw" />
   </ItemGroup>
   <ItemGroup>
-    <Text Include="conanfile.txt">
+    <Text Include="conanfile.py">
       <DeploymentContent>false</DeploymentContent>
     </Text>
   </ItemGroup>
@@ -744,12 +754,15 @@
       <Project>{0e5205ae-dfa9-4cb8-b662-e43cd6512e2a}</Project>
     </ProjectReference>
   </ItemGroup>
+  <Target Name="CopyMinHookLicense" AfterTargets="Build">
+    <Copy SourceFiles="$(MSBuildThisFileDirectory)..\..\docs\licenses\MINHOOK.txt" DestinationFiles="$(OutDir)\MINHOOK-LICENSE.txt" SkipUnchangedFiles="true" />
+  </Target>
   <Target Name="CopyDLSSSRRuntime" AfterTargets="Build" Condition="$(EnableDLSSSR) And '$(Platform)' == 'x64'">
     <Copy SourceFiles="$(DLSSSdkDir)\lib\Windows_x86_64\rel\nvngx_dlss.dll" DestinationFolder="$(OutDir)" />
     <Copy SourceFiles="$(DLSSSdkDir)\LICENSE.txt" DestinationFiles="$(OutDir)\NVIDIA-DLSS-LICENSE.txt" />
   </Target>
   <Target Name="CopyDLSSFrameGenerationRuntime" AfterTargets="Build" Condition="$(EnableDLSSFrameGeneration) And '$(Platform)' == 'x64'">
-    <Copy SourceFiles="$(DLSSSdkDir)\lib\Windows_x86_64\rel\nvngx_dlssg.dll" DestinationFolder="$(OutDir)" />
+    <Exec Command="powershell.exe -NoProfile -ExecutionPolicy Bypass -File &quot;$(MSBuildProjectDirectory)\..\..\scripts\Copy-DlssgSm86Runtime.ps1&quot; -RuntimeDirectory &quot;$(DlssgSm86RuntimeDir)&quot; -OutputDirectory &quot;$(OutDir).&quot;" />
     <Copy SourceFiles="$(DLSSSdkDir)\LICENSE.txt" DestinationFiles="$(OutDir)\NVIDIA-DLSS-LICENSE.txt" />
     <Copy SourceFiles="$(MSBuildThisFileDirectory)..\..\docs\licenses\NVIDIA-NVAPI.txt" DestinationFiles="$(OutDir)\NVIDIA-NVAPI-LICENSE.txt" SkipUnchangedFiles="true" />
   </Target>
@@ -759,6 +772,16 @@
   <Target Name="CopyFSR2ZeroMVRuntime" AfterTargets="Build" Condition="$(EnableFSR2ZeroMV) And '$(Platform)' == 'x64'">
     <Copy SourceFiles="$(FSR2RuntimeDir)\ffx_fsr2_api_x64.dll;$(FSR2RuntimeDir)\ffx_fsr2_api_dx11_x64.dll" DestinationFolder="$(OutDir)" />
     <Copy SourceFiles="$(FSR2SdkDir)\LICENSE.txt" DestinationFiles="$(OutDir)\AMD-FSR2-DX11-LICENSE.txt" />
+  </Target>
+  <Target Name="ValidateFSR3FrameGenerationSdk" BeforeTargets="PrepareForBuild" Condition="$(EnableFSR3FrameGeneration) And '$(Platform)' == 'x64'">
+    <Error Condition="!Exists('$(FSR3SdkDir)\Kits\FidelityFX\framegeneration\include\ffx_framegeneration.h')" Text="FSR3FG requires FSR SDK 2.3.0. Set FSR3SdkDir to the matching SDK root." />
+    <Error Condition="!Exists('$(FSR3SdkDir)\Kits\FidelityFX\signedbin\amd_fidelityfx_framegeneration_dx12.dll')" Text="FSR3FG signed provider DLL is missing from FSR3SdkDir." />
+  </Target>
+  <Target Name="CopyFSR3FrameGenerationRuntime" AfterTargets="Build" Condition="$(EnableFSR3FrameGeneration) And '$(Platform)' == 'x64'">
+    <Copy SourceFiles="$(FSR3SdkDir)\Kits\FidelityFX\signedbin\amd_fidelityfx_loader_dx12.dll;$(FSR3SdkDir)\Kits\FidelityFX\signedbin\amd_fidelityfx_framegeneration_dx12.dll" DestinationFolder="$(OutDir)" />
+    <Copy SourceFiles="$(FSR3SdkDir)\3rdpartynotice.md" DestinationFiles="$(OutDir)\AMD-FSR-SDK-THIRD-PARTY.md" />
+    <Copy SourceFiles="$(FSR3SdkDir)\Kits\FidelityFX\docs\license.md" DestinationFiles="$(OutDir)\AMD-FSR-SDK-LICENSE.md" />
+    <Copy SourceFiles="$(MSBuildThisFileDirectory)..\..\docs\experimental\effects\FSR3FG.md" DestinationFiles="$(OutDir)\FSR3FG-README.md" />
   </Target>
   <Target Name="CopyFSR3ZeroMVRuntime" AfterTargets="Build" Condition="$(EnableFSR3ZeroMV) And '$(Platform)' == 'x64'">
     <Copy SourceFiles="$(FSR3SdkDir)\Kits\FidelityFX\signedbin\amd_fidelityfx_loader_dx12.dll;$(FSR3SdkDir)\Kits\FidelityFX\signedbin\amd_fidelityfx_upscaler_dx12.dll" DestinationFolder="$(OutDir)" />
@@ -774,16 +797,28 @@
 	  <Copy SourceFiles="$(XeSSSdkDir)\LICENSE.txt" DestinationFiles="$(OutDir)\INTEL-XESS-LICENSE.txt" />
 	  <Copy SourceFiles="$(XeSSSdkDir)\third-party-programs.txt" DestinationFiles="$(OutDir)\INTEL-XESS-THIRD-PARTY.txt" />
 	</Target>
-  <Target Name="CopyRTXVideoDenoiseRuntime" AfterTargets="Build" Condition="$(EnableRTXVideoDenoise) And '$(Platform)' == 'x64'">
+  <Import Project="..\NvidiaVfxRuntime.props" />
+  <Target Name="ValidateNvidiaVfxRuntime" BeforeTargets="CopyRTXVideoDenoiseRuntime" Condition="$(EnableNvidiaVfx) And '$(Platform)' == 'x64'">
+    <Error Condition="'$(NvidiaVfxRuntimeLayout)' != 'Minimal' And '$(NvidiaVfxRuntimeLayout)' != 'Full'" Text="NvidiaVfxRuntimeLayout must be Minimal or Full." />
+    <Exec Command="powershell.exe -NoProfile -ExecutionPolicy Bypass -File &quot;$(MSBuildProjectDirectory)\..\..\scripts\Validate-NvidiaVfxRuntime.ps1&quot; -SdkDirectory &quot;$(VFXSdkDir)&quot; -RuntimeDirectory &quot;$(VFXRuntimeDir)&quot; -Layout &quot;$(NvidiaVfxRuntimeLayout)&quot; -OutputDirectory &quot;$(OutDir).&quot;" />
+  </Target>
+  <Target Name="CopyRTXVideoDenoiseRuntime" AfterTargets="Build" Condition="($(EnableRTXVideoDenoise) Or $(EnableNvidiaVfx)) And '$(Platform)' == 'x64'">
     <ItemGroup>
-      <!-- VideoSuperRes uses the NVCV/NPP/NVNGX runtime. Do not redistribute
-           TensorRT libraries bundled for unrelated VFX models. -->
-      <RTXVideoRuntimeDll Include="$(VFXRuntimeDir)\*.dll"
-        Exclude="$(VFXRuntimeDir)\nvinfer*.dll;$(VFXRuntimeDir)\nvonnxparser*.dll" />
-      <RTXVideoLicense Include="$(VFXLicenseDir)\*" />
+      <RTXVideoRuntimeDll Include="@(NvidiaVfxRuntimeFile)" Condition="$(EnableNvidiaVfx)" />
+      <RTXVideoRuntimeDll Include="$(VFXRuntimeDir)\*.dll" Condition="!$(EnableNvidiaVfx) Or '$(NvidiaVfxRuntimeLayout)' == 'Full'" Exclude="@(NvidiaVfxRuntimeFile)" />
+      <RTXVideoRuntimeDll Include="$(VFXSdkDir)\features\nvvfxvideosuperres\bin\*.dll" Condition="!$(EnableNvidiaVfx)" />
+      <RTXVideoLicense Include="$(VFXLicenseDir)\*" Condition="!$(EnableNvidiaVfx) And '$(VFXLicenseDir)' != ''" />
+      <VfxFeatureLicense Include="$(VFXSdkDir)\features\nvvfxvideosuperres\license\*" />
+      <VfxFeatureLicense Include="$(VFXSdkDir)\features\nvvfxupscale\license\*;$(VFXSdkDir)\features\nvvfxvideoframegeneration\license\*;$(VFXSdkDir)\features\nvvfxtruehdr\license\*" Condition="$(EnableNvidiaVfx)" />
+      <VfxCoreLicense Include="$(VFXSdkDir)\license\*" />
+      <VfxCoreLicense Include="$(VFXRuntimeDir)\ThirdPartyLicenses.txt" Condition="$(EnableNvidiaVfx)" />
     </ItemGroup>
     <Copy SourceFiles="@(RTXVideoRuntimeDll)" DestinationFolder="$(OutDir)" SkipUnchangedFiles="true" />
     <Copy SourceFiles="@(RTXVideoLicense)" DestinationFolder="$(OutDir)\NVIDIA-VFX-Licenses" SkipUnchangedFiles="true" />
+    <Copy SourceFiles="@(VfxFeatureLicense);@(VfxCoreLicense)" DestinationFolder="$(OutDir)\NVIDIA-VFX-Licenses" SkipUnchangedFiles="true" />
+  </Target>
+  <Target Name="VerifyNvidiaVfxRuntimeOutput" AfterTargets="CopyRTXVideoDenoiseRuntime" Condition="$(EnableNvidiaVfx) And '$(Platform)' == 'x64'">
+    <Exec Command="powershell.exe -NoProfile -ExecutionPolicy Bypass -File &quot;$(MSBuildProjectDirectory)\..\..\scripts\Validate-NvidiaVfxRuntime.ps1&quot; -SdkDirectory &quot;$(VFXSdkDir)&quot; -RuntimeDirectory &quot;$(VFXRuntimeDir)&quot; -Layout &quot;$(NvidiaVfxRuntimeLayout)&quot; -OutputDirectory &quot;$(OutDir).&quot; -RequireOutput -Report &quot;$(OutDir)nvidia-vfx-runtime-manifest.json&quot;" />
   </Target>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <!-- 导入 Microsoft.AppXPackage.Targets 以生成 pri，应在 Microsoft.Cpp.targets 之后 -->

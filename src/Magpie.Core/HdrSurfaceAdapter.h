@@ -64,6 +64,9 @@ public:
 		ID3D11Texture2D* output,
 		const HdrTransformParameters& parameters
 	) const noexcept;
+	// Raw R10G10B10A2 words stored as four RGBA8 bytes by CUDA interop.
+	bool ConvertPackedHdr10ToCanonical(ID3D11Texture2D* input, ID3D11Texture2D* output,
+		const HdrTransformParameters& parameters) const noexcept;
 
 private:
 	bool _Convert(

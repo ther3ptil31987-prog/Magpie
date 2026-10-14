@@ -18,6 +18,12 @@
     <ClCompile Include="ScalingService.cpp">
       <Filter>Services</Filter>
     </ClCompile>
+    <ClCompile Include="RtssProfileAccess.cpp">
+      <Filter>Services</Filter>
+    </ClCompile>
+    <ClCompile Include="RtssService.cpp">
+      <Filter>Services</Filter>
+    </ClCompile>
     <ClCompile Include="AppSettings.cpp" />
     <ClCompile Include="Shortcut.cpp">
       <Filter>Models</Filter>
@@ -97,11 +103,25 @@
     <ClInclude Include="ScalingService.h">
       <Filter>Services</Filter>
     </ClInclude>
+    <ClInclude Include="AdminStartupSettings.h" />
+    <ClInclude Include="RtssProfileExpression.h" />
     <ClInclude Include="AppSettings.h" />
     <ClInclude Include="Shortcut.h">
       <Filter>Models</Filter>
     </ClInclude>
     <ClInclude Include="Profile.h">
+      <Filter>Models</Filter>
+    </ClInclude>
+    <ClInclude Include="RtssSettings.h">
+      <Filter>Models</Filter>
+    </ClInclude>
+    <ClInclude Include="RtssProfileAccess.h">
+      <Filter>Services</Filter>
+    </ClInclude>
+    <ClInclude Include="RtssService.h">
+      <Filter>Services</Filter>
+    </ClInclude>
+    <ClInclude Include="ProfileRtss.h">
       <Filter>Models</Filter>
     </ClInclude>
     <ClInclude Include="ProfileService.h">

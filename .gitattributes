@@ -2,6 +2,8 @@
 # Set default behavior to automatically normalize line endings.
 ###############################################################################
 * text=auto
+# Runtime configuration bytes are SHA-256 pinned across Windows checkouts.
+src/DlssgSm86/*.ini text eol=lf
 
 ###############################################################################
 # Set default behavior for command prompt diff.

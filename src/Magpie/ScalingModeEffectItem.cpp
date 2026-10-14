@@ -16,6 +16,8 @@
 #include "ScalingMode.h"
 #include "ScalingModesService.h"
 #include "StrHelper.h"
+#include "NvidiaVfxParameterPolicy.h"
+#include "EffectParameterLocalization.h"
 
 using namespace Magpie;
 
@@ -25,6 +27,22 @@ ScalingModeEffectItem::ScalingModeEffectItem(uint32_t scalingModeIdx, uint32_t e
 	: _scalingModeIdx(scalingModeIdx), _effectIdx(effectIdx)
 {
 	EffectItem& data = _Data();
+	_lastNvidiaVfxSameSize = _IsNvidiaVfxSameSize();
+	_parameterChangedRevoker = ScalingModesService::Get().EffectParametersChanged(
+		auto_revoke, [this](uint32_t mode, uint32_t effect) {
+			if (!_IsRemoved() && mode == _scalingModeIdx && effect == _effectIdx) {
+				const bool sameSize = _IsNvidiaVfxSameSize();
+				_refreshingScalingTypes = true;
+				auto reset = wil::scope_exit([this] { _refreshingScalingTypes = false; });
+				if (sameSize != _lastNvidiaVfxSameSize) {
+					_lastNvidiaVfxSameSize = sameSize;
+					RaisePropertyChanged(L"ScalingTypes");
+				}
+				RaisePropertyChanged(L"CanScale"); RaisePropertyChanged(L"ScalingType");
+				RaisePropertyChanged(L"IsShowScaleFactors");
+				RaisePropertyChanged(L"IsShowScalingPixels");
+			}
+		});
 
 	_effectInfo = data.isRecoveryInvalid ? nullptr : EffectsService::Get().GetEffect(data.name);
 
@@ -76,7 +94,7 @@ bool ScalingModeEffectItem::CanScale() const noexcept {
 		return false;
 	}
 
-	return _effectInfo && _effectInfo->CanScale();
+	return _effectInfo && _effectInfo->CanScale() && !ScalingModesService::Get().GetScalingMode(_scalingModeIdx).hdrMigrationInvalid;
 }
 
 bool ScalingModeEffectItem::HasParameters() const noexcept {
@@ -84,16 +102,29 @@ bool ScalingModeEffectItem::HasParameters() const noexcept {
 		return false;
 	}
 
-	return _effectInfo && !_effectInfo->params.empty();
+	return _effectInfo && !_effectInfo->params.empty() && !ScalingModesService::Get().GetScalingMode(_scalingModeIdx).hdrMigrationInvalid;
 }
 
 hstring ScalingModeEffectItem::IssueDescription() const noexcept {
-	if (_effectInfo || _IsRemoved()) return {};
+	if (_IsRemoved()) return {};
+	if (ScalingModesService::Get().GetScalingMode(_scalingModeIdx).hdrMigrationInvalid)
+		return ResourceLoader::GetForCurrentView(CommonSharedConstants::APP_RESOURCE_MAP_ID).GetString(L"ScalingModes_HdrMigrationInvalid_Description");
+	if (_effectInfo) return {};
 	return ResourceLoader::GetForCurrentView(CommonSharedConstants::APP_RESOURCE_MAP_ID).GetString(
 		_Data().isRecoveryInvalid ? L"ScalingModes_RecoveryInvalid_Description" : L"ScalingModes_MissingEffect_Description");
 }
 
 IVector<IInspectable> ScalingModeEffectItem::ScalingTypes() noexcept {
+	if (_IsNvidiaVfxSameSize()) return single_threaded_vector(std::vector<IInspectable>{make<ScalingTypeItem>(
+		to_hstring(EffectParameterLocalization::Resource(L"NvidiaVfx_Vsr_SameSize", "Keep input size")), L"")});
+	if (!_IsRemoved() && _Data().name == L"NvidiaVFX\\Upscale") {
+		std::vector<IInspectable> items;
+		items.push_back(make<ScalingTypeItem>(to_hstring(EffectParameterLocalization::Resource(L"NvidiaVfx_Upscale_Auto", "Auto fit target")),
+			to_hstring(EffectParameterLocalization::Resource(L"NvidiaVfx_Upscale_AutoHelp", "Choose the lowest legal ratio, then fit the target with Bicubic."))));
+		for (const wchar_t* ratio : {L"4/3×", L"1.5×", L"2×", L"3×", L"4×"}) items.push_back(make<ScalingTypeItem>(ratio,
+			to_hstring(EffectParameterLocalization::Resource(L"NvidiaVfx_Upscale_FixedHelp", "Exact native ratio; width and height must be integers."))));
+		return single_threaded_vector(std::move(items));
+	}
 	using Windows::ApplicationModel::Resources::ResourceLoader;
 	ResourceLoader resourceLoader =
 		ResourceLoader::GetForCurrentView(CommonSharedConstants::APP_RESOURCE_MAP_ID);
@@ -119,10 +150,15 @@ IVector<IInspectable> ScalingModeEffectItem::ScalingTypes() noexcept {
 }
 
 int ScalingModeEffectItem::ScalingType() const noexcept {
+	if (_IsNvidiaVfxSameSize()) return 0;
 	if (_IsRemoved()) {
 		return (int)ScalingType::Normal;
 	}
 
+	if (_Data().name == L"NvidiaVFX\\Upscale") {
+		const auto it = _Data().parameters.find(L"upscaleMode");
+		return it == _Data().parameters.end() ? 0 : int(it->second);
+	}
 	return (int)_Data().scalingType;
 }
 
@@ -148,11 +184,19 @@ static SIZE GetMonitorSize() noexcept {
 }
 
 void ScalingModeEffectItem::ScalingType(int value) {
-	if (_IsRemoved() || value < 0) {
+	if (_refreshingScalingTypes || _IsNvidiaVfxSameSize()) return;
+	if (!CanScale() || value < 0) {
 		return;
 	}
 
 	EffectItem& data = _Data();
+	if (data.name == L"NvidiaVFX\\Upscale") {
+		if (value > 5) return;
+		data.parameters[L"upscaleMode"] = float(value);
+		data.scalingType = ::Magpie::ScalingType::Fit; data.scale = {1.f,1.f};
+		RaisePropertyChanged(L"ScalingType"); RaisePropertyChanged(L"IsShowScaleFactors"); RaisePropertyChanged(L"IsShowScalingPixels");
+		_SaveScaleChange(); return;
+	}
 	const ::Magpie::ScalingType scalingType = (::Magpie::ScalingType)value;
 	if (data.scalingType == scalingType) {
 		return;
@@ -175,7 +219,7 @@ void ScalingModeEffectItem::ScalingType(int value) {
 	RaisePropertyChanged(L"IsShowScaleFactors");
 	RaisePropertyChanged(L"IsShowScalingPixels");
 
-	AppSettings::Get().SaveAsync();
+	_SaveScaleChange();
 }
 
 bool ScalingModeEffectItem::IsShowScaleFactors() const noexcept {
@@ -183,6 +227,7 @@ bool ScalingModeEffectItem::IsShowScaleFactors() const noexcept {
 		return false;
 	}
 
+	if (_Data().name == L"NvidiaVFX\\Upscale" || _IsNvidiaVfxSameSize()) return false;
 	::Magpie::ScalingType scalingType = _Data().scalingType;
 	return scalingType == ::Magpie::ScalingType::Normal || scalingType == ::Magpie::ScalingType::Fit;
 }
@@ -192,7 +237,7 @@ bool ScalingModeEffectItem::IsShowScalingPixels() const noexcept {
 		return false;
 	}
 
-	return _Data().scalingType == ::Magpie::ScalingType::Absolute;
+	return _Data().name != L"NvidiaVFX\\Upscale" && !_IsNvidiaVfxSameSize() && _Data().scalingType == ::Magpie::ScalingType::Absolute;
 }
 
 double ScalingModeEffectItem::ScaleFactorX() const noexcept {
@@ -204,11 +249,12 @@ double ScalingModeEffectItem::ScaleFactorX() const noexcept {
 }
 
 void ScalingModeEffectItem::ScaleFactorX(double value) {
-	if (_IsRemoved()) {
+	if (!CanScale() || !std::isfinite(value) || value <= 0) {
 		return;
 	}
 
 	EffectItem& data = _Data();
+	const auto previous=data.scale;
 	if (data.scalingType != ::Magpie::ScalingType::Normal && data.scalingType != ::Magpie::ScalingType::Fit) {
 		return;
 	}
@@ -219,7 +265,7 @@ void ScalingModeEffectItem::ScaleFactorX(double value) {
 	}
 	
 	RaisePropertyChanged(L"ScaleFactorX");
-	AppSettings::Get().SaveAsync();
+	if (data.scale!=previous) _SaveScaleChange();
 }
 
 double ScalingModeEffectItem::ScaleFactorY() const noexcept {
@@ -231,11 +277,12 @@ double ScalingModeEffectItem::ScaleFactorY() const noexcept {
 }
 
 void ScalingModeEffectItem::ScaleFactorY(double value) {
-	if (_IsRemoved()) {
+	if (!CanScale() || !std::isfinite(value) || value <= 0) {
 		return;
 	}
 
 	EffectItem& data = _Data();
+	const auto previous=data.scale;
 	if (data.scalingType != ::Magpie::ScalingType::Normal && data.scalingType != ::Magpie::ScalingType::Fit) {
 		return;
 	}
@@ -245,7 +292,7 @@ void ScalingModeEffectItem::ScaleFactorY(double value) {
 	}
 
 	RaisePropertyChanged(L"ScaleFactorY");
-	AppSettings::Get().SaveAsync();
+	if (data.scale!=previous) _SaveScaleChange();
 }
 
 double ScalingModeEffectItem::ScalingPixelsX() const noexcept {
@@ -257,11 +304,12 @@ double ScalingModeEffectItem::ScalingPixelsX() const noexcept {
 }
 
 void ScalingModeEffectItem::ScalingPixelsX(double value) {
-	if (_IsRemoved()) {
+	if (!CanScale() || !std::isfinite(value) || value <= 0) {
 		return;
 	}
 
 	EffectItem& data = _Data();
+	const auto previous=data.scale;
 	if (data.scalingType != ::Magpie::ScalingType::Absolute) {
 		return;
 	}
@@ -271,7 +319,7 @@ void ScalingModeEffectItem::ScalingPixelsX(double value) {
 	}
 
 	RaisePropertyChanged(L"ScalingPixelsX");
-	AppSettings::Get().SaveAsync();
+	if (data.scale!=previous) _SaveScaleChange();
 }
 
 double ScalingModeEffectItem::ScalingPixelsY() const noexcept {
@@ -283,11 +331,12 @@ double ScalingModeEffectItem::ScalingPixelsY() const noexcept {
 }
 
 void ScalingModeEffectItem::ScalingPixelsY(double value) {
-	if (_IsRemoved()) {
+	if (!CanScale() || !std::isfinite(value) || value <= 0) {
 		return;
 	}
 
 	EffectItem& data = _Data();
+	const auto previous=data.scale;
 	if (data.scalingType != ::Magpie::ScalingType::Absolute) {
 		return;
 	}
@@ -297,17 +346,26 @@ void ScalingModeEffectItem::ScalingPixelsY(double value) {
 	}
 
 	RaisePropertyChanged(L"ScalingPixelsY");
-	AppSettings::Get().SaveAsync();
+	if (data.scale!=previous) _SaveScaleChange();
 }
 
 void ScalingModeEffectItem::Remove() {
-	if (_IsRemoved()) {
+	if (_IsRemoved() || ScalingModesService::Get().GetScalingMode(_scalingModeIdx).hdrMigrationInvalid) {
 		return;
 	}
 
-	Removed.Invoke(_effectIdx);
+	auto lifetime=get_strong();
+	Removed.Invoke(_effectIdx); // The parent detaches only after a successful transaction.
+}
 
-	_effectIdx = std::numeric_limits<uint32_t>::max();
+bool ScalingModeEffectItem::_IsNvidiaVfxSameSize() const noexcept {
+	if (_IsRemoved() || _Data().name != L"RTXVideo\\RTXVideo_VSR") return false;
+	const auto category = _Data().parameters.find(L"category");
+	return NvidiaVfxSameSize(NvidiaVfxCategory(category == _Data().parameters.end() ? 0.f : category->second));
+}
+
+void ScalingModeEffectItem::_SaveScaleChange() {
+	AppSettings::Get().SaveAsync();
 }
 
 bool ScalingModeEffectItem::CanDrag() const noexcept {
@@ -316,7 +374,7 @@ bool ScalingModeEffectItem::CanDrag() const noexcept {
 	}
 
 	const ScalingMode& mode = ScalingModesService::Get().GetScalingMode(_scalingModeIdx);
-	return mode.effects.size() > 1;
+	return !mode.hdrMigrationInvalid && mode.effects.size() > 1;
 }
 
 void ScalingModeEffectItem::RefreshDragState() {

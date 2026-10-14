@@ -13,6 +13,9 @@ public:
 	bool Initialize(DeviceResources& resources, NgxD3D12Core& core,
 		ID3D11Texture2D* input, ID3D11Texture2D* output,
 		const EffectOption& option, bool hdr) noexcept {
+		_failure = { DlssNrStage::Initialize, DlssNrReason::Unknown, DlssNrCodeKind::None, 0, "Initialize DLSSNR chain" };
+		_processing = false;
+		_libraryInfo.clear();
 		if (!Drain()) return false;
 		_filter.reset();
 		_temporal.reset();
@@ -34,6 +37,7 @@ public:
 			desc.CPUAccessFlags = desc.MiscFlags = 0;
 			const HRESULT hr = resources.GetD3DDevice()->CreateTexture2D(&desc, nullptr, _rawOutput.put());
 			if (FAILED(hr)) {
+				_failure = DlssNrApiFailure(DlssNrStage::Initialize, DlssNrCodeKind::HResult, static_cast<uint32_t>(hr), "Create anti-flicker output");
 				Logger::Get().ComError("Create DLSSNR anti-flicker raw output failed", hr);
 				return false;
 			}
@@ -43,15 +47,22 @@ public:
 			settings.push_back(ParseDLSSNRSettings(DLSSNRPassOption(option, i), hdr));
 		auto filter = std::make_unique<DLSSNRFilter>();
 		if (!filter->InitializeChain(resources, core, input,
-			antiFlicker ? _rawOutput.get() : output, settings)) return false;
+			antiFlicker ? _rawOutput.get() : output, settings)) {
+			_failure = filter->GetDlssNrFailure();
+			_libraryInfo = filter->LibraryInfo();
+			return false;
+		}
+		_libraryInfo = filter->LibraryInfo();
 		filter->SetHdrBoundary(_hdrBoundary);
 		_filter = std::move(filter);
 		if (antiFlicker) {
+			_failure.operation = "Initialize DLSSNR anti-flicker resources";
 			_temporal = std::make_unique<DLSSNRTemporal>();
 			if (!_temporal->Initialize(resources, input, input,
 				_rawOutput.get(), output, antiFlicker, hdr)) return false;
 		}
 		ConfigureDetail();
+		_failure = {};
 		return true;
 	}
 	void SetHdrBoundary(HdrEffectBoundaryContext context) noexcept override {
@@ -77,10 +88,14 @@ public:
 		NativeEffectDrawContext chain = context;
 		chain.output = _temporal ? _rawOutput.get() : context.output;
 		if (!_filter->Draw(chain)) {
+			_processing = false;
+			if (_failure.operation.empty()) _failure = _filter->GetDlssNrFailure();
 			if (_temporal) _temporal->Reset();
 			return false;
 		}
+		_processing = _filter->IsHealthy();
 		if (!_filter->IsHealthy()) {
+			if (_failure.operation.empty()) _failure = _filter->GetDlssNrFailure();
 			if (_temporal) _temporal->Reset();
 			if (_count > 1) return false;
 		}
@@ -89,10 +104,20 @@ public:
 			_context->CopyResource(context.output, _rawOutput.get());
 			return true;
 		}
-		return !_temporal || _temporal->Draw(context);
+		const bool success = !_temporal || _temporal->Draw(context);
+		if (!success) {
+			_processing = false;
+			if (_failure.operation.empty()) _failure = { DlssNrStage::Evaluate, DlssNrReason::Unknown, DlssNrCodeKind::None, 0, "Anti-flicker processing" };
+		}
+		if (success && _processing) _failure = {};
+		return success;
 	}
+	const std::string& LibraryInfo() const noexcept { return _libraryInfo; }
+	DlssNrFailure GetDlssNrFailure() const override { return _failure; }
+	bool IsDlssNrProcessing() const noexcept override { return _processing; }
 	EffectParameterApplyMode GetParameterApplyMode(std::string_view name) const noexcept override {
-		if (name == "multiPass" || name == "antiFlicker" || !_filter) return EffectParameterApplyMode::RestartRequired;
+		if (!_failure.operation.empty() || !_filter || !_filter->IsHealthy()) return EffectParameterApplyMode::Unavailable;
+		if (name == "multiPass" || name == "antiFlicker") return EffectParameterApplyMode::RestartRequired;
 		if (DLSSNRParameterPass(name) > _count) return EffectParameterApplyMode::Live;
 		return _filter->GetParameterApplyMode(DLSSNRBaseParameter(name));
 	}
@@ -117,6 +142,9 @@ public:
 		return true;
 	}
 private:
+	DlssNrFailure _failure;
+	std::string _libraryInfo;
+	bool _processing = false;
 	float Value(std::string_view name, float fallback = 0) const noexcept {
 		const auto it = _option.parameters.find(std::string(name));
 		return it == _option.parameters.end() ? fallback : it->second;

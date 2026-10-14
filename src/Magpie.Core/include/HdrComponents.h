@@ -1,9 +1,11 @@
 #pragma once
+#include <algorithm>
 #include <cmath>
 #include <cstddef>
 #include <string>
 #include <string_view>
 #include <vector>
+#include <optional>
 
 namespace Magpie {
 
@@ -43,10 +45,17 @@ struct HdrComponentPlan {
 
 // Pure preflight: no SDK calls, windows, graphics devices or file access.
 // The first explicit converter determines the requested capture domain.
+// An internal intent may preserve a migrated trial chain's capture contract;
+// it never inserts, hides, reorders or synchronizes conversion nodes.
 template<class Effects>
-HdrComponentPlan BuildHdrComponentPlan(const Effects& effects) {
+HdrComponentPlan BuildHdrComponentPlan(const Effects& effects, std::optional<bool> captureIntent = std::nullopt) {
 	HdrComponentPlan plan;
+	if (captureIntent) {
+		plan.enabled = true;
+		plan.captureHdr = *captureIntent;
+	}
 	for (const auto& effect : effects) {
+		if (captureIntent) break;
 		const auto kind = ClassifyHdrComponent(effect.name);
 		if (kind == HdrComponentKind::None) continue;
 		plan.enabled = true;
@@ -93,6 +102,18 @@ HdrComponentPlan BuildHdrComponentPlan(const Effects& effects) {
 				fail(HdrComponentError::MissingPair); return plan;
 			}
 			if (stage.mode != 1) stage.pairIndex = pair;
+			// Absence of the merged field deliberately keeps both the pixel and
+			// white-point metadata contracts of legacy exposure configurations.
+			// Low legacy values remain representable without an implicit clamp.
+			if (stage.pairIndex == static_cast<size_t>(-1) && effect.parameters.contains("nativeWhiteNits")) {
+				stage.whiteNits = read("nativeWhiteNits", 203, 8, 4000);
+				stage.exposure = 1;
+				// SDR [0,1] white is also the predicted maximum of this proportional
+				// mapping. Keep FG/presentation metadata aligned with the new signal,
+				// rather than carrying the unrelated legacy 1000-nit pair peak.
+				stage.peakNits = std::max(80.f, stage.whiteNits);
+				if (plan.error != HdrComponentError::None) return plan;
+			}
 			pair = static_cast<size_t>(-1);
 			hdr = true;
 		} else if (stage.kind == HdrComponentKind::RtxVideoHdr) {
@@ -101,6 +122,7 @@ HdrComponentPlan BuildHdrComponentPlan(const Effects& effects) {
 			read("contrast", 100, 0, 200, true);
 			read("saturation", 100, 0, 200, true);
 			read("middleGray", 50, 10, 100, true);
+			read("debanding", 1, 0, 1, true);
 			if (plan.error != HdrComponentError::None) return plan;
 			pair = static_cast<size_t>(-1);
 			hdr = true;

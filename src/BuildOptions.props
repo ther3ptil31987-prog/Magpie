@@ -25,6 +25,8 @@
     <!-- Experimental NVIDIA DLSSNR same-resolution AI filter. -->
     <EnableDLSSNR>false</EnableDLSSNR>
     <DLSSSdkDir></DLSSSdkDir>
+    <!-- Fixed community FG bundle restored by Fetch-DlssgSm86.ps1. -->
+    <DlssgSm86RuntimeDir>$(MSBuildThisFileDirectory)..\..\dependencies\dlssg-sm86</DlssgSm86RuntimeDir>
     <!-- Official NVAPI headers for native DLSS FG Reflex; no driver DLL is packaged. -->
     <NvapiSdkDir>$(MSBuildThisFileDirectory)..\..\dependencies\nvapi-sdk</NvapiSdkDir>
     <DLSSNRRuntimeDir></DLSSNRRuntimeDir>
@@ -36,6 +38,8 @@
     <FSR2RuntimeDir></FSR2RuntimeDir>
     <!-- FSR 3.1 upscaler-only through D3D11/D3D12 shared resources. -->
     <EnableFSR3ZeroMV>false</EnableFSR3ZeroMV>
+    <!-- FSR 3.1.6 FG is independent of SR and external optical-flow builds. -->
+    <EnableFSR3FrameGeneration>false</EnableFSR3FrameGeneration>
     <FSR3SdkDir></FSR3SdkDir>
     <!-- Cross-vendor FidelityFX Optical Flow frame-guidance provider. -->
     <EnableAmdOpticalFlow></EnableAmdOpticalFlow>
@@ -46,6 +50,14 @@
     <XeSSSdkDir></XeSSSdkDir>
     <!-- NVIDIA Video Super Resolution same-resolution denoise modes (8-11). -->
     <EnableRTXVideoDenoise>false</EnableRTXVideoDenoise>
+    <!-- Unified suite requires matched Core 1.3 headers, proxies and features. -->
+    <EnableNvidiaVfx>false</EnableNvidiaVfx>
+    <!-- Validation-only alternatives. Activate after D3D11/lifetime acceptance. -->
+    <EnableNvidiaVfxAsync>false</EnableNvidiaVfxAsync>
+    <EnableNvidiaVfxCudaHandoff>false</EnableNvidiaVfxCudaHandoff>
+    <NvidiaVfxRuntimeLayout>Minimal</NvidiaVfxRuntimeLayout>
+    <VFXIncludeDir></VFXIncludeDir>
+    <VFXProxyDir></VFXProxyDir>
     <VFXSdkDir></VFXSdkDir>
     <VFXRuntimeDir></VFXRuntimeDir>
     <VFXLicenseDir></VFXLicenseDir>
@@ -61,8 +73,14 @@
   <!-- 用户自定义编译选项 -->
   <Import Project="$(MSBuildThisFileDirectory)\BuildOptions.props.user" Condition="Exists('$(MSBuildThisFileDirectory)\BuildOptions.props.user')" />
   <PropertyGroup>
+    <VFXSdkDir Condition="'$(VFXSdkDir)' == '' And Exists('$(MSBuildThisFileDirectory)..\..\dependencies\NVIDIA-VFX-SDK-1.3.0.0-windows-x64\core\VideoFX\videofx_version.h')">$(MSBuildThisFileDirectory)..\..\dependencies\NVIDIA-VFX-SDK-1.3.0.0-windows-x64\core\VideoFX</VFXSdkDir>
+    <VFXSdkDir Condition="'$(VFXSdkDir)' == ''">$(MSBuildThisFileDirectory)..\..\..\dependencies\NVIDIA-VFX-SDK-1.3.0.0-windows-x64\core\VideoFX</VFXSdkDir>
+    <VFXRuntimeDir Condition="'$(VFXRuntimeDir)' == ''">$(VFXSdkDir)\bin</VFXRuntimeDir>
+    <VFXIncludeDir Condition="'$(VFXIncludeDir)' == ''">$(VFXSdkDir)\nvvfx\include</VFXIncludeDir>
+    <VFXProxyDir Condition="'$(VFXProxyDir)' == ''">$(VFXSdkDir)\nvvfx\src</VFXProxyDir>
     <!-- Preserve existing local/CI overrides while using the accurate name internally. -->
     <EnableDLSSSR Condition="'$(EnableDLSSSR)' == ''">$(EnableDLSSZeroMV)</EnableDLSSSR>
+    <EnableAmdOpticalFlow Condition="'$(EnableAmdOpticalFlow)' == '' And '$(EnableFSR3FrameGeneration)' == 'true'">$(EnableFSR3FrameGeneration)</EnableAmdOpticalFlow>
     <EnableAmdOpticalFlow Condition="'$(EnableAmdOpticalFlow)' == ''">$(EnableFSR3ZeroMV)</EnableAmdOpticalFlow>
   </PropertyGroup>
 </Project>

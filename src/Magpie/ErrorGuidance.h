@@ -3,8 +3,20 @@
 
 namespace Magpie {
 
-enum class IssueAction { None, Profile, Effects, RetrySave, ConfigurationDirectory };
+enum class IssueAction { None, Profile, Effects, RetrySave, ConfigurationDirectory, ProgramDirectory, RecoveryGuide };
 enum class FileOperation { None, Read, Write };
+
+constexpr IssueAction GetDlssNrIssueAction(const DlssNrStatus& status, bool hasProfile) noexcept {
+	if (status.restartRequired) return IssueAction::RecoveryGuide;
+	switch (status.failure.reason) {
+	case DlssNrReason::LibraryMissing:
+	case DlssNrReason::LibraryLoadFailed:
+	case DlssNrReason::MissingExports:
+	case DlssNrReason::BuildDisabled: return IssueAction::ProgramDirectory;
+	case DlssNrReason::UnsupportedAdapter: return hasProfile ? IssueAction::Profile : IssueAction::Effects;
+	default: return IssueAction::Effects;
+	}
+}
 
 // UI-thread outcome ordering; background completions can arrive out of order.
 struct ConfigurationSaveOutcomes {
@@ -56,6 +68,7 @@ constexpr IssueAction GetIssueAction(ScalingError error) noexcept {
 	case ScalingError::EffectCompileFailed:
 	case ScalingError::EffectResourceFailed:
 	case ScalingError::NativeEffectInitFailed:
+	case ScalingError::DlssNrStopped:
 	case ScalingError::DlssNrUnavailable:
 	case ScalingError::FrameGenerationInitFailed:
 	case ScalingError::FrameGenerationDisabled:

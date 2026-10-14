@@ -75,6 +75,13 @@ struct EffectParameterDesc {
 	// A non-empty list turns an integer parameter into a choice. Declaration
 	// order is preserved and is also the UI order.
 	std::vector<EffectParameterChoice> choices;
+	// Opt-in contract: persisted values keep their precision; user entry and
+	// interactive ticks use separate grids. Zero retains the legacy STEP rule.
+	float inputStep = 0;
+	float sliderStep = 0;
+	float coarseStep = 0;
+	bool segmentedSteps = false;
+	float editMinimum = 0;
 };
 
 struct EffectPassFlags {

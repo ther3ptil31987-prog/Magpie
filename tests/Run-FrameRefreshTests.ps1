@@ -18,10 +18,17 @@ if ($LASTEXITCODE) { throw 'Unified refresh test compilation failed.' }
 if ($LASTEXITCODE) { throw 'Unified refresh tests failed.' }
 & python "$PSScriptRoot/prepare_frame_refresh_vm_test.py" $refreshOutput
 if ($LASTEXITCODE) { throw 'Production refresh view-model extraction failed.' }
-& cl.exe /nologo /std:c++20 /EHsc /utf-8 /MT /O2 /W4 /WX "/I$refreshRepo/src/Magpie.Core/include" `
+& cl.exe /nologo /std:c++20 /EHsc /utf-8 /MT /O2 /W4 /WX "/I$refreshRepo/src/Magpie.Core/include" "/I$refreshRepo/src/Magpie" `
     "$refreshOutput/frame_refresh_vm.cpp" "/Fe:$refreshOutput/FrameRefreshViewModelTests.exe" "/Fo:$refreshOutput/FrameRefreshViewModelTests.obj"
 if ($LASTEXITCODE) { throw 'Production refresh view-model compilation failed.' }
 & "$refreshOutput/FrameRefreshViewModelTests.exe"
 if ($LASTEXITCODE) { throw 'Production refresh view-model tests failed.' }
+& python "$PSScriptRoot/prepare_frame_refresh_mode_test.py" $refreshOutput
+if ($LASTEXITCODE) { throw 'Production global mode extraction failed.' }
+& cl.exe /nologo /std:c++20 /EHsc /utf-8 /MT /O2 /W4 /WX /DNOMINMAX "/I$refreshRepo/src/Magpie.Core/include" "/I$($refreshRapid.FullName)/p/include" `
+    "$refreshOutput/frame_refresh_mode.cpp" "/Fe:$refreshOutput/FrameRefreshModeTests.exe" "/Fo:$refreshOutput/FrameRefreshModeTests.obj"
+if ($LASTEXITCODE) { throw 'Production global mode compilation failed.' }
+& "$refreshOutput/FrameRefreshModeTests.exe"
+if ($LASTEXITCODE) { throw 'Production global mode tests failed.' }
 & python "$PSScriptRoot/check_frame_refresh_bindings.py"
 if ($LASTEXITCODE) { throw 'Unified refresh bindings failed.' }

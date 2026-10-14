@@ -8,6 +8,7 @@
 #include "EffectsService.h"
 #include "EffectDesc.h"
 #include "AutoStartHelper.h"
+#include "AdminStartupSettings.h"
 #include "CommonSharedConstants.h"
 #include "JsonHelper.h"
 #include "LocalizationService.h"
@@ -16,6 +17,7 @@
 #include "Profile.h"
 #include "ProfileFrameSync.h"
 #include "ProfileFrameRefresh.h"
+#include "ProfileRtss.h"
 #include "resource.h"
 #include "ScalingMode.h"
 #include "ScalingModesService.h"
@@ -91,6 +93,7 @@ static void WriteProfile(rapidjson::PrettyWriter<rapidjson::StringBuffer>& write
 	}
 
 	WriteProfileFrameRefresh(writer, profile.frameRefresh);
+	WriteProfileRtss(writer, profile.rtss);
 	writer.Key("parameterFocusSwitching");
 	writer.Bool(profile.isParameterFocusSwitchingEnabled);
 	writer.Key("fullscreenToolbarDock");
@@ -280,7 +283,7 @@ bool AppSettings::Initialize() noexcept {
 		logger.Info("不存在配置文件");
 		_SetDefaultScalingModes();
 		_SetDefaultShortcuts();
-		SaveAsync();
+		if (!_isAlwaysRunAsAdmin || Win32Helper::IsProcessElevated()) SaveAsync();
 		return true;
 	}
 
@@ -330,8 +333,6 @@ bool AppSettings::Initialize() noexcept {
 		bool recovered = plan.kind != ConfigRecovery::Kind::None;
 		bool reused = false;
 		if (recovered) {
-			if (!ConfigRecovery::Preserve(existingConfigPath, configText, files))
-				return failRecovery(L"AppSettings_BackupFailed", files.original, GetLastError());
 			if (Win32Helper::FileExists(files.result.c_str())) {
 				const auto previous = ConfigPersistence::Read(files.result);
 				if (ConfigPersistence::IsValid(previous)) {
@@ -362,6 +363,12 @@ bool AppSettings::Initialize() noexcept {
 		disableHdr(_defaultProfile);
 		for (Profile& profile : _profiles) disableHdr(profile);
 		if (hdrSettingsChanged) logger.Info("HDR compatibility temporarily disabled in saved profiles");
+		// Load the startup preference before requesting elevation, but defer all
+		// migration writes to the elevated replacement. This also covers portable
+		// configurations in directories the ordinary token cannot write.
+		if (_isAlwaysRunAsAdmin && !Win32Helper::IsProcessElevated()) return true;
+		if (recovered && !ConfigRecovery::Preserve(existingConfigPath, configText, files))
+			return failRecovery(L"AppSettings_BackupFailed", files.original, GetLastError());
 		// Existing versioned migrations also preserve the input before their first write.
 		if (_isConfigMigrationNeeded && !recovered) {
 			if (!ConfigRecovery::Preserve(existingConfigPath, configText, files))
@@ -575,6 +582,16 @@ void AppSettings::IsAlwaysRunAsAdmin(bool value) noexcept {
 	if (AutoStartHelper::IsAutoStartEnabled()) {
 		AutoStartHelper::EnableAutoStart(value);
 	}
+}
+
+void AppSettings::UpdateAdminAutoStart() noexcept {
+	if (_adminAutoStartDefaultsVersion >= ADMIN_STARTUP_DEFAULTS_VERSION) return;
+	if (_isAlwaysRunAsAdmin && !Win32Helper::IsProcessElevated()) return;
+	if (AutoStartHelper::IsAutoStartEnabled() && !AutoStartHelper::EnableAutoStart(_isAlwaysRunAsAdmin)) {
+		Logger::Get().Warn("Could not migrate the administrator auto-start task"); return;
+	}
+	_adminAutoStartDefaultsVersion = ADMIN_STARTUP_DEFAULTS_VERSION;
+	SaveAsync();
 }
 
 void AppSettings::IsShowNotifyIcon(bool value) noexcept {
@@ -801,6 +818,10 @@ std::string AppSettings::_Serialize(const _AppSettingsData& data) {
 	writer.Bool(data._isSimulateExclusiveFullscreen);
 	writer.Key("alwaysRunAsAdmin");
 	writer.Bool(data._isAlwaysRunAsAdmin);
+	writer.Key("adminStartupDefaultsVersion");
+	writer.Uint(data._adminStartupDefaultsVersion);
+	writer.Key("adminAutoStartDefaultsVersion");
+	writer.Uint(data._adminAutoStartDefaultsVersion);
 	writer.Key("showNotifyIcon");
 	writer.Bool(data._isShowNotifyIcon);
 	writer.Key("smoothMotionCompatibilityMode");
@@ -815,6 +836,8 @@ std::string AppSettings::_Serialize(const _AppSettingsData& data) {
 	writer.Int64(data._updateCheckDate.time_since_epoch().count());
 	writer.Key("duplicateFrameDetectionMode");
 	writer.Uint((uint32_t)data._duplicateFrameDetectionMode);
+	writer.Key("simpleFrameRefresh");
+	writer.Bool(data._isSimpleFrameRefresh);
 	writer.Key("enableStatisticsForDynamicDetection");
 	writer.Bool(data._isStatisticsForDynamicDetectionEnabled);
 	writer.Key("stopEffectsOnTaskSwitch");
@@ -856,6 +879,8 @@ std::string AppSettings::_Serialize(const _AppSettingsData& data) {
 	writer.Uint((uint32_t)data._windowedInitialToolbarState);
 	writer.Key("screenshotsDir");
 	writer.String(StrHelper::UTF16ToUTF8(data._screenshotsDir.native()).c_str());
+	writer.Key("screenshotContent");
+	writer.Uint(static_cast<uint32_t>(data._screenshotContent));
 	writer.Key("windows");
 	writer.StartObject();
 	for (const auto& [name, windowOption] : data._overlayOptions.windows) {
@@ -996,10 +1021,9 @@ void AppSettings::_LoadSettings(const rapidjson::GenericObject<true, rapidjson::
 	JsonHelper::ReadBool(root, "warningsAreErrors", _isWarningsAreErrors);
 	JsonHelper::ReadBool(root, "allowScalingMaximized", _isAllowScalingMaximized);
 	JsonHelper::ReadBool(root, "simulateExclusiveFullscreen", _isSimulateExclusiveFullscreen);
-	if (!JsonHelper::ReadBool(root, "alwaysRunAsAdmin", _isAlwaysRunAsAdmin, true)) {
-		// v0.10.0-preview1 使用 alwaysRunAsElevated
-		JsonHelper::ReadBool(root, "alwaysRunAsElevated", _isAlwaysRunAsAdmin);
-	}
+	_isConfigMigrationNeeded |= ReadAdminStartupSettings(root, _isAlwaysRunAsAdmin, _adminStartupDefaultsVersion);
+	_adminAutoStartDefaultsVersion = 0;
+	JsonHelper::ReadUInt(root, "adminAutoStartDefaultsVersion", _adminAutoStartDefaultsVersion, true);
 	if (!JsonHelper::ReadBool(root, "showNotifyIcon", _isShowNotifyIcon, true)) {
 		// v0.10 使用 showTrayIcon
 		JsonHelper::ReadBool(root, "showTrayIcon", _isShowNotifyIcon);
@@ -1016,14 +1040,16 @@ void AppSettings::_LoadSettings(const rapidjson::GenericObject<true, rapidjson::
 		_updateCheckDate = system_clock::time_point(system_clock::duration(d));
 	}
 	{
-		uint32_t duplicateFrameDetectionMode = (uint32_t)DuplicateFrameDetectionMode::Dynamic;
+		uint32_t duplicateFrameDetectionMode = (uint32_t)DuplicateFrameDetectionMode::Never;
 		JsonHelper::ReadUInt(root, "duplicateFrameDetectionMode", duplicateFrameDetectionMode);
 		if (duplicateFrameDetectionMode > 2) {
-			duplicateFrameDetectionMode = (uint32_t)DuplicateFrameDetectionMode::Dynamic;
+			duplicateFrameDetectionMode = (uint32_t)DuplicateFrameDetectionMode::Never;
 		}
 		_duplicateFrameDetectionMode = (::Magpie::DuplicateFrameDetectionMode)duplicateFrameDetectionMode;
 	}
 	JsonHelper::ReadBool(root, "enableStatisticsForDynamicDetection", _isStatisticsForDynamicDetectionEnabled);
+	_isSimpleFrameRefresh = true;
+	JsonHelper::ReadBool(root, "simpleFrameRefresh", _isSimpleFrameRefresh);
 	float legacyIdle = 10.0f;
 	JsonHelper::ReadFloat(root, "minFrameRate", legacyIdle);
 	if (!std::isfinite(legacyIdle) || legacyIdle < 0 || legacyIdle > 1000) legacyIdle = 10.0f;
@@ -1033,6 +1059,7 @@ void AppSettings::_LoadSettings(const rapidjson::GenericObject<true, rapidjson::
 	const bool migrateLegacyRefresh = refreshVersion < 1;
 	if (migrateLegacyRefresh) _isConfigMigrationNeeded = true;
 	_defaultProfile.frameRefresh = ReadProfileFrameRefresh(root, legacyFrameSync, legacyIdle, migrateLegacyRefresh);
+	_defaultProfile.rtss = ReadProfileRtss(root);
 	uint32_t profileFrameSyncVersion = 0;
 	JsonHelper::ReadUInt(root, "experimentalProfileFrameSyncVersion", profileFrameSyncVersion);
 	if (profileFrameSyncVersion < 1 || root.HasMember("frontEdgeSync") ||
@@ -1133,9 +1160,13 @@ void AppSettings::_LoadSettings(const rapidjson::GenericObject<true, rapidjson::
 		}
 	}
 
+	_screenshotContent = ::Magpie::ScreenshotContent::OutputOnly;
 	auto overlayNode = root.FindMember("overlay");
 	if (overlayNode != root.MemberEnd() && overlayNode->value.IsObject()) {
 		auto overlayObj = overlayNode->value.GetObj();
+		uint32_t screenshotContent = static_cast<uint32_t>(::Magpie::ScreenshotContent::OutputOnly);
+		JsonHelper::ReadUInt(overlayObj, "screenshotContent", screenshotContent, true);
+		_screenshotContent = NormalizeScreenshotContent(screenshotContent);
 
 		uint32_t initialToolbarState = (uint32_t)ToolbarState::AutoHide;
 		if (JsonHelper::ReadUInt(overlayObj, "fullscreenInitialToolbarState", initialToolbarState, true)) {
@@ -1205,6 +1236,7 @@ bool AppSettings::_LoadProfile(
 	bool migrateLegacyRefresh
 ) const noexcept {
 	profile.frameRefresh = ReadProfileFrameRefresh(profileObj, legacyFrameSync, legacyIdle, migrateLegacyRefresh);
+	profile.rtss = ReadProfileRtss(profileObj);
 	profile.isParameterFocusSwitchingEnabled = legacyParameterFocusSwitching;
 	JsonHelper::ReadBool(profileObj, "parameterFocusSwitching", profile.isParameterFocusSwitchingEnabled);
 	{

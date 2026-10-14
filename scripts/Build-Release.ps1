@@ -12,7 +12,9 @@ param(
     [switch]$IncludeSymbols,
     [switch]$SkipBuild,
     [switch]$RequireMagpieClosed,
-    [switch]$EnableFrameTrace
+    [switch]$EnableFrameTrace,
+    [ValidateSet('Minimal', 'Full')]
+    [string]$NvidiaVfxRuntimeLayout = 'Minimal'
 )
 
 $ErrorActionPreference = "Stop"
@@ -21,6 +23,44 @@ Set-StrictMode -Version Latest
 $sourceRoot = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot ".."))
 $workspaceRoot = Split-Path $sourceRoot -Parent
 $releaseRoot = [System.IO.Path]::GetFullPath((Join-Path $workspaceRoot "release"))
+
+$featureOptions = [ordered]@{}
+$buildOptionsPath = Join-Path $sourceRoot "src\BuildOptions.props"
+[xml]$buildOptions = Get-Content -LiteralPath $buildOptionsPath
+$supportedFeatureOptions = @{}
+$buildOptions.Project.PropertyGroup.ChildNodes | Where-Object {
+    $_.Name -like "Enable*"
+} | ForEach-Object {
+    $supportedFeatureOptions[$_.Name] = $true
+    if ($_.InnerText -in @("true", "false")) {
+        $featureOptions[$_.Name] = [string]$_.InnerText
+    }
+}
+$userOptionsPath = Join-Path $sourceRoot "src\BuildOptions.props.user"
+if (Test-Path -LiteralPath $userOptionsPath) {
+    [xml]$userOptions = Get-Content -LiteralPath $userOptionsPath
+    $properties = $userOptions.Project.PropertyGroup.ChildNodes | Where-Object {
+        $_.Name -like "Enable*" -and $supportedFeatureOptions.ContainsKey($_.Name)
+    }
+    foreach ($property in $properties) {
+        $featureOptions[$property.Name] = [string]$property.InnerText
+    }
+}
+# Match the compatibility defaults as well as explicit user overrides.
+if (!$featureOptions.Contains("EnableDLSSSR") -and
+    $featureOptions.Contains("EnableDLSSZeroMV")) {
+    $featureOptions["EnableDLSSSR"] = $featureOptions["EnableDLSSZeroMV"]
+}
+if (!$featureOptions.Contains("EnableAmdOpticalFlow")) {
+    $featureOptions["EnableAmdOpticalFlow"] = if ($featureOptions["EnableFSR3FrameGeneration"] -eq 'true') {
+        'true'
+    } else { $featureOptions["EnableFSR3ZeroMV"] }
+}
+if ($Platform -eq 'x64' -and $featureOptions["EnableFSR3FrameGeneration"] -eq 'true' -and
+    $featureOptions["EnableAmdOpticalFlow"] -ne 'true') {
+    throw 'FSR3 FG requires EnableAmdOpticalFlow=true, including -SkipBuild packages.'
+}
+
 
 function Find-MSBuild {
     $command = Get-Command msbuild.exe -ErrorAction SilentlyContinue
@@ -251,6 +291,7 @@ if (!$SkipBuild) {
     )
     $traceEnabled = if ($EnableFrameTrace) { "true" } else { "false" }
     $msbuildArgs += "/p:EnableFrameTrace=$traceEnabled"
+    $msbuildArgs += "/p:NvidiaVfxRuntimeLayout=$NvidiaVfxRuntimeLayout"
     if ($IncludeSymbols) {
         $msbuildArgs += @(
             "/p:GenerateReleaseSymbols=true"
@@ -354,6 +395,7 @@ if (Test-Path -LiteralPath $parameterInputGuide) {
 }
 
 foreach ($guide in @(
+    @{ source = 'docs/DLSSNR-TROUBLESHOOTING.md'; target = 'DLSSNR-TROUBLESHOOTING.md' },
     @{ source = 'docs/experimental/effects/DLSSNR-MULTIPASS.md'; target = 'DLSSNR-MULTIPASS.md' },
     @{ source = 'docs/experimental/effects/XESSFG.md'; target = 'XESSFG.md' },
     @{ source = 'docs/experimental/design/XESSFG-COMPATIBILITY-NOTICE.md'; target = 'XESSFG-COMPATIBILITY-NOTICE.md' }
@@ -361,40 +403,21 @@ foreach ($guide in @(
     Copy-Item -LiteralPath (Join-Path $sourceRoot $guide.source) -Destination (Join-Path $stagingDir $guide.target)
 }
 
-$featureOptions = [ordered]@{}
-$buildOptionsPath = Join-Path $sourceRoot "src\BuildOptions.props"
-[xml]$buildOptions = Get-Content -LiteralPath $buildOptionsPath
-$supportedFeatureOptions = @{}
-$buildOptions.Project.PropertyGroup.ChildNodes | Where-Object {
-    $_.Name -like "Enable*"
-} | ForEach-Object {
-    $supportedFeatureOptions[$_.Name] = $true
-    if ($_.InnerText -in @("true", "false")) {
-        $featureOptions[$_.Name] = [string]$_.InnerText
-    }
-}
-$userOptionsPath = Join-Path $sourceRoot "src\BuildOptions.props.user"
-if (Test-Path -LiteralPath $userOptionsPath) {
-    [xml]$userOptions = Get-Content -LiteralPath $userOptionsPath
-    $properties = $userOptions.Project.PropertyGroup.ChildNodes | Where-Object {
-        $_.Name -like "Enable*" -and $supportedFeatureOptions.ContainsKey($_.Name)
-    }
-    foreach ($property in $properties) {
-        $featureOptions[$property.Name] = [string]$property.InnerText
-    }
-}
-# Match the compatibility defaults as well as explicit user overrides.
-if (!$featureOptions.Contains("EnableDLSSSR") -and
-    $featureOptions.Contains("EnableDLSSZeroMV")) {
-    $featureOptions["EnableDLSSSR"] = $featureOptions["EnableDLSSZeroMV"]
-}
-if (!$featureOptions.Contains("EnableAmdOpticalFlow") -and
-    $featureOptions.Contains("EnableFSR3ZeroMV")) {
-    $featureOptions["EnableAmdOpticalFlow"] =
-        $featureOptions["EnableFSR3ZeroMV"]
-}
-
 $featureOptions["EnableFrameTrace"] = if ($EnableFrameTrace) { "true" } else { "false" }
+if ($featureOptions["EnableDLSSFrameGeneration"] -eq 'true') {
+    # Includes -SkipBuild: old native/mixed output must not become a new package.
+    & (Join-Path $PSScriptRoot 'Test-DlssgSm86Package.ps1') -PackageDirectory $stagingDir
+    $featureOptions['DLSSFrameGenerationProvider'] = 'dlssg_for_sm86/0.3.5/9621db573e07ed54f50c15bbb585ed9a7bdfac28'
+}
+if ($featureOptions["EnableNvidiaVfx"] -eq 'true') {
+    # Also protects -SkipBuild: a former full-Core output cannot silently be
+    # repackaged as the Minimal four-feature distribution.
+    & (Join-Path $PSScriptRoot 'Test-NvidiaVfxPackage.ps1') -PackageDirectory $stagingDir -Layout $NvidiaVfxRuntimeLayout
+    $featureOptions['NvidiaVfxRuntimeLayout'] = $NvidiaVfxRuntimeLayout
+}
+if ($Platform -eq 'x64' -and $featureOptions["EnableFSR3FrameGeneration"] -eq 'true') {
+    & (Join-Path $PSScriptRoot 'Test-FSR3FGPackage.ps1') -PackageDirectory $stagingDir
+}
 if ($featureOptions["EnableFrameTrace"] -eq "true") {
     $diagnosticsDir = Join-Path $stagingDir "Diagnostics"
     New-Item -ItemType Directory -Path $diagnosticsDir -Force | Out-Null

@@ -54,18 +54,31 @@ code=r'''
 #include <iostream>
 #include <limits>
 #include <memory>
+#include <map>
 #include <stdexcept>
 #include <string>
 #include <string_view>
 #include <utility>
 #include <vector>
 #include "ScalingModeNames.h"
+#include "FrameGenerationParameters.h"
 namespace winrt { struct auto_revoke_t{}; inline constexpr auto_revoke_t auto_revoke{}; }
 #include "event.inc"
 using hstring=std::wstring;
 static void Require(bool value,const char* message) { if (!value) throw std::runtime_error(message); }
 namespace Magpie {
-struct ScalingMode { std::wstring name; std::vector<int> effects; };
+struct FixtureEffect {
+ int value;
+ std::wstring name;
+ std::map<std::wstring, float> parameters;
+ bool isRecoveryInvalid = false;
+ std::shared_ptr<const uint8_t> runtimeIdentity = std::make_shared<const uint8_t>(uint8_t{0});
+ FixtureEffect(int v):value(v){}
+ operator int() const { return value; }
+ bool operator==(const FixtureEffect& other) const { return value == other.value; }
+};
+struct ScalingMode { std::wstring name; std::vector<FixtureEffect> effects;
+ std::shared_ptr<const uint8_t> runtimeIdentity = std::make_shared<const uint8_t>(uint8_t{0}); };
 struct Profile { int scalingMode=-1; };
 enum class ScalingError { NoError,DuplicateScalingModeNames };
 enum class EffectAddedWay { Add, Duplicate, Import };
@@ -144,7 +157,7 @@ struct DummyRevoker { void revoke() {} };
 struct ScalingModeItem : std::enable_shared_from_this<ScalingModeItem> {
  uint32_t _index;
  Collection _effects;
- std::vector<int> expected;
+ std::vector<FixtureEffect> expected;
  DummyRevoker _effectsChangedRevoker;
  Event<EffectAddedWay>::EventRevoker _scalingModeAddedRevoker;
  Event<uint32_t,uint32_t>::EventRevoker _scalingModeMovedRevoker;
@@ -178,7 +191,7 @@ struct ScalingModeItem : std::enable_shared_from_this<ScalingModeItem> {
    }
   } else {
    Require(_Data().effects==expected,"surviving row points to a different effect chain");
-   for(size_t i=0;i<expected.size();++i) Require(GetEffectItemImpl(_effects.values[i]).Read()==expected[i],"child effect index changed identity");
+   for(size_t i=0;i<expected.size();++i) Require(GetEffectItemImpl(_effects.values[i]).Read()==int(expected[i]),"child effect index changed identity");
   }
  }
  void RefreshAfterRemoval() { VerifyRendered(); }
@@ -225,7 +238,7 @@ static void DeleteCase(uint32_t removed,bool throughItem,uint32_t loaded=3) {
   Require(weak.expired(),"removed row was retained after synchronous deletion completed");
  } else ScalingModesService::Get().RemoveScalingMode(removed);
  Require(settings.modes.size()==2,"delete did not remove exactly one group");
- Require(settings.modes[0].effects==(removed==0?std::vector<int>{20}:std::vector<int>{10,11,12}),"wrong group removed for duplicate names");
+ Require(settings.modes[0].effects==(removed==0?std::vector<FixtureEffect>{20}:std::vector<FixtureEffect>{10,11,12}),"wrong group removed for duplicate names");
  for(int i=0;i<3;++i) Require(settings.profiles[i].scalingMode==(i==static_cast<int>(removed)?-1:i>static_cast<int>(removed)?i-1:i),"profile index not remapped");
  view.VerifyRendered();
  ScalingModesService::Get().RemoveScalingMode(999);
@@ -269,16 +282,18 @@ int main() {
   Require(service.RenameScalingMode(0,L" renamed "),"self-only case change failed");
   Require(settings.modes[0].name==L"renamed","rename whitespace not normalized");
   service.AddScalingMode(L"SAME",1);
-  Require(settings.modes.back().name==L"SAME (3)" && settings.modes.back().effects==std::vector<int>{2},"copy did not retain effects with a unique name");
+  Require(settings.modes.back().name==L"SAME (3)" && settings.modes.back().effects==std::vector<FixtureEffect>{2},"copy did not retain effects with a unique name");
+  Require(settings.modes.back().runtimeIdentity != settings.modes[1].runtimeIdentity, "duplicate reused group runtime identity");
+  Require(settings.modes.back().effects[0].runtimeIdentity != settings.modes[1].effects[0].runtimeIdentity, "duplicate reused effect runtime identity");
   size_t count=settings.modes.size();service.AddScalingMode(L" ",-1);service.AddScalingMode(L"Invalid",999);
   Require(settings.modes.size()==count,"invalid creation changed data");
   uint32_t renamed=0;
   ImportGroups({{L"Same",{4,5}},{L" same ",{6}}},false,&renamed);
-  Require(renamed==2 && settings.modes[count].effects==std::vector<int>({4,5}) && settings.modes[count+1].effects==std::vector<int>{6},"explicit import lost groups or did not report renaming");
+  Require(renamed==2 && settings.modes[count].effects==std::vector<FixtureEffect>({4,5}) && settings.modes[count+1].effects==std::vector<FixtureEffect>{6},"explicit import lost groups or did not report renaming");
   Require(!service.HasDuplicateNames(),"explicit import created duplicate names");
   settings.modes.clear();
   ImportGroups({{L"Legacy",{7}},{L"Legacy",{8,9}}},true,&renamed);
-  Require(renamed==0 && service.HasDuplicateNames() && settings.modes[0].effects==std::vector<int>{7} && settings.modes[1].effects==std::vector<int>({8,9}),"upgrade altered legacy group identity");
+  Require(renamed==0 && service.HasDuplicateNames() && settings.modes[0].effects==std::vector<FixtureEffect>{7} && settings.modes[1].effects==std::vector<FixtureEffect>({8,9}),"upgrade altered legacy group identity");
   Require(ScalingModeNames::Equal(L" 测试 ",L"测试"),"Chinese whitespace comparison failed");
   std::cout<<"Group identity: duplicate-name deletion, synchronous bindings/lifetime, late-loaded rows, profile remapping, rename/create/copy/import rules and upgrade notices passed.\n";
   return 0;

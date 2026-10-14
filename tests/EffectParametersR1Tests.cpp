@@ -20,7 +20,8 @@ int main() {
 		for (int tier = 0; tier < 4; ++tier) {
 			StoredEffect effect{std::wstring(RTX_VIDEO_IDS[family][tier]), {{L"other", 0.25f}}};
 			assert(MigrateEffectParametersR1(effect));
-			assert(effect.name == RTXVideoCanonicalId<wchar_t>(family));
+			assert(effect.name == RTXVideoCanonicalId<wchar_t>(1));
+			assert(effect.parameters.at(L"category") == (family == 0 ? 3.f : 0.f));
 			assert(effect.parameters.at(L"strength") == tier);
 			assert(effect.parameters.at(L"other") == 0.25f);
 			assert(effect.scale.first == 1.5f && effect.scale.second == 2.0f && effect.scalingType == 3);

@@ -1,5 +1,6 @@
 #pragma once
 #include "RootPage.g.h"
+#include "ErrorService.h"
 #include "Event.h"
 #include "NewProfileViewModel.h"
 #include "ProfileViewModel.h"
@@ -73,6 +74,8 @@ struct RootPage : RootPageT<RootPage> {
 	void NavigateToAboutPage();
 	bool NavigateToIssueProfile(std::wstring_view name, std::wstring_view pathRule, std::wstring_view classRule);
 	void NavigateToScalingModes();
+	void NavigateToHome();
+	void NavigateToIssueEffects(const ::Magpie::IssueContext& context);
 
 	TitleBarControl& TitleBar();
 

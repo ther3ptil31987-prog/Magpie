@@ -23,3 +23,17 @@ static_assert(sizeof(MagpieRtxHdrSettings) == 16);
 using RtxHdrCreateFn = HRESULT(WINAPI*)(ID3D11Device*, const wchar_t*, void**, uint32_t*);
 using RtxHdrDrawFn = HRESULT(WINAPI*)(void*, ID3D11Texture2D*, ID3D11Texture2D*, const MagpieRtxHdrSettings*, uint32_t*);
 using RtxHdrDestroyFn = HRESULT(WINAPI*)(void*);
+enum class RtxHdrCleanupStage : uint32_t { None, ReleaseFeature, DestroyParameters, Shutdown, Faulted, Exception };
+inline const char* RtxHdrCleanupStageName(RtxHdrCleanupStage stage) noexcept {
+	switch (stage) {
+	case RtxHdrCleanupStage::None: return "None";
+	case RtxHdrCleanupStage::ReleaseFeature: return "ReleaseFeature";
+	case RtxHdrCleanupStage::DestroyParameters: return "DestroyParameters";
+	case RtxHdrCleanupStage::Shutdown: return "Shutdown1";
+	case RtxHdrCleanupStage::Faulted: return "AlreadyFaulted";
+	case RtxHdrCleanupStage::Exception: return "SEHException";
+	default: return "Unknown";
+	}
+}
+// Extended diagnostic ABI; keep the original export for older callers.
+using RtxHdrDestroyExFn = HRESULT(WINAPI*)(void*, RtxHdrCleanupStage*, uint32_t*);

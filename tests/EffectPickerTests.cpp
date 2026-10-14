@@ -23,6 +23,13 @@ int main() {
 	aa.firstTry = true;
 	assert(MatchesEffectCategory(aa, L"first_try", L""));
 	std::vector<EffectPickerEntry> advancedEntries;
+	// Keep new frame generators reachable independently of their level label.
+	EffectPickerEntry fsr3;
+	fsr3.id = L"FSR3FG\\FSR3_FrameGeneration";
+	fsr3.category = L"frame"; fsr3.subcategory = L"补帧";
+	assert(MatchesEffectCategory(fsr3, L"advanced", L""));
+	assert(MatchesEffectCategory(fsr3, L"frame", L"补帧"));
+	assert(!MatchesEffectCategory(fsr3, L"frame", L"帧率调度"));
 	for (const auto id : ADVANCED_PICKER_EFFECTS) {
 		EffectPickerEntry entry;
 		entry.id = id; entry.name = id; entry.category = L"style";
@@ -38,7 +45,8 @@ int main() {
 		advancedEntries.push_back(entry);
 	}
 	const auto advancedTree = BuildEffectPickerTree(advancedEntries, L"advanced", L"", L"", {}, {});
-	assert(advancedTree.effectCount == 5 && advancedTree.rows.size() == 5);
+	assert(advancedTree.effectCount == std::size(ADVANCED_PICKER_EFFECTS) &&
+		advancedTree.rows.size() == std::size(ADVANCED_PICKER_EFFECTS));
 	for (int family = 0; family < 2; ++family) {
 		const auto canonical = RTXVideoCanonicalId<wchar_t>(family);
 		assert(RTXVideoFamily(canonical) == family);
@@ -52,7 +60,17 @@ int main() {
 	}
 	assert(RTXVideoFamily(L"custom\\RTXVideo_VSR_High") == -1);
 	assert(RTXVideoFamily(L"RTXVideo\\RTXVideo_VSR_High_Custom") == -1);
-	assert(EffectHelper::GetDisplayName(L"XeSSFG\\XeSS_FrameGeneration") == L"XeSS_FrameGeneration");
+	for (const auto& [id, name] : std::vector<std::pair<std::wstring, std::wstring>>{
+		{L"DLSSFG\\DLSS_FrameGeneration", L"DLSS FrameGeneration"},
+		{L"XeSSFG\\XeSS_FrameGeneration", L"XeSS FrameGeneration"},
+		{L"FSR3FG\\FSR3_FrameGeneration", L"FSR3 FrameGeneration"}}) {
+		assert(EffectHelper::GetDisplayName(id) == name);
+		const auto fgSearch = NormalizeEffectSearch(id + L" " + name);
+		assert(MatchesEffectSearch(fgSearch, id));
+		assert(MatchesEffectSearch(fgSearch, name));
+	}
+	assert(EffectHelper::GetDisplayName(L"custom\\FSR3_FrameGeneration") == L"FSR3_FrameGeneration");
+	assert(EffectHelper::GetDisplayName(L"NvidiaVFX\\VFG") == L"Nvidia VFX VFG");
 	std::vector<EffectPickerEntry> entries;
 	for (const auto& [id, name] : std::vector<std::pair<std::wstring, std::wstring>>{
 		{L"old/16", L"CuNNy-16"}, {L"old/2", L"CuNNy-2"}, {L"v2/4", L"CuNNy2-4"},

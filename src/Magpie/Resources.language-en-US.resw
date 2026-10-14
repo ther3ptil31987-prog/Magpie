@@ -823,7 +823,7 @@
     <value>Restore the source window and enable the effect group again. If capture still fails, open View details to check the capture step and error code.</value>
   </data>
   <data name="Message_CreateFenceFailed" xml:space="preserve">
-    <value>The selected graphics card could not create synchronization resources. Open the profile below, go to Performance → Graphics card and select another available card. If it still fails, update its driver and provide details and logs.</value>
+    <value>The selected graphics card could not create synchronization resources. Open the profile below, go to Performance → Rendering GPU and select another available card. If it still fails, update its driver and provide details and logs.</value>
   </data>
   <data name="Message_NvidiaVsrPathUnsupported" xml:space="preserve">
     <value>NVIDIA VSR did not start (error -2). Exit Magpie, extract the complete package to a folder such as C:\Magpie\, then run Magpie.exe from that folder and retry. Path compatibility is a possible cause. If it still fails, copy the details and include the logs.</value>
@@ -1328,10 +1328,12 @@
   <data name="Message_EffectCompileFailed" xml:space="preserve"><value>An effect failed to compile. See details for its name; restore that effect from the matching release package, or remove it from the effect group and retry. Compiler output is in the log.</value></data>
   <data name="Message_EffectResourceFailed" xml:space="preserve"><value>An effect could not create its textures or rendering resources. Try a smaller output size or fewer effects, then check the effect files listed in details.</value></data>
   <data name="Message_NativeEffectInitFailed" xml:space="preserve"><value>The effect below could not start. Open details to inspect the failed initialization step and any reported file or error code. You can also open the effect group and replace this effect to continue. If the cause is unclear, copy the details and include the logs.</value></data>
-  <data name="Message_FrameGenerationInitFailed" xml:space="preserve"><value>Frame generation did not start. Check the failed step in details. In the effect group below, disable its optical flow, or lower the multiplier if adjustable, then retry. You can also use a group without frame generation.</value></data>
+  <data name="Message_FrameGenerationInitFailed" xml:space="preserve"><value>Frame generation did not start. Open details and follow the failed step. If a runtime is missing, validation failed, or a restart is required, restore the complete installation package and restart Magpie. You can also use a group without frame generation.</value></data>
   <data name="Message_OverlayInitFailed" xml:space="preserve"><value>The toolbar or cursor overlay could not initialize. Extract the full release package again and enable the effect group again. If it persists, share the details and log.</value></data>
   <data name="Message_SharedTextureOpenFailed" xml:space="preserve"><value>The graphics device could not share the frame output. Try the same GPU for capture and output, or disable frame generation; update the driver if it persists.</value></data>
-  <data name="Message_DlssNrUnavailable" xml:space="preserve"><value>DLSSNR is not processing the image; the image continues to display and other effects keep their order. Open details to check the DLSSNR initialization failure, then enable the group again after resolving it. DLSSNR parameters remain unavailable until it starts successfully.</value></data>
+  <data name="Message_DlssNrUnavailable" xml:space="preserve">
+    <value>DLSSNR has been skipped while the effect group continues. Open the details for the detected reason and recovery steps; confirm “DLSSNR is running” after recovery.</value>
+  </data>
   <data name="Message_FrameGenerationDisabled" xml:space="preserve"><value>Frame generation was disabled for this session after repeated failures. Original frames will continue. Try a lower multiplier or different optical flow settings, then restart the effect group.</value></data>
   <data name="Message_ConfigurationWriteFailed" xml:space="preserve"><value>Recent changes have not been saved to disk. Keep Magpie open and check the configuration path and cause in View details. Resolve the problem, then click Retry save. Exit after saving succeeds.</value></data>
   <data name="Message_EffectParameterConflict" xml:space="preserve"><value>The group or parameters changed elsewhere. This panel’s changes did not overwrite them. Disable and re-enable the group to load the latest settings before adjusting again.</value></data>
@@ -1341,7 +1343,9 @@
   <data name="Message_ScreenshotEncodeFailed" xml:space="preserve"><value>The image could not be encoded as a screenshot. Re-enable the effect group and click Take Screenshot on the toolbar again. If it still fails, copy the details and include the logs.</value></data>
   <data name="Message_ScreenshotReadbackFailed" xml:space="preserve"><value>The frame could not be read from the GPU. Restart the effect group and try again; if it persists, try a smaller output size or fewer effects and share the details and log.</value></data>
   <data name="Overlay_EffectParameters_Unavailable" xml:space="preserve"><value>Unavailable</value></data>
-  <data name="Overlay_EffectParameters_BackendUnavailable" xml:space="preserve"><value>DLSSNR is passing through because its backend did not initialize. Check Home → Most recent issue, then restart the effect group.</value></data>
+  <data name="Overlay_EffectParameters_BackendUnavailable" xml:space="preserve">
+    <value>The effect is not processing frames. See its status and next steps above; parameter edits cannot restore it.</value>
+  </data>
   <data name="Message_SourceWindowClosed" xml:space="preserve"><value>The target window has closed. Open it again, bring it to the foreground and enable the effect group.</value></data>
   <data name="Message_SourceWindowUnresponsive" xml:space="preserve"><value>The target window is not responding. Wait for it to respond, or restart that application before enabling the effect group.</value></data>
   <data name="Message_SourceWindowTooSmall" xml:space="preserve"><value>The visible capture area is smaller than 64 × 64 pixels. Enlarge the target window and move it fully onto the screen, then retry.</value></data>
@@ -1372,7 +1376,7 @@
   <data name="Motion_Nvidia_4" xml:space="preserve"><value>High quality</value></data>
   <data name="Motion_Amd_0" xml:space="preserve"><value>Performance</value></data>
   <data name="Motion_Amd_1" xml:space="preserve"><value>Quality</value></data>
-  <data name="Overlay_Profiler_FrameRateWithFG" xml:space="preserve"><value>Frame rate (total / real)</value></data>
+  <data name="Overlay_Profiler_FrameRateWithFG" xml:space="preserve"><value>Frame rate (content / real)</value></data>
   <data name="Overlay_EffectParameters_NotApplied" xml:space="preserve"><value>Not applied (current: {0})</value></data>
   <data name="Overlay_EffectParameters_ApplyPending" xml:space="preserve"><value>{0} change(s) not yet applied</value></data>
   <data name="EffectParam_DLSS_DLSS_SR_opticalFlowMethod_Label" xml:space="preserve"><value>Optical Flow Method</value></data>
@@ -1526,9 +1530,7 @@
   <data name="EffectParam_RTXVideo_RTXVideo_Denoise_strength_Option_3" xml:space="preserve">
     <value>Ultra</value>
   </data>
-  <data name="EffectParam_RTXVideo_RTXVideo_VSR_strength_Label" xml:space="preserve">
-    <value>Strength</value>
-  </data>
+  <data name="EffectParam_RTXVideo_RTXVideo_VSR_strength_Label" xml:space="preserve"><value>Quality level</value></data>
   <data name="EffectParam_RTXVideo_RTXVideo_VSR_strength_Option_0" xml:space="preserve">
     <value>Low</value>
   </data>
@@ -1542,13 +1544,13 @@
     <value>Ultra</value>
   </data>
   <data name="Message_HdrComponentExpectedHdr" xml:space="preserve"><value>The input to HDR to SDR is already SDR. Remove the duplicate conversion, or move it after a component that produces HDR.</value></data>
-  <data name="Message_HdrComponentExpectedSdr" xml:space="preserve"><value>SDR to HDR and RTX Video HDR need SDR input. Remove the preceding HDR expansion, or add HDR to SDR before this component.</value></data>
+  <data name="Message_HdrComponentExpectedSdr" xml:space="preserve"><value>SDR to HDR and Nvidia VFX TrueHDR need SDR input. Remove the preceding HDR expansion, or add HDR to SDR before this component.</value></data>
   <data name="Message_HdrComponentMissingPair" xml:space="preserve"><value>No compatibility pair is available. Add an earlier HDR to SDR in compatibility mode, or select Auto / Native SDR mapping in SDR to HDR.</value></data>
   <data name="Message_HdrComponentInvalidParameters" xml:space="preserve"><value>An HDR component parameter is outside its supported range. Restore the component defaults in the effect group and retry; copy the details if it still fails.</value></data>
   <data name="Message_HdrCaptureRequired" xml:space="preserve"><value>HDR to SDR needs HDR capture. Enable HDR for the source display in Windows settings. For native SDR, use SDR effects directly and optionally append SDR to HDR.</value></data>
   <data name="Message_HdrDisplayRequired" xml:space="preserve"><value>This group outputs HDR. Enable HDR for the target display in Windows settings, or finish the group with HDR to SDR in display mode. Enable HDR on every target when spanning displays.</value></data>
   <data name="Message_HdrCaptureMethodRequired" xml:space="preserve"><value>Select Graphics Capture in this profile, then retry HDR to SDR. This capture path preserves the HDR brightness range.</value></data>
-  <data name="Message_RtxHdrUnavailable" xml:space="preserve"><value>RTX Video HDR could not process this frame. Update the NVIDIA driver, use an RTX 20-series or newer GPU, and restore Magpie.RtxVideo.dll and nvngx_truehdr.dll from the complete package. You can replace this component with native SDR mapping in SDR to HDR. If it still fails, fully restart Magpie and copy the details.</value></data>
+  <data name="Message_RtxHdrUnavailable" xml:space="preserve"><value>Nvidia VFX TrueHDR could not process this frame. Check the selected rendering GPU, NVIDIA driver and matched VFX Core/TrueHDR components. Fully restart Magpie and copy the details if it still fails.</value></data>
   <data name="EffectParam_Color_HDR_to_SDR_mode_Label" xml:space="preserve"><value>Mapping</value></data>
   <data name="EffectParam_Color_HDR_to_SDR_mode_Option_0" xml:space="preserve"><value>Compatibility pair</value></data>
   <data name="EffectParam_Color_HDR_to_SDR_mode_Option_1" xml:space="preserve"><value>SDR display tone map</value></data>
@@ -1642,8 +1644,8 @@
   <data name="Profile_Advanced_ParameterFocusSwitching.Description" xml:space="preserve"><value>Enable focus switching during live parameter adjustment. This may be unstable with some windows.</value></data>
   <data name="Home_Advanced_StopEffectsOnTaskSwitch.Header" xml:space="preserve"><value>Disable active effects when switching tasks</value></data>
   <data name="Home_Advanced_StopEffectsOnTaskSwitch.Description" xml:space="preserve"><value>If switching tasks while using DLSSNR makes you feel like you have eaten poisonous mushrooms, try enabling this.</value></data>
-  <data name="EffectPicker_CustomSummary" xml:space="preserve"><value>Custom effect; see the author's guidance.</value></data>
-  <data name="EffectPicker_CustomDetails" xml:space="preserve"><value>Follow the author's guidance for parameters, output size, and chain placement. Also check the documented HDR support, runtime dependencies, and GPU requirements.</value></data>
+  <data name="EffectPicker_CustomSummary" xml:space="preserve"><value>An installed custom effect; see its author’s description for its purpose.</value></data>
+  <data name="EffectPicker_CustomDetails" xml:space="preserve"><value>Processes images using an author-provided effect. Start with the author’s suggested parameters and size, then follow their guidance on chain position, HDR input, and runtime requirements.</value></data>
   <data name="EffectPicker_All" xml:space="preserve"><value>All</value></data>
   <data name="EffectPicker_AllDescription" xml:space="preserve"><value>Browse the purpose, recommended scenarios, and combination guidance for installed effects.</value></data>
   <data name="EffectPicker_DetailScrollHint" xml:space="preserve"><value>Ctrl + wheel: scroll description</value></data>
@@ -1654,7 +1656,7 @@
   <data name="EffectPicker_Advanced" xml:space="preserve"><value>Advanced</value></data>
   <data name="EffectPicker_AdvancedDescription" xml:space="preserve"><value>Video super resolution, frame generation, AI image enhancement, and frame-rate control. Choose according to your GPU and target image.</value></data>
   <data name="EffectPicker_CustomCategory" xml:space="preserve"><value>Custom / uncategorized</value></data>
-  <data name="EffectPicker_CustomCategoryDescription" xml:space="preserve"><value>Installed effects outside this catalog; follow the author's guidance for parameters, size, and chain placement.</value></data>
+  <data name="EffectPicker_CustomCategoryDescription" xml:space="preserve"><value>Installed effects outside the built-in catalog; see the author’s description for purpose and setup.</value></data>
   <data name="EffectPicker_SearchPlaceholder" xml:space="preserve"><value>Search effects, purposes, or keywords…</value></data>
   <data name="EffectPicker_SearchAutomationName" xml:space="preserve"><value>Search all effects</value></data>
   <data name="EffectPicker_JumpTo" xml:space="preserve"><value>Jump to </value></data>
@@ -1676,8 +1678,6 @@
   <data name="EffectParam_DLSSNR_DLSSNR_AI_Filter_antiFlicker_Option_2" xml:space="preserve"><value>Optical Flow Accumulation</value></data>
   <data name="EffectParam_DLSSNR_DLSSNR_AI_Filter_antiFlicker_Option_3" xml:space="preserve"><value>Optical Flow Accumulation+</value></data>
   <data name="EffectParam_DLSSNR_DLSSNR_AI_Filter_antiFlicker_Option_4" xml:space="preserve"><value>Low-frequency Temporal Reconstruction</value></data>
-  <data name="EffectParam_DLSSFG_DLSS_FrameGeneration_duplicateFrameFiltering_Label" xml:space="preserve"><value>Duplicate Frame Filtering</value></data>
-  <data name="EffectParam_XeSSFG_XeSS_FrameGeneration_duplicateFrameFiltering_Label" xml:space="preserve"><value>Duplicate Frame Filtering</value></data>
   <data name="EffectParam_xBR_xBR_2x_paramXbrYWeight_Label" xml:space="preserve"><value>Y Weight</value></data>
   <data name="EffectParam_xBR_xBR_2x_paramXbrEqThreshold_Label" xml:space="preserve"><value>Eq Threshold</value></data>
   <data name="EffectParam_xBR_xBR_2x_paramXbrLv2Coefficient_Label" xml:space="preserve"><value>LV2 Coefficient</value></data>
@@ -1722,8 +1722,8 @@
   <data name="Profile_Cursor_Refresh_Rate.Header" xml:space="preserve"><value>Minimum refresh rate</value></data>
   <data name="Profile_Cursor_Refresh_Rate.Description" xml:space="preserve"><value>Target minimum cursor refresh rate.</value></data>
   <data name="Home_Advanced_DeveloperOptions_DuplicateFrameDetection.Description" xml:space="preserve"><value>Detects and skips identical images across all profiles.</value></data>
-  <data name="EffectParam_DLSSNR_DLSSNR_AI_Filter_enableInputResolutionScaling_Description" xml:space="preserve"><value>Adjust the input resolution sent to NR.</value></data>
-  <data name="EffectParam_DLSSNR_DLSSNR_AI_Filter_inputResolutionPercent_Description" xml:space="preserve"><value>Set the NR input resolution as a percentage of the original image.</value></data>
+  <data name="EffectParam_DLSSNR_DLSSNR_AI_Filter_enableInputResolutionScaling_Description" xml:space="preserve"><value>Adjusts the AI working resolution and enables detail controls, which apply once after all passes. SDR only; restart scaling to apply changes.</value></data>
+  <data name="EffectParam_DLSSNR_DLSSNR_AI_Filter_inputResolutionPercent_Description" xml:space="preserve"><value>Lower percentages reduce working resolution, changing processing cost and textures while retaining the final output size. Restart scaling to apply changes.</value></data>
   <data name="EffectParam_DLSSNR_DLSSNR_AI_Filter_residualMultiplier_Description" xml:space="preserve"><value>Adjust the overall strength of NR processing.</value></data>
   <data name="EffectParam_DLSSNR_DLSSNR_AI_Filter_residualSaturation_Description" xml:space="preserve"><value>Adjust the strength of color changes from NR.</value></data>
   <data name="EffectParam_DLSSNR_DLSSNR_AI_Filter_residualLightness_Description" xml:space="preserve"><value>Adjust the overall strength of lightness changes from NR.</value></data>
@@ -1737,9 +1737,9 @@
   <data name="EffectParam_DLSSNR_DLSSNR_AI_Filter_residualLowFrequencyGain_Description" xml:space="preserve"><value>Adjust the strength of smoothly varying corrections.</value></data>
   <data name="EffectParam_DLSSNR_DLSSNR_AI_Filter_residualDetailGain_Description" xml:space="preserve"><value>Adjust the strength of detailed corrections.</value></data>
   <data name="EffectParam_DLSSNR_DLSSNR_AI_Filter_residualDebugView_Description" xml:space="preserve"><value>View correction and protection effects.</value></data>
-  <data name="EffectParam_DLSSNR_DLSSNR_AI_Filter_opticalFlowMethod_Description" xml:space="preserve"><value>Select the optical flow method used by NR.</value></data>
-  <data name="EffectParam_DLSSNR_DLSSNR_AI_Filter_amdOpticalFlowMode_Description" xml:space="preserve"><value>Set AMD optical flow quality.</value></data>
-  <data name="EffectParam_DLSSNR_DLSSNR_AI_Filter_nvidiaOpticalFlowQuality_Description" xml:space="preserve"><value>Set NVIDIA optical flow quality.</value></data>
+  <data name="EffectParam_DLSSNR_DLSSNR_AI_Filter_opticalFlowMethod_Description" xml:space="preserve"><value>Selects how motion is estimated from consecutive frames. AMDOF works across GPU vendors; NVOF requires a rendering GPU with NVIDIA optical-flow support. Restart scaling to apply changes.</value></data>
+  <data name="EffectParam_DLSSNR_DLSSNR_AI_Filter_amdOpticalFlowMode_Description" xml:space="preserve"><value>Applies when AMDOF is selected. Performance favors lower cost; Quality uses more computation for motion estimation. Restart scaling to apply changes.</value></data>
+  <data name="EffectParam_DLSSNR_DLSSNR_AI_Filter_nvidiaOpticalFlowQuality_Description" xml:space="preserve"><value>Applies when NVOF is selected. Higher levels use more computation for motion estimation. Restart scaling to apply changes.</value></data>
   <data name="EffectParam_DLSSNR_DLSSNR_AI_Filter_style_Description" xml:space="preserve"><value>Select the NR processing style for this pass.</value></data>
   <data name="EffectParam_DLSSNR_DLSSNR_AI_Filter_intensity_Description" xml:space="preserve"><value>Adjust the NR processing strength for this pass.</value></data>
   <data name="EffectParam_DLSSNR_DLSSNR_AI_Filter_localToneStrength_Description" xml:space="preserve"><value>Adjust local tone processing for this pass.</value></data>
@@ -1747,8 +1747,8 @@
   <data name="EffectParam_DLSSNR_DLSSNR_AI_Filter_skinStructureStrength_Description" xml:space="preserve"><value>Adjust skin structure processing for this pass.</value></data>
   <data name="EffectParam_DLSSNR_DLSSNR_AI_Filter_useAutoMask_Description" xml:space="preserve"><value>Enable automatic masking for this pass.</value></data>
   <data name="EffectParam_DLSSNR_DLSSNR_AI_Filter_uiCorrection_Description" xml:space="preserve"><value>Improve interface elements and text after NR processing.</value></data>
-  <data name="EffectParam_DLSSNR_DLSSNR_AI_Filter_multiPass_Description" xml:space="preserve"><value>Set the number of consecutive NR passes.</value></data>
-  <data name="EffectParam_DLSSNR_DLSSNR_AI_Filter_antiFlicker_Description" xml:space="preserve"><value>Stabilize the image across consecutive frames.</value></data>
+  <data name="EffectParam_DLSSNR_DLSSNR_AI_Filter_multiPass_Description" xml:space="preserve"><value>Sets consecutive processing passes, each with independent style and intensity. More passes add cost and accumulate texture changes. Restart scaling to apply changes.</value></data>
+  <data name="EffectParam_DLSSNR_DLSSNR_AI_Filter_antiFlicker_Description" xml:space="preserve"><value>Uses frame history to reduce texture flicker; optical-flow modes use estimated motion between frames. Restart scaling to apply changes.</value></data>
   <data name="EffectParam_DLSSNR_DLSSNR_AI_Filter_Group_Advanced_Adjustments" xml:space="preserve"><value>Advanced Adjustments</value></data>
   <data name="EffectParameter_Help_Range" xml:space="preserve"><value>Range</value></data>
   <data name="EffectParameter_Help_Default" xml:space="preserve"><value>Default</value></data>
@@ -1781,14 +1781,14 @@
   <data name="FrameRefresh_Reset.Header" xml:space="preserve"><value>Restore refresh defaults</value></data>
   <data name="Home_FrameRefresh.Header" xml:space="preserve"><value>Default frame rate and refresh</value></data>
   <data name="FrameRefresh.Description" xml:space="preserve"><value>Saved per profile. Re-enable scaling to apply.</value></data>
-  <data name="FrameRefresh_Content.Description" xml:space="preserve"><value>Sets Magpie’s content processing rate. Auto uses display refresh and the frame generation multiplier.</value></data>
+  <data name="FrameRefresh_Content.Description" xml:space="preserve"><value>Set the content processing frame rate.</value></data>
   <data name="FrameRefresh_Pacing.Description" xml:space="preserve"><value>Selects how content frames are paced.</value></data>
   <data name="FrameRefresh_ContentRate.Description" xml:space="preserve"><value>Sets the target rate for base content processing.</value></data>
-  <data name="FrameRefresh_Cursor.Description" xml:space="preserve"><value>Selects how the system cursor is refreshed.</value></data>
+  <data name="FrameRefresh_Cursor.Description" xml:space="preserve"><value>Choose how the cursor refreshes.</value></data>
   <data name="FrameRefresh_CursorSupplement.Description" xml:space="preserve"><value>Selects automatic or custom supplemental cursor refresh.</value></data>
   <data name="FrameRefresh_CursorRate.Description" xml:space="preserve"><value>Sets the target minimum rate for supplemental cursor refresh.</value></data>
-  <data name="FrameRefresh_Advanced.Description" xml:space="preserve"><value>Duplicate detection and idle redraw.</value></data>
-  <data name="FrameRefresh_Idle.Description" xml:space="preserve"><value>Redraws the current image while content is idle.</value></data>
+  <data name="FrameRefresh_Advanced.Description" xml:space="preserve"><value>Variable refresh rate, duplicate detection and idle redraw.</value></data>
+  <data name="FrameRefresh_Idle.Description" xml:space="preserve"><value>Redraw unchanged content at the selected rate. FG reuses cached output after about 0.5 seconds without new content, without generating frames.</value></data>
   <data name="FrameRefresh_IdleRate.Description" xml:space="preserve"><value>Sets the target rate for idle redraw.</value></data>
   <data name="FrameRefresh_Reset.Description" xml:space="preserve"><value>Restores content 60, supplemental cursor 60, idle redraw 30 FPS, and Front Edge.</value></data>
   <data name="FrameRefresh_Content_Input.[using:Windows.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Content frame rate</value></data>
@@ -1805,5 +1805,526 @@
     <value>Config folder</value>
   </data>
   <data name="FrameRefresh_DuplicateDetection_Input.[using:Windows.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Duplicate frame detection</value></data>
+  <data name="Profile_General_GraphicsCard.Header" xml:space="preserve">
+    <value>Rendering GPU</value>
+  </data>
+  <data name="Profile_General_GraphicsCard_Input.[using:Windows.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>Rendering GPU</value>
+  </data>
+  <data name="Profile_General_GraphicsCard_Auto" xml:space="preserve">
+    <value>Automatic</value>
+  </data>
+  <data name="Profile_General_GraphicsCard_None" xml:space="preserve">
+    <value>No available GPU found</value>
+  </data>
+  <data name="Profile_General_GraphicsCard_Unavailable" xml:space="preserve">
+    <value>Selected GPU temporarily unavailable</value>
+  </data>
+  <data name="Profile_General_NoGraphicsCard.Title" xml:space="preserve">
+    <value>No available GPU found</value>
+  </data>
+  <data name="Profile_General_NoGraphicsCard.Message" xml:space="preserve">
+    <value>Enabling effects will attempt CPU rendering. Check your graphics driver.</value>
+  </data>
+  <data name="Profile_General_GraphicsCardUnavailable.Title" xml:space="preserve">
+    <value>Selected GPU temporarily unavailable</value>
+  </data>
+  <data name="Profile_General_GraphicsCardUnavailable.Message" xml:space="preserve">
+    <value>Effects will automatically use an available GPU. The selected GPU will be used again when it returns.</value>
+  </data>
+
+  <data name="FrameRefresh_VRR.Header" xml:space="preserve"><value>VRR variable refresh rate</value></data>
+  <data name="FrameRefresh_VRR.Description" xml:space="preserve"><value>Let the display refresh rate follow the output frame rate.</value></data>
+  <data name="FrameRefresh_VRR_Input.OffContent" xml:space="preserve"><value>Off</value></data>
+  <data name="FrameRefresh_VRR_Input.OnContent" xml:space="preserve"><value>On</value></data>
+  <data name="FrameRefresh_VRR_Input.[using:Windows.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>VRR variable refresh rate</value></data>
+
+
   <data name="ScalingModes_General_MoreOptions.Content" xml:space="preserve"><value>Other options</value></data>
+  <!-- RTSS target application linkage; English fallback outside zh-Hans. -->
+
+  <data name="HdrParameter_InvalidInput" xml:space="preserve"><value>Enter a number in the shown range; integer parameters require whole numbers.</value></data>
+  <data name="HdrParameter_PreciseInputHelp" xml:space="preserve"><value>Type an exact value; Shift + arrow or wheel uses the coarse step.</value></data>
+  <data name="EffectParam_Color_SDR_to_HDR_nativeWhiteNits_Label" xml:space="preserve"><value>SDR white brightness (nits)</value></data>
+  <data name="EffectParam_Color_SDR_to_HDR_nativeWhiteNits_Description" xml:space="preserve"><value>Sets the HDR brightness corresponding to SDR white; higher values brighten the overall image. Paired restoration uses upstream settings. Restart scaling to apply changes.</value></data>
+  <data name="ScalingModes_HdrMigrationInvalid_Description" xml:space="preserve"><value>The saved HDR configuration could not be safely restored. Its original data is retained. Restore the original group or fix its saved configuration before starting.</value></data>
+  <data name="HdrParameter_PairSource" xml:space="preserve"><value>Restores settings from HDR -&gt; SDR at effect #{}.</value></data>
+
+  <data name="Rtss_TargetLimit.Header" xml:space="preserve"><value>Target application frame rate limit</value></data>
+  <data name="Rtss_Takeover.Description" xml:space="preserve"><value>Limit application frame rate using RTSS.</value></data>
+  <data name="Rtss_Scope_None.Content" xml:space="preserve"><value>Do not manage RTSS profiles</value></data>
+  <data name="Rtss_Scope_Global.Content" xml:space="preserve"><value>Modify global profile</value></data>
+  <data name="Rtss_Scope_Target.Content" xml:space="preserve"><value>Modify target application profile</value></data>
+  <data name="Rtss_Status.Header" xml:space="preserve"><value>RTSS status</value></data>
+  <data name="Rtss_Tools.Content" xml:space="preserve"><value>Launch tools</value></data>
+  <data name="Rtss_Recheck.[using:Windows.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Recheck RTSS</value></data>
+  <data name="Rtss_Recheck.ToolTipService.ToolTip" xml:space="preserve"><value>Recheck RTSS and retry the current request</value></data>
+  <data name="Rtss_GlobalNotice.Text" xml:space="preserve"><value>Applications using the global profile share this limit.</value></data>
+  <data name="Rtss_RateMode.Header" xml:space="preserve"><value>Frame rate setting</value></data>
+  <data name="Rtss_Rate_Custom.Content" xml:space="preserve"><value>Custom frame rate</value></data>
+  <data name="Rtss_Rate_Sync.Content" xml:space="preserve"><value>Sync content frame rate</value></data>
+  <data name="Rtss_CustomRate.Header" xml:space="preserve"><value>Frame rate limit</value></data>
+  <data name="Rtss_ExitPolicy.Header" xml:space="preserve"><value>When scaling stops</value></data>
+  <data name="Rtss_Exit_Keep.Content" xml:space="preserve"><value>Keep changes</value></data>
+  <data name="Rtss_Exit_Restore.Content" xml:space="preserve"><value>Restore original value</value></data>
+  <data name="Rtss_UnmanagedNotice" xml:space="preserve"><value>Magpie is not managing RTSS profiles.</value></data>
+  <data name="Rtss_Status_Checking" xml:space="preserve"><value>Checking RTSS</value></data>
+  <data name="Rtss_Status_NotInstalled" xml:space="preserve"><value>RTSS is not installed</value></data>
+  <data name="Rtss_Status_NotRunning" xml:space="preserve"><value>RTSS is not running.</value></data>
+  <data name="Rtss_Status_Incompatible" xml:space="preserve"><value>Required RTSS profile interface is unavailable.</value></data>
+  <data name="Rtss_Status_Failed" xml:space="preserve"><value>RTSS integration incomplete</value></data>
+  <data name="Rtss_Status_WaitingTarget" xml:space="preserve"><value>Waiting for scaling to start</value></data>
+  <data name="Rtss_Status_Read" xml:space="preserve"><value>Profile read successfully.</value></data>
+  <data name="Rtss_Status_MissingProfile" xml:space="preserve"><value>A target profile will be created when scaling starts.</value></data>
+  <data name="Rtss_Status_WaitingContent" xml:space="preserve"><value>Waiting for a fixed content frame rate · Sync paused</value></data>
+  <data name="Rtss_Status_Applying" xml:space="preserve"><value>Loading frame rate limit</value></data>
+  <data name="Rtss_Status_Written" xml:space="preserve"><value>RTSS is ready</value></data>
+  <data name="Rtss_Status_Conflict" xml:space="preserve"><value>The profile was changed externally.</value></data>
+  <data name="Rtss_Status_Kept" xml:space="preserve"><value>Changes kept.</value></data>
+  <data name="Rtss_Status_Restored" xml:space="preserve"><value>Original frame rate settings restored.</value></data>
+  <data name="Rtss_Status_RestoreFailed" xml:space="preserve"><value>Restoration failed.</value></data>
+  <data name="Rtss_Status_StartingTool" xml:space="preserve"><value>Starting RTSS</value></data>
+  <data name="Rtss_Status_ToolStartFailed" xml:space="preserve"><value>RTSS integration incomplete</value></data>
+  <data name="Rtss_DetectionDisabled" xml:space="preserve"><value>RTSS application detection is disabled.</value></data>
+  <data name="Rtss_TargetOverridesGlobal" xml:space="preserve"><value>The target uses its own profile.</value></data>
+  <data name="Rtss_NoLimit" xml:space="preserve"><value>No frame rate limit</value></data>
+  <data name="Rtss_TimeLimit" xml:space="preserve"><value>The original profile uses a frame time limit.</value></data>
+  <data name="Rtss_SyncUnavailable" xml:space="preserve"><value>Sync is unavailable when content follows the source.</value></data>
+  <data name="Rtss_SyncAtStart" xml:space="preserve"><value>Sync with the current content frame rate.</value></data>
+  <data name="Rtss_CustomAtStart" xml:space="preserve"><value>Apply when scaling starts.</value></data>
+  <data name="Rtss_LaunchRtss" xml:space="preserve"><value>Launch RTSS</value></data>
+  <data name="Rtss_LaunchRtssMissing" xml:space="preserve"><value>RTSS is not installed</value></data>
+  <data name="Rtss_LaunchRtssRunning" xml:space="preserve"><value>RTSS is running</value></data>
+  <data name="Rtss_LaunchAfterburner" xml:space="preserve"><value>Launch MSI Afterburner</value></data>
+  <data name="Rtss_LaunchAfterburnerMissing" xml:space="preserve"><value>MSI Afterburner is not installed</value></data>
+  <data name="Rtss_LaunchAfterburnerRunning" xml:space="preserve"><value>MSI Afterburner is running</value></data>
+  <data name="Rtss_Failure_Access" xml:space="preserve"><value>The RTSS profile interface is unavailable.</value></data>
+  <data name="Rtss_Failure_Target" xml:space="preserve"><value>Could not identify the target application.</value></data>
+  <data name="Rtss_Failure_Read" xml:space="preserve"><value>Could not read the profile.</value></data>
+  <data name="Rtss_Failure_Write" xml:space="preserve"><value>Could not save the profile.</value></data>
+  <data name="Rtss_Failure_Restore" xml:space="preserve"><value>Could not restore the profile.</value></data>
+  <data name="Rtss_Scope_Input.[using:Windows.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>RTSS profile management</value></data>
+  <data name="Rtss_RateMode_Input.[using:Windows.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>RTSS frame rate setting</value></data>
+  <data name="Rtss_CustomRate_Input.[using:Windows.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>RTSS integer frame rate limit</value></data>
+  <data name="Rtss_ExitPolicy_Input.[using:Windows.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>RTSS stop policy</value></data>
+  <data name="Rtss_Failure_Interface" xml:space="preserve"><value>The RTSS interface faulted. Restart Magpie.</value></data>
+  <data name="Rtss_Failure_StartTimeout" xml:space="preserve"><value>Tool launch timed out.</value></data>
+  <data name="Rtss_Failure_LibraryMissing" xml:space="preserve"><value>The RTSS profile interface library is missing.</value></data>
+  <data name="Rtss_Failure_Permission" xml:space="preserve"><value>Access denied.</value></data>
+  <data name="Rtss_SyncedRate_Input.[using:Windows.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>RTSS synced frame rate limit</value></data>
+  <data name="Rtss_Failure_Set" xml:space="preserve"><value>Could not set the frame rate.</value></data>
+  <data name="Rtss_Failure_Verify" xml:space="preserve"><value>Could not verify the profile.</value></data>
+  <data name="Rtss_Failure_Reload" xml:space="preserve"><value>Could not reload the profile.</value></data>
+  <data name="Rtss_Failure_TimeMode" xml:space="preserve"><value>Could not switch from frame time mode.</value></data>
+  <data name="Rtss_InitializeMagpie" xml:space="preserve">
+    <value>Initialize</value>
+  </data>
+  <data name="Rtss_InitializingMagpie" xml:space="preserve">
+    <value>Initializing…</value>
+  </data>
+  <data name="Rtss_InitializeMagpieButton.ToolTipService.ToolTip" xml:space="preserve">
+    <value>Create an unlimited RTSS profile for Magpie.</value>
+  </data>
+  <data name="Rtss_InitializeMagpieButton.AutomationProperties.Name" xml:space="preserve">
+    <value>Initialize the RTSS profile for Magpie</value>
+  </data>
+  <data name="Rtss_Status_InitializingMagpie" xml:space="preserve">
+    <value>Initializing Magpie</value>
+  </data>
+  <data name="Rtss_Status_MagpieInitialized" xml:space="preserve">
+    <value>Profile initialized.</value>
+  </data>
+  <data name="Rtss_Status_MagpieAlreadyUnlimited" xml:space="preserve">
+    <value>Already unlimited.</value>
+  </data>
+  <data name="Rtss_Failure_ProfileFormat" xml:space="preserve">
+    <value>Could not process the profile format.</value>
+  </data>
+  <data name="Rtss_Failure_MissingInterface" xml:space="preserve"><value>An interface required for this operation is missing.</value></data>
+  <data name="Rtss_Failure_Property" xml:space="preserve"><value>A property required for this operation could not be read.</value></data>
+  <data name="Rtss_Failure_Architecture" xml:space="preserve"><value>Profile library architecture does not match.</value></data>
+  <data name="Rtss_Failure_ProfileObject" xml:space="preserve"><value>Could not confirm the initialization target.</value></data>
+  <data name="Rtss_Failure_SelfProfileConflict" xml:space="preserve"><value>The target and Magpie share the same profile name.</value></data>
+  <data name="Rtss_Failure_InstallationChanged" xml:space="preserve"><value>RTSS profile directory has changed.</value></data>
+  <data name="Rtss_ProfileRate" xml:space="preserve"><value>Configured limit: {} FPS</value></data>
+  <data name="Rtss_RateUnknown" xml:space="preserve"><value>Profile limit could not be read.</value></data>
+  <data name="Rtss_Reloaded" xml:space="preserve"><value>Profile reload requested.</value></data>
+  <data name="Rtss_ProfileSaved" xml:space="preserve"><value>Profile saved.</value></data>
+  <data name="Home_Toolbar_ScreenshotContent.Description" xml:space="preserve"><value>Choose what the toolbar button and screenshot shortcut save.</value></data>
+  <data name="Home_Toolbar_ScreenshotContent.Header" xml:space="preserve"><value>Screenshot content</value></data>
+  <data name="Home_Toolbar_ScreenshotContent_InputAndOutput.Content" xml:space="preserve"><value>Capture original input and final output</value></data>
+  <data name="Home_Toolbar_ScreenshotContent_InputOnly.Content" xml:space="preserve"><value>Capture original input only</value></data>
+  <data name="Home_Toolbar_ScreenshotContent_OutputOnly.Content" xml:space="preserve"><value>Capture final output only</value></data>
+  <data name="Message_ScreenshotBusy" xml:space="preserve"><value>A screenshot is being saved. Try again when it finishes.</value></data>
+  <data name="Message_ScreenshotPairSaved" xml:space="preserve"><value>Screenshots saved: {0} and {1}</value></data>
+  <data name="Message_ScreenshotPartialSaved" xml:space="preserve"><value>Saved {0}; {1} could not be saved. See error details.</value></data>
+  <data name="EffectParam_NvidiaVFX_Upscale_sharpness_Label" xml:space="preserve"><value>Sharpness</value></data>
+  <data name="EffectParam_NvidiaVFX_VFG_automaticShotDetection_Label" xml:space="preserve"><value>Automatic shot detection</value></data>
+  <data name="EffectParam_NvidiaVFX_VFG_model_Label" xml:space="preserve"><value>Model</value></data>
+  <data name="EffectParam_NvidiaVFX_VFG_model_Option_0" xml:space="preserve"><value>Performance</value></data>
+  <data name="EffectParam_NvidiaVFX_VFG_model_Option_1" xml:space="preserve"><value>Balanced</value></data>
+  <data name="EffectParam_NvidiaVFX_VFG_multiplier_Label" xml:space="preserve"><value>Frame multiplier</value></data>
+  <data name="EffectParam_RTXVideo_RTXVideo_HDR_debanding_Label" xml:space="preserve"><value>Debanding</value></data>
+  <data name="EffectParam_RTXVideo_RTXVideo_VSR_category_Label" xml:space="preserve"><value>Category</value></data>
+  <data name="EffectParam_RTXVideo_RTXVideo_VSR_category_Option_0" xml:space="preserve"><value>Standard</value></data>
+  <data name="EffectParam_RTXVideo_RTXVideo_VSR_category_Option_1" xml:space="preserve"><value>High bitrate</value></data>
+  <data name="EffectParam_RTXVideo_RTXVideo_VSR_category_Option_2" xml:space="preserve"><value>Streaming</value></data>
+  <data name="EffectParam_RTXVideo_RTXVideo_VSR_category_Option_3" xml:space="preserve"><value>Denoise</value></data>
+  <data name="EffectParam_RTXVideo_RTXVideo_VSR_category_Option_4" xml:space="preserve"><value>Deblur</value></data>
+  <data name="NvidiaVfx_Upscale_Auto" xml:space="preserve"><value>Auto fit target</value></data>
+  <data name="NvidiaVfx_Upscale_AutoHelp" xml:space="preserve"><value>Chooses the lowest available scale that covers the target, then resizes proportionally to fit. Targets above 4x add further upscaling. Restart scaling to apply changes.</value></data>
+  <data name="NvidiaVfx_Upscale_Down" xml:space="preserve"><value> -&gt; Bicubic downsample: {}x{}</value></data>
+  <data name="NvidiaVfx_Upscale_FixedHelp" xml:space="preserve"><value>Upscales at a fixed ratio, equal on both axes, with integer output dimensions. Restart scaling to apply changes.</value></data>
+  <data name="NvidiaVfx_Upscale_Process" xml:space="preserve"><value>{}x{} -&gt; Nvidia VFX {}/{}x: {}x{}</value></data>
+  <data name="NvidiaVfx_Upscale_Up" xml:space="preserve"><value> -&gt; Bicubic upscale: {}x{}</value></data>
+  <data name="NvidiaVfx_Vfg_Process" xml:space="preserve"><value>SDR image effects → VFG → every real/generated frame → first TrueHDR and supported post-effects (if present) → presentation</value></data>
+  <data name="NvidiaVfx_Vsr_SameSize" xml:space="preserve"><value>Keep input size</value></data>
+  <data name="FrameRefresh_Mode.Header" xml:space="preserve"><value>Settings mode</value></data>
+  <data name="FrameRefresh_Mode.Description" xml:space="preserve"><value>Simple mode manages the other refresh settings. Applies to all profiles after restarting scaling.</value></data>
+  <data name="FrameRefresh_Mode_Input.[using:Windows.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Settings mode</value></data>
+  <data name="FrameRefresh_Mode_Simple.Content" xml:space="preserve"><value>Simple</value></data>
+  <data name="FrameRefresh_Mode_Advanced.Content" xml:space="preserve"><value>Advanced</value></data>
+  <data name="FrameRefresh_Title.Text" xml:space="preserve">
+    <value>Frame rate and refresh</value>
+  </data>
+  <data name="FrameRefresh_RateGroup.Header" xml:space="preserve">
+    <value>Frame rate control</value>
+  </data>
+  <data name="FrameRefresh_RateGroup.Description" xml:space="preserve">
+    <value>Set content frame rate and pacing.</value>
+  </data>
+  <data name="FrameRefresh_StaticGroup.Header" xml:space="preserve">
+    <value>Static content</value>
+  </data>
+  <data name="FrameRefresh_StaticGroup.Description" xml:space="preserve">
+    <value>Control refresh when content is unchanged.</value>
+  </data>
+  <data name="Rtss_SimpleSync.Header" xml:space="preserve">
+    <value>Sync target application limit</value>
+  </data>
+  <data name="Rtss_SimpleSync.Description" xml:space="preserve">
+    <value>Match the content frame rate and restore the original configuration when scaling stops.</value>
+  </data>
+  <data name="Rtss_SimpleSync_Input.OnContent" xml:space="preserve">
+    <value>On</value>
+  </data>
+  <data name="Rtss_SimpleSync_Input.OffContent" xml:space="preserve">
+    <value>Off</value>
+  </data>
+  <data name="Rtss_SimpleSync_Input.[using:Windows.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>Sync target application frame rate limit</value>
+  </data>
+  <data name="Rtss_Mode_Input.[using:Windows.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>Target application frame rate limit mode</value>
+  </data>
+  <data name="Rtss_ScopeLabel.Text" xml:space="preserve">
+    <value>Applies to</value>
+  </data>
+  <data name="Rtss_ExitLabel.Text" xml:space="preserve">
+    <value>When scaling stops</value>
+  </data>
+  <data name="Rtss_Download.Content" xml:space="preserve">
+    <value>Get RTSS</value>
+  </data>
+  <data name="Rtss_Retry.Content" xml:space="preserve">
+    <value>Retry</value>
+  </data>
+  <data name="Rtss_Manage.Content" xml:space="preserve">
+    <value>Manage</value>
+  </data>
+  <data name="Rtss_RecheckMenu.Text" xml:space="preserve">
+    <value>Check again</value>
+  </data>
+  <data name="Rtss_Status_Disabled" xml:space="preserve">
+    <value>RTSS integration is off</value>
+  </data>
+  <data name="Rtss_ScalingContinues" xml:space="preserve">
+    <value>Scaling continues</value>
+  </data>
+  <data name="Rtss_Failure_Launch" xml:space="preserve">
+    <value>Could not start RTSS</value>
+  </data>
+  <data name="Home_FrameRefresh_SimpleSummary" xml:space="preserve">
+    <value>Content: {} · Idle: {} · VRR: {}</value>
+  </data>
+  <data name="Rtss_Failure_ProcessExited" xml:space="preserve"><value>RTSS has exited</value></data>
+  <data name="Rtss_Status_StartingAfterburner" xml:space="preserve"><value>Starting MSI Afterburner</value></data>
+  <data name="Rtss_Status_AfterburnerStartFailed" xml:space="preserve"><value>MSI Afterburner could not start</value></data>
+  <data name="EffectParam_FSR3FG_FSR3_FrameGeneration_amdOpticalFlowMode_Label" xml:space="preserve"><value>OF Quality</value></data>
+  <data name="EffectParam_FSR3FG_FSR3_FrameGeneration_amdOpticalFlowMode_Option_0" xml:space="preserve"><value>Performance</value></data>
+  <data name="EffectParam_FSR3FG_FSR3_FrameGeneration_amdOpticalFlowMode_Option_1" xml:space="preserve"><value>Quality</value></data>
+  <data name="EffectParam_FSR3FG_FSR3_FrameGeneration_nvidiaOpticalFlowQuality_Label" xml:space="preserve"><value>OF Quality</value></data>
+  <data name="EffectParam_FSR3FG_FSR3_FrameGeneration_nvidiaOpticalFlowQuality_Option_1" xml:space="preserve"><value>Performance</value></data>
+  <data name="EffectParam_FSR3FG_FSR3_FrameGeneration_nvidiaOpticalFlowQuality_Option_2" xml:space="preserve"><value>Balanced (Recommended)</value></data>
+  <data name="EffectParam_FSR3FG_FSR3_FrameGeneration_nvidiaOpticalFlowQuality_Option_3" xml:space="preserve"><value>Quality</value></data>
+  <data name="EffectParam_FSR3FG_FSR3_FrameGeneration_nvidiaOpticalFlowQuality_Option_4" xml:space="preserve"><value>High Quality (High Cost)</value></data>
+  <data name="EffectParam_FSR3FG_FSR3_FrameGeneration_opticalFlowMethod_Label" xml:space="preserve"><value>Optical Flow Method</value></data>
+  <data name="EffectParam_FSR3FG_FSR3_FrameGeneration_opticalFlowMethod_Option_1" xml:space="preserve"><value>AMDOF</value></data>
+  <data name="EffectParam_FSR3FG_FSR3_FrameGeneration_opticalFlowMethod_Option_2" xml:space="preserve"><value>NVOF</value></data>
+  <data name="EffectParam_FSR3FG_FSR3_FrameGeneration_nvidiaOpticalFlowQuality_Option_5" xml:space="preserve"><value>Highest Quality (Very High Cost)</value></data>
+  <data name="FrameRefresh_CursorStrategy.Header" xml:space="preserve"><value>Refresh strategy</value></data>
+  <data name="Rtss_Management.Header" xml:space="preserve"><value>Manage</value></data>
+  <data name="Rtss_Recheck.Content" xml:space="preserve"><value>Check again</value></data>
+  <data name="Rtss_ProgramLabel.Text" xml:space="preserve"><value>RTSS</value></data>
+  <data name="Rtss_SelfLabel.Text" xml:space="preserve"><value>Magpie configuration</value></data>
+  <data name="Rtss_Title_WaitingContent" xml:space="preserve"><value>Waiting for a fixed content rate</value></data>
+  <data name="Rtss_Detail_Disabled" xml:space="preserve"><value>Target frame rate is not managed.</value></data>
+  <data name="Rtss_Detail_WaitingContent" xml:space="preserve"><value>Content follows the source; synchronized limiting is paused.</value></data>
+  <data name="Rtss_Detail_WaitingTarget" xml:space="preserve"><value>RTSS is prepared automatically when scaling starts.</value></data>
+  <data name="Rtss_Detail_Checking" xml:space="preserve"><value>Checking the program and configuration interface.</value></data>
+  <data name="Rtss_Detail_Starting" xml:space="preserve"><value>Waiting for RTSS to start.</value></data>
+  <data name="Rtss_Detail_Initializing" xml:space="preserve"><value>Removing the frame cap from Magpie’s own configuration.</value></data>
+  <data name="Rtss_Detail_Applying" xml:space="preserve"><value>Applying the target program’s frame cap.</value></data>
+  <data name="Rtss_Detail_NotInstalled" xml:space="preserve"><value>Install RTSS, then check again.</value></data>
+  <data name="Rtss_Detail_Global" xml:space="preserve"><value>RTSS global configuration</value></data>
+  <data name="Rtss_Detail_Target" xml:space="preserve"><value>Current target program</value></data>
+  <data name="Rtss_Inventory_Checking" xml:space="preserve"><value>Checking</value></data>
+  <data name="Rtss_Inventory_Missing" xml:space="preserve"><value>Not installed</value></data>
+  <data name="Rtss_Inventory_Running" xml:space="preserve"><value>Running</value></data>
+  <data name="Rtss_Inventory_Stopped" xml:space="preserve"><value>Installed, not running</value></data>
+  <data name="Rtss_Inventory_Initializing" xml:space="preserve"><value>Initializing</value></data>
+  <data name="Rtss_Inventory_Unlimited" xml:space="preserve"><value>Unlimited</value></data>
+  <data name="Rtss_Inventory_Uninitialized" xml:space="preserve"><value>Needs initialization</value></data>
+  <data name="Rtss_Inventory_Unknown" xml:space="preserve"><value>Not checked</value></data>
+  <data name="Rtss_Management_Failed" xml:space="preserve"><value>Magpie initialization failed</value></data>
+  <data name="Rtss_Management_LaunchFailed" xml:space="preserve"><value>RTSS did not start</value></data>
+  <data name="Rtss_Management_Started" xml:space="preserve"><value>Started</value></data>
+  <data name="Rtss_Detail_RetryReady" xml:space="preserve"><value>RTSS is available. Retry to apply the frame cap.</value></data>
+  <data name="Rtss_Takeover.Header" xml:space="preserve"><value>RTSS configuration management</value></data>
+  <data name="Rtss_ManageText.Text" xml:space="preserve"><value>Manage</value></data>
+  <data name="Rtss_ManagementToggle.[using:Windows.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Manage</value></data>
+  <data name="Rtss_OptionalAfterburner.Header" xml:space="preserve"><value>MSI Afterburner</value></data>
+  <data name="Rtss_OptionalAfterburner.Description" xml:space="preserve"><value>Optional tool</value></data>
+  <data name="Rtss_LaunchOptional.Content" xml:space="preserve"><value>Launch</value></data>
+  <data name="Rtss_LaunchOptional.[using:Windows.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Launch MSI Afterburner</value></data>
+  <data name="Profile_CropLeftLabel.Text" xml:space="preserve"><value>Left</value></data>
+  <data name="Profile_CropLeft_Input.[using:Windows.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Left</value></data>
+  <data name="Profile_CropRightLabel.Text" xml:space="preserve"><value>Right</value></data>
+  <data name="Profile_CropRight_Input.[using:Windows.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Right</value></data>
+  <data name="Profile_CropTopLabel.Text" xml:space="preserve"><value>Top</value></data>
+  <data name="Profile_CropTop_Input.[using:Windows.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Top</value></data>
+  <data name="Profile_CropBottomLabel.Text" xml:space="preserve"><value>Bottom</value></data>
+  <data name="Profile_CropBottom_Input.[using:Windows.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Bottom</value></data>
+  <data name="Rtss_ManagementExpanded" xml:space="preserve"><value>Management details expanded</value></data>
+  <data name="Rtss_ManagementCollapsed" xml:space="preserve"><value>Management details collapsed</value></data>
+  <data name="Profile_InitialScale_Input.[using:Windows.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Initial scale factor</value></data>
+  <data name="Profile_CursorScale_Input.[using:Windows.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Scale factor</value></data>
+  <data name="Overlay_FG_FrameRateHelp" xml:space="preserve"><value>Content output / real input FPS. R/s counts successful idle redraw submissions separately; it is not generated FPS or measured display scanout.</value></data>
+  <data name="Overlay_FG_IdleSubmissions" xml:space="preserve"><value>Idle redraw submissions/s (R/s)</value></data>
+  <data name="Overlay_FG_Waiting" xml:space="preserve"><value>Waiting for new content</value></data>
+  <data name="Overlay_FG_GeneratedRate" xml:space="preserve"><value>Reported generated FPS</value></data>
+  <data name="Message_FSR3FGEffectChainUnsupported" xml:space="preserve"><value>FSR3 FG cannot use effect {}: only verified rectangular scaling and sharpening are supported. Remove this effect or select another frame generator.</value></data>
+  <data name="Message_FSR3FGHdrUnsupported" xml:space="preserve"><value>FSR3 FG currently supports SDR only. Remove HDR components and disable HDR compatibility.</value></data>
+  <data name="Overlay_FG_SubmittedRateHelp" xml:space="preserve"><value>Content submissions / real input FPS. Generated submissions exclude CPU-visible resets; GPU scene cuts may still produce copies. These are not SDK presentation reports or measured display FPS. R/s counts redraw submissions separately.</value></data>
+  <data name="Overlay_FG_SubmittedRate" xml:space="preserve"><value>Frame rate (content submitted / real input)</value></data>
+  <data name="Overlay_FG_SubmittedGeneratedRate" xml:space="preserve"><value>Submitted generated FPS</value></data>
+  <data name="Overlay_FG_InputCopyTiming" xml:space="preserve"><value>input copy only</value></data>
+  <data name="Overlay_FG_UnmeasuredTiming" xml:space="preserve"><value>Frame-generation GPU time is unmeasured. Proxy FG rows measure only the input copy; the measured total excludes SDK frame generation.</value></data>
+  <data name="Overlay_FG_MeasuredTotal" xml:space="preserve"><value>Measured total (excludes FG)</value></data>
+  <data name="DlssNr_State_Disabled" xml:space="preserve">
+    <value>DLSSNR is not running (effect group is closed).</value>
+  </data>
+  <data name="DlssNr_State_Starting" xml:space="preserve">
+    <value>DLSSNR is starting; waiting for a successfully processed frame.</value>
+  </data>
+  <data name="DlssNr_State_Running" xml:space="preserve">
+    <value>DLSSNR is running.</value>
+  </data>
+  <data name="DlssNr_State_Skipped" xml:space="preserve">
+    <value>DLSSNR has been skipped; the effect group continues without DLSSNR processing.</value>
+  </data>
+  <data name="DlssNr_State_Stopped" xml:space="preserve">
+    <value>The effect group has stopped; DLSSNR is not processing frames.</value>
+  </data>
+  <data name="DlssNr_Reason_Adapter" xml:space="preserve">
+    <value>The selected rendering GPU is not an NVIDIA adapter.</value>
+  </data>
+  <data name="DlssNr_Reason_Missing" xml:space="preserve">
+    <value>nvngx_dlssnr.dll was not found in the program directory.</value>
+  </data>
+  <data name="DlssNr_Reason_Load" xml:space="preserve">
+    <value>The DLSSNR library could not be loaded. The library or one of its dependencies may be incompatible.</value>
+  </data>
+  <data name="DlssNr_Reason_Exports" xml:space="preserve">
+    <value>The loaded DLSSNR library lacks required interfaces.</value>
+  </data>
+  <data name="DlssNr_Reason_Compatibility" xml:space="preserve">
+    <value>NGX rejected this combination of system, graphics API, GPU and library. The result does not identify which component is incompatible.</value>
+  </data>
+  <data name="DlssNr_Reason_Version" xml:space="preserve">
+    <value>NGX requires a newer driver or feature library; it did not identify which one.</value>
+  </data>
+  <data name="DlssNr_Reason_Memory" xml:space="preserve">
+    <value>The graphics API or NGX reported insufficient memory.</value>
+  </data>
+  <data name="DlssNr_Reason_Access" xml:space="preserve">
+    <value>Access failed at the operation shown in the details. This does not by itself mean Magpie needs administrator rights.</value>
+  </data>
+  <data name="DlssNr_Reason_Fault" xml:space="preserve">
+    <value>NGX encountered an exception and is disabled for the rest of this Magpie process.</value>
+  </data>
+  <data name="DlssNr_Reason_Build" xml:space="preserve">
+    <value>This Magpie build does not include DLSSNR support.</value>
+  </data>
+  <data name="DlssNr_Reason_Unknown" xml:space="preserve">
+    <value>DLSSNR failed at the step shown in the details. The available result does not establish the cause.</value>
+  </data>
+  <data name="DlssNr_Advice_Restart" xml:space="preserve">
+    <value>Exit Magpie completely from the system tray, reopen it, then enable the effect group. Disabling and enabling the group alone cannot reset NGX. Confirm that DLSSNR shows “running”; if it fails again, copy the diagnostics for a report.</value>
+  </data>
+  <data name="DlssNr_Advice_Files" xml:space="preserve">
+    <value>Open the program directory and recovery guide. Exit Magpie, restore the complete matching runtime from the package for this version, then reopen Magpie and enable the group. Confirm “DLSSNR is running”; if it still fails, copy the diagnostics.</value>
+  </data>
+  <data name="DlssNr_Advice_Adapter" xml:space="preserve">
+    <value>Open the affected profile and inspect Rendering GPU. Select a compatible NVIDIA GPU only if one is available; otherwise remove DLSSNR from this effect group. Enable the group again and check its status.</value>
+  </data>
+  <data name="DlssNr_Advice_Version" xml:space="preserve">
+    <value>Check the detected GPU, driver and DLL version in the details against the requirements of this version’s runtime package. Update only the component that does not meet those requirements, reopen Magpie and enable the group. If the requirements are unclear or the failure persists, copy the diagnostics.</value>
+  </data>
+  <data name="DlssNr_Advice_Memory" xml:space="preserve">
+    <value>Close other GPU-intensive applications, lower the source resolution, or open this effect group and reduce DLSSNR Multi Pass to 1 if it is higher. Enable the group again and confirm “running”. If it still fails, copy the diagnostics.</value>
+  </data>
+  <data name="DlssNr_Advice_Access" xml:space="preserve">
+    <value>Check the operation and path in the details. For library reads, restore readable runtime files; for NGX data writes, use a user-writable program directory. Reopen Magpie and enable the group. If no path or cause is identified, copy the diagnostics instead of changing permissions blindly.</value>
+  </data>
+  <data name="DlssNr_Advice_Unknown" xml:space="preserve">
+    <value>Open the details and check the actual GPU and runtime file against this version’s package instructions. Enable the group once more and confirm “DLSSNR is running”. If it fails again, copy the diagnostics and report the failing step; temporarily remove DLSSNR to use the other effects.</value>
+  </data>
+  <data name="DlssNr_Parameter_HdrRestricted" xml:space="preserve">
+    <value>This parameter is available only in the SDR DLSSNR path. HDR processing can still be running; see the status above.</value>
+  </data>
+  <data name="Overlay_EffectParameters_Restricted" xml:space="preserve">
+    <value>This parameter is not available for the current effect or processing mode, or is controlled by a paired HDR component. This is not a backend failure.</value>
+  </data>
+  <data name="Message_DlssNrStopped" xml:space="preserve">
+    <value>The effect group stopped because DLSSNR failed. Open the details, follow the detected recovery steps, then enable the group again and confirm its status.</value>
+  </data>
+  <data name="Message_WindowIntegrityQueryFailed" xml:space="preserve">
+    <value>Magpie could not query the source window’s permissions, so the effect group was not started. Return to the target application, wait until it is responsive, then enable the group again. If it still fails, copy the diagnostics and logs; higher target permissions have not been confirmed.</value>
+  </data>
+  <data name="Home_DlssNrStatus.Title" xml:space="preserve">
+    <value>Current DLSSNR session</value>
+  </data>
+  <data name="ErrorDetails_OpenEffectsButton.Content" xml:space="preserve">
+    <value>Open affected effect group</value>
+  </data>
+  <data name="DlssNr_OpenHelp" xml:space="preserve">
+    <value>Open status and recovery steps</value>
+  </data>
+  <data name="DlssNr_OpenGuide" xml:space="preserve">
+    <value>Open recovery guide</value>
+  </data>
+  <data name="DlssNr_OpenDirectory" xml:space="preserve">
+    <value>Open program directory</value>
+  </data>
+  <data name="DlssNr_OpenFailed" xml:space="preserve">
+    <value>Could not open the location. Use the path below to open it manually.</value>
+  </data>
+  <data name="ErrorDetails_EffectsChanged" xml:space="preserve">
+    <value>The recorded effect group or its effect order has changed, or its name is ambiguous. The list is open; locate the group using the name in the diagnostics. No other group was selected.</value>
+  </data>
+  <data name="ErrorDetails_EffectsLocated" xml:space="preserve">
+    <value>Affected effect group: {}{}</value>
+  </data>
+  <data name="Overlay_EffectParameters_RestrictedBadge" xml:space="preserve"><value>Restricted</value></data>
+
+  <data name="EffectParam_RTXVideo_RTXVideo_VSR_category_Description" xml:space="preserve"><value>Choose Standard, High bitrate, or Streaming upscaling for your content, or same-size Denoise/Deblur. Each category remembers its settings; Streaming requires Ampere or newer. Restart scaling to apply changes.</value></data>
+  <data name="EffectParam_RTXVideo_RTXVideo_VSR_strength_Description" xml:space="preserve"><value>Selects the processing level for the current category; Streaming offers Medium/Ultra. Switches live; loading a model may cause a brief wait.</value></data>
+  <data name="EffectParam_RTXVideo_RTXVideo_Denoise_strength_Description" xml:space="preserve"><value>Selects a denoising level. Start at Medium and adjust the balance of grain reduction and retained detail. Switches live; loading a model may cause a brief wait.</value></data>
+  <data name="EffectParam_NvidiaVFX_Upscale_sharpness_Description" xml:space="preserve"><value>Enhances edge definition after upscaling; excessive values can produce halos, while 0 applies scaling alone. Applies live.</value></data>
+  <data name="EffectParam_NvidiaVFX_VFG_model_Description" xml:space="preserve"><value>Performance favors lower processing cost; Balanced uses a more complex model. Switches live; loading a model may cause a brief wait.</value></data>
+  <data name="EffectParam_NvidiaVFX_VFG_multiplier_Description" xml:space="preserve"><value>Sets the target output multiplier relative to the base frame rate. Higher multipliers cost more processing; actual output depends on hardware and display pacing. Restart scaling to apply changes.</value></data>
+  <data name="EffectParam_NvidiaVFX_VFG_automaticShotDetection_Description" xml:space="preserve"><value>Detects shot changes and reuses the current image at a cut to keep scene transitions clear. Restart scaling to apply changes.</value></data>
+  <data name="EffectParam_RTXVideo_RTXVideo_HDR_contrast_Description" xml:space="preserve"><value>Adjusts the contrast between light and dark areas. Applies live.</value></data>
+  <data name="EffectParam_RTXVideo_RTXVideo_HDR_saturation_Description" xml:space="preserve"><value>Adjusts color intensity. Applies live.</value></data>
+  <data name="EffectParam_RTXVideo_RTXVideo_HDR_middleGray_Description" xml:space="preserve"><value>Adjusts midtone brightness. Applies live.</value></data>
+  <data name="EffectParam_RTXVideo_RTXVideo_HDR_peakNits_Description" xml:space="preserve"><value>Sets target highlight brightness; match it to the peak capability of the output display. Applies live.</value></data>
+  <data name="EffectParam_RTXVideo_RTXVideo_HDR_debanding_Description" xml:space="preserve"><value>Smooths steps in gradients to reduce banding. Applies live.</value></data>
+  <data name="EffectParam_FSR3FG_FSR3_FrameGeneration_opticalFlowMethod_Description" xml:space="preserve"><value>Estimates motion between consecutive frames for frame generation. AMDOF works across GPU vendors; NVOF requires a rendering GPU with NVIDIA optical-flow support. Restart scaling to apply changes.</value></data>
+  <data name="EffectParam_FSR3FG_FSR3_FrameGeneration_amdOpticalFlowMode_Description" xml:space="preserve"><value>Applies when AMDOF is selected. Performance favors lower cost; Quality uses more computation for motion estimation. Restart scaling to apply changes.</value></data>
+  <data name="EffectParam_FSR3FG_FSR3_FrameGeneration_nvidiaOpticalFlowQuality_Description" xml:space="preserve"><value>Applies when NVOF is selected. Higher levels use more computation for motion estimation. Restart scaling to apply changes.</value></data>
+  <data name="EffectParam_DLSSFG_DLSS_FrameGeneration_multiplier_Description" xml:space="preserve"><value>Sets the target output multiplier relative to the base frame rate. Higher multipliers cost more processing; actual output depends on hardware and display pacing. Restart scaling to apply changes.</value></data>
+  <data name="EffectParam_XeSSFG_XeSS_FrameGeneration_multiplier_Description" xml:space="preserve"><value>Sets the target output multiplier relative to the base frame rate. Higher multipliers cost more processing; actual output depends on hardware and display pacing. Restart scaling to apply changes.</value></data>
+  <data name="EffectParam_Color_HDR_to_SDR_mode_Description" xml:space="preserve"><value>Compatibility pair keeps restoration settings for a later SDR → HDR step; SDR display maps the image for direct SDR viewing. Restart scaling to apply changes.</value></data>
+  <data name="EffectParam_Color_HDR_to_SDR_whiteNits_Description" xml:space="preserve"><value>Sets the mapping reference white; together with the source HDR peak, it determines how the brightness range is distributed. Restart scaling to apply changes.</value></data>
+  <data name="EffectParam_Color_HDR_to_SDR_peakNits_Description" xml:space="preserve"><value>Sets the reference range for mapping source HDR highlights. Restart scaling to apply changes.</value></data>
+  <data name="EffectParam_Color_HDR_to_SDR_exposure_Description" xml:space="preserve"><value>Adjusts overall image brightness during conversion. Restart scaling to apply changes.</value></data>
+  <data name="EffectParam_Color_HDR_to_SDR_shoulder_Description" xml:space="preserve"><value>Adjusts highlight compression to change bright-area gradation and overall contrast. Restart scaling to apply changes.</value></data>
+  <data name="EffectParam_Color_SDR_to_HDR_mode_Description" xml:space="preserve"><value>Auto restores an upstream compatibility pair when present; otherwise it maps SDR using the white-point brightness. Paired restoration uses upstream settings. Restart scaling to apply changes.</value></data>
+  <data name="EffectParam_xBR_xBR_2x_paramXbrYWeight_Description" xml:space="preserve"><value>Adjusts the luminance weight used by small-detail protection; active when that option is enabled. Applies live.</value></data>
+  <data name="EffectParam_xBR_xBR_2x_paramXbrEqThreshold_Description" xml:space="preserve"><value>Sets the color-similarity threshold; higher values treat more color differences as similar. Applies live.</value></data>
+  <data name="EffectParam_xBR_xBR_2x_paramXbrLv2Coefficient_Description" xml:space="preserve"><value>Adjusts diagonal-edge detection criteria to change how diagonal outlines are reconstructed. Applies live.</value></data>
+  <data name="EffectParam_xBR_xBR_2x_paramPreserveSmallDetails_Description" xml:space="preserve"><value>Uses edge detection aimed at isolated pixels and thin lines to help retain small details. Applies live.</value></data>
+  <data name="EffectParam_xBR_xBR_3x_paramXbrYWeight_Description" xml:space="preserve"><value>Adjusts the luminance weight used by small-detail protection; active when that option is enabled. Applies live.</value></data>
+  <data name="EffectParam_xBR_xBR_3x_paramXbrEqThreshold_Description" xml:space="preserve"><value>Sets the color-similarity threshold; higher values treat more color differences as similar. Applies live.</value></data>
+  <data name="EffectParam_xBR_xBR_3x_paramXbrLv2Coefficient_Description" xml:space="preserve"><value>Adjusts diagonal-edge detection criteria to change how diagonal outlines are reconstructed. Applies live.</value></data>
+  <data name="EffectParam_xBR_xBR_3x_paramPreserveSmallDetails_Description" xml:space="preserve"><value>Uses edge detection aimed at isolated pixels and thin lines to help retain small details. Applies live.</value></data>
+  <data name="EffectParam_xBR_xBR_4x_paramXbrYWeight_Description" xml:space="preserve"><value>Adjusts the luminance weight used by small-detail protection; active when that option is enabled. Applies live.</value></data>
+  <data name="EffectParam_xBR_xBR_4x_paramXbrEqThreshold_Description" xml:space="preserve"><value>Sets the color-similarity threshold; higher values treat more color differences as similar. Applies live.</value></data>
+  <data name="EffectParam_xBR_xBR_4x_paramXbrLv2Coefficient_Description" xml:space="preserve"><value>Adjusts diagonal-edge detection criteria to change how diagonal outlines are reconstructed. Applies live.</value></data>
+  <data name="EffectParam_xBR_xBR_4x_paramPreserveSmallDetails_Description" xml:space="preserve"><value>Uses edge detection aimed at isolated pixels and thin lines to help retain small details. Applies live.</value></data>
+  <data name="EffectParam_xBR_xBR_NoBlend_3x_paramXbrLv2Coefficient_Description" xml:space="preserve"><value>Adjusts diagonal-edge detection; reconstruction selects colors from the input palette. Applies live.</value></data>
+  <data name="EffectParam_DLSS_DLSS_SR_opticalFlowMethod_Description" xml:space="preserve">
+    <value>Selects how motion is estimated from consecutive frames. AMDOF works across GPU vendors; NVOF requires a rendering GPU with NVIDIA optical-flow support. Restart scaling to apply changes.</value>
+  </data>
+  <data name="EffectParam_DLSS_DLSS_SR_amdOpticalFlowMode_Description" xml:space="preserve">
+    <value>Applies when AMDOF is selected. Performance favors lower cost; Quality uses more computation for motion estimation. Restart scaling to apply changes.</value>
+  </data>
+  <data name="EffectParam_DLSS_DLSS_SR_nvidiaOpticalFlowQuality_Description" xml:space="preserve">
+    <value>Applies when NVOF is selected. Higher levels use more computation for motion estimation. Restart scaling to apply changes.</value>
+  </data>
+  <data name="EffectParam_FSR2_FSR2_SR_opticalFlowMethod_Description" xml:space="preserve">
+    <value>Selects how motion is estimated from consecutive frames. AMDOF works across GPU vendors; NVOF requires a rendering GPU with NVIDIA optical-flow support. Restart scaling to apply changes.</value>
+  </data>
+  <data name="EffectParam_FSR2_FSR2_SR_amdOpticalFlowMode_Description" xml:space="preserve">
+    <value>Applies when AMDOF is selected. Performance favors lower cost; Quality uses more computation for motion estimation. Restart scaling to apply changes.</value>
+  </data>
+  <data name="EffectParam_FSR2_FSR2_SR_nvidiaOpticalFlowQuality_Description" xml:space="preserve">
+    <value>Applies when NVOF is selected. Higher levels use more computation for motion estimation. Restart scaling to apply changes.</value>
+  </data>
+  <data name="EffectParam_FSR3_FSR3_SR_opticalFlowMethod_Description" xml:space="preserve">
+    <value>Selects how motion is estimated from consecutive frames. AMDOF works across GPU vendors; NVOF requires a rendering GPU with NVIDIA optical-flow support. Restart scaling to apply changes.</value>
+  </data>
+  <data name="EffectParam_FSR3_FSR3_SR_amdOpticalFlowMode_Description" xml:space="preserve">
+    <value>Applies when AMDOF is selected. Performance favors lower cost; Quality uses more computation for motion estimation. Restart scaling to apply changes.</value>
+  </data>
+  <data name="EffectParam_FSR3_FSR3_SR_nvidiaOpticalFlowQuality_Description" xml:space="preserve">
+    <value>Applies when NVOF is selected. Higher levels use more computation for motion estimation. Restart scaling to apply changes.</value>
+  </data>
+  <data name="EffectParam_FSR4_FSR4_SR_opticalFlowMethod_Description" xml:space="preserve">
+    <value>Selects how motion is estimated from consecutive frames. AMDOF works across GPU vendors; NVOF requires a rendering GPU with NVIDIA optical-flow support. Restart scaling to apply changes.</value>
+  </data>
+  <data name="EffectParam_FSR4_FSR4_SR_amdOpticalFlowMode_Description" xml:space="preserve">
+    <value>Applies when AMDOF is selected. Performance favors lower cost; Quality uses more computation for motion estimation. Restart scaling to apply changes.</value>
+  </data>
+  <data name="EffectParam_FSR4_FSR4_SR_nvidiaOpticalFlowQuality_Description" xml:space="preserve">
+    <value>Applies when NVOF is selected. Higher levels use more computation for motion estimation. Restart scaling to apply changes.</value>
+  </data>
+  <data name="EffectParam_XeSS_XeSS_SR_opticalFlowMethod_Description" xml:space="preserve">
+    <value>Selects how motion is estimated from consecutive frames. AMDOF works across GPU vendors; NVOF requires a rendering GPU with NVIDIA optical-flow support. Restart scaling to apply changes.</value>
+  </data>
+  <data name="EffectParam_XeSS_XeSS_SR_amdOpticalFlowMode_Description" xml:space="preserve">
+    <value>Applies when AMDOF is selected. Performance favors lower cost; Quality uses more computation for motion estimation. Restart scaling to apply changes.</value>
+  </data>
+  <data name="EffectParam_XeSS_XeSS_SR_nvidiaOpticalFlowQuality_Description" xml:space="preserve">
+    <value>Applies when NVOF is selected. Higher levels use more computation for motion estimation. Restart scaling to apply changes.</value>
+  </data>
+  <data name="EffectParam_DLSSFG_DLSS_FrameGeneration_opticalFlowMethod_Description" xml:space="preserve">
+    <value>Selects how motion is estimated from consecutive frames. AMDOF works across GPU vendors; NVOF requires a rendering GPU with NVIDIA optical-flow support. Restart scaling to apply changes.</value>
+  </data>
+  <data name="EffectParam_DLSSFG_DLSS_FrameGeneration_amdOpticalFlowMode_Description" xml:space="preserve">
+    <value>Applies when AMDOF is selected. Performance favors lower cost; Quality uses more computation for motion estimation. Restart scaling to apply changes.</value>
+  </data>
+  <data name="EffectParam_DLSSFG_DLSS_FrameGeneration_nvidiaOpticalFlowQuality_Description" xml:space="preserve">
+    <value>Applies when NVOF is selected. Higher levels use more computation for motion estimation. Restart scaling to apply changes.</value>
+  </data>
+  <data name="EffectParam_XeSSFG_XeSS_FrameGeneration_opticalFlowMethod_Description" xml:space="preserve">
+    <value>Selects how motion is estimated from consecutive frames. AMDOF works across GPU vendors; NVOF requires a rendering GPU with NVIDIA optical-flow support. Restart scaling to apply changes.</value>
+  </data>
+  <data name="EffectParam_XeSSFG_XeSS_FrameGeneration_amdOpticalFlowMode_Description" xml:space="preserve">
+    <value>Applies when AMDOF is selected. Performance favors lower cost; Quality uses more computation for motion estimation. Restart scaling to apply changes.</value>
+  </data>
+  <data name="EffectParam_XeSSFG_XeSS_FrameGeneration_nvidiaOpticalFlowQuality_Description" xml:space="preserve">
+    <value>Applies when NVOF is selected. Higher levels use more computation for motion estimation. Restart scaling to apply changes.</value>
+  </data>
 </root>

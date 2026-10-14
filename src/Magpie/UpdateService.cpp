@@ -411,10 +411,14 @@ fire_and_forget UpdateService::DownloadAndInstall() {
 	// 
 	// Updater.exe
 	// 1. 等待 Magpie.exe 退出
-	// 2. 删除旧版本文件，复制新版本文件，删除 update 文件夹
+	// 2. 校验新包，快照被替换文件，复制并复核；失败则回滚并保留 update
 	// 3. 启动 Magpie.exe 然后退出
 
-	MoveFileEx(updaterExePath.c_str(), L"Updater.exe", MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH);
+	if (!MoveFileEx(updaterExePath.c_str(), L"Updater.exe", MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH)) {
+		Logger::Get().Win32Error("Replace Updater.exe failed; keeping Magpie running");
+		_Status(UpdateStatus::ErrorWhileDownloading);
+		co_return;
+	}
 
 	std::wstring curVersion = MAGPIE_VERSION.ToString<wchar_t>();
 	// 调用 ShellExecuteEx 后立即退出，因此应该指定 SEE_MASK_NOASYNC
@@ -427,6 +431,8 @@ fire_and_forget UpdateService::DownloadAndInstall() {
 	};
 	if (!ShellExecuteEx(&execInfo)) {
 		Logger::Get().Win32Error("ShellExecuteEx 失败");
+		_Status(UpdateStatus::ErrorWhileDownloading);
+		co_return;
 	}
 
 	App::Get().Quit();

@@ -12,20 +12,12 @@
 int mode;
 
 //!PARAMETER
-//!LABEL Native SDR white (nits)
+//!LABEL SDR white brightness (nits)\nHigher values brighten the entire image; default 203. Legacy dim values remain unchanged until edited.
 //!DEFAULT 203
-//!MIN 80
-//!MAX 400
+//!MIN 8
+//!MAX 4000
 //!STEP 1
-float whiteNits;
-
-//!PARAMETER
-//!LABEL Native SDR exposure
-//!DEFAULT 1
-//!MIN 0.1
-//!MAX 4
-//!STEP 0.05
-float exposure;
+float nativeWhiteNits;
 
 //!TEXTURE
 Texture2D INPUT;

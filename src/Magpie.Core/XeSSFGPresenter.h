@@ -29,8 +29,12 @@ public:
 		POINT& drawOffset
 	) noexcept override;
 
+	bool BeginIdleFrame(winrt::com_ptr<ID3D11Texture2D>& frameTex,
+		winrt::com_ptr<ID3D11RenderTargetView>& frameRtv, POINT& drawOffset) noexcept override;
 	bool EndFrame(bool waitForGpu = false) noexcept override;
 	bool SetBaseFrameRateLimit(double baseFPS) noexcept override;
+	bool HasFatalError() const noexcept override;
+	const PresenterFailure* GetFailure() const noexcept override;
 	bool WaitForFrameCapacity(DWORD timeout) noexcept override;
 	void SetSourceTiming(uint64_t frameId, uint64_t sequence, uint64_t generation, int64_t timestamp100ns) noexcept override;
 	void SetFrameGuidance(
@@ -60,6 +64,8 @@ protected:
 	bool _Initialize(HWND hwndAttach) noexcept override;
 
 private:
+	bool _BeginFrame(winrt::com_ptr<ID3D11Texture2D>& frameTex,
+		winrt::com_ptr<ID3D11RenderTargetView>& frameRtv, POINT& drawOffset, bool idle) noexcept;
 	bool _ResizeOverlaySurface() noexcept;
 
 	// 仅在 MP_ENABLE_XESS_FRAME_GENERATION 构建中使用；无 SDK 的 CI 构建里 ClangCL -Werror 会报未使用

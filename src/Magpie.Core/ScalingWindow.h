@@ -5,6 +5,9 @@
 #include "FramePresentationTiming.h"
 #include "SrcTracker.h"
 #include "WindowBase.h"
+#include "SourceWindowCoordinator.h"
+#include "ScalingWindowRetirement.h"
+#include "Win32Helper.h"
 #include <deque>
 
 namespace Magpie {
@@ -38,6 +41,16 @@ public:
 
 	void Stop() noexcept;
 	void Destroy() noexcept;
+	bool CompletePendingDestroy() noexcept;
+	bool IsRetiring() const noexcept { return _retirement.Pending(); }
+	void PollSourceState() noexcept;
+	bool SourceIdentityValid() const noexcept { return _sourceCoordinator.Ready(); }
+	HWND SourceRoot() const noexcept { return _sourceCoordinator.Source().root; }
+	SourceForegroundKind ClassifyForeground(HWND foreground) const noexcept;
+	bool IsSessionForeground(HWND foreground) const noexcept;
+	bool IsSourceForeground() const noexcept { return ClassifyForeground(Win32Helper::GetRealForegroundWindow()) == SourceForegroundKind::Source; }
+	bool IsParameterForeground(HWND foreground, bool outputTransition = false) const noexcept;
+	HWND SourceActivationTarget() const noexcept;
 	void RequestStop(uint32_t runId) noexcept {
 		if (Handle() && !_isDestroying && runId == RunId()) _stopRequested = true;
 	}
@@ -79,6 +92,9 @@ public:
 	const ScalingOptions& Options() const noexcept {
 		return _options;
 	}
+	void UpdateScreenshotContent(ScreenshotContent content) noexcept {
+		_options.screenshotContent = NormalizeScreenshotContent(static_cast<uint32_t>(content));
+	}
 
 	class SrcTracker& SrcTracker() noexcept {
 		return _srcTracker;
@@ -107,6 +123,7 @@ public:
 	class Renderer* TryGetRenderer() noexcept { return _renderer.get(); }
 	bool IsParameterInputWindow(HWND hwnd) const noexcept;
 	void UpdateToolbarShortcutLabels(ToolbarShortcutLabels labels) noexcept;
+	void UpdateMainUI(SessionWindowIdentity identity) noexcept;
 	class CursorManager* TryGetCursorManager() noexcept { return _cursorManager.get(); }
 
 	bool IsSrcRepositioning() const noexcept {
@@ -160,7 +177,11 @@ private:
 	ScalingWindow() noexcept;
 	~ScalingWindow() noexcept;
 
-	ScalingError _StartImpl(HWND hwndSrc) noexcept;
+	ScalingError _StartImpl(HWND hwndSrc, bool& rendererInitializationFailed) noexcept;
+	void _BeginDestroy(HWND window) noexcept;
+	void _FinishDestroy() noexcept;
+	void _HideOutputForSourceTransition() noexcept;
+	bool _EstablishWindowCoordination() noexcept;
 	void _CancelParameterRestart() noexcept;
 
 	// 确保渲染窗口长宽比不变，且限制最小和最大尺寸。必须提供 width 和 height 之一，另一个
@@ -176,7 +197,7 @@ private:
 
 	ScalingError _InitialMoveSrcWindowInFullscreen() noexcept;
 
-	void _Show() noexcept;
+	bool _Show() noexcept;
 	bool _PrepareFrontendRender() noexcept;
 	void _CompleteFrontendRender(bool submitted, bool fromDLSSFGQueue) noexcept;
 
@@ -256,6 +277,11 @@ private:
 	std::unique_ptr<class CursorManager> _cursorManager;
 
 	class SrcTracker _srcTracker;
+	SourceWindowCoordinator _sourceCoordinator;
+	ScalingWindowRetirement _retirement;
+	unsigned _windowCallbackDepth = 0;
+	bool _finalizingRetirement = false;
+	std::chrono::steady_clock::time_point _nextSourceStateCheck{};
 
 	winrt::ResourceLoader _resourceLoader{ nullptr };
 
@@ -265,6 +291,8 @@ private:
 	std::array<wil::unique_hwnd, 4> _hwndTouchHoles{};
 
 	ScalingError _runtimeError = ScalingError::NoError;
+	std::string _startupFailureContext;
+	uint32_t _startupFailureSystemError = 0;
 
 	// 窗口缩放时切换到全屏缩放或最小化前保存尺寸供以后恢复
 	LONG _lastWindowedRendererWidth = 0;

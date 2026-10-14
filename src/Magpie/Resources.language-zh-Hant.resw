@@ -1295,10 +1295,12 @@
   <data name="Message_EffectCompileFailed" xml:space="preserve"><value>效果器編譯失敗。請在詳細資料中查看名稱，從對應發行套件還原該效果器，或將其移出效果組後重試。具體編譯錯誤請見記錄。</value></data>
   <data name="Message_EffectResourceFailed" xml:space="preserve"><value>效果器無法建立紋理或算繪資源。請嘗試降低輸出尺寸、減少效果器數量，並檢查詳細資料所列效果器的檔案。</value></data>
   <data name="Message_NativeEffectInitFailed" xml:space="preserve"><value>下方效果器未能啟動。請開啟詳細資料查看本次初始化的失敗步驟，再依所列檔案或錯誤碼排查；也可開啟效果組，先替換該效果器以繼續使用。原因不明確時，請複製詳細資料並附上記錄。</value></data>
-  <data name="Message_FrameGenerationInitFailed" xml:space="preserve"><value>補幀尚未啟動。請開啟詳細資料查看失敗步驟；可在下方效果組中關閉補幀效果器的光流，或在倍率可調時降低倍率後重試。也可先使用不含補幀的效果組。</value></data>
+  <data name="Message_FrameGenerationInitFailed" xml:space="preserve"><value>補幀尚未啟動。請開啟詳細資料依失敗步驟處理；若提示執行階段程式庫缺失、驗證失敗或需要重新啟動，請先還原完整安裝套件並重新啟動喜鵲。也可先使用不含補幀的效果組。</value></data>
   <data name="Message_OverlayInitFailed" xml:space="preserve"><value>工具列或游標疊加層初始化失敗。請重新解壓縮完整發行套件後再次啟用效果組；若仍失敗，請提供詳細資料與記錄。</value></data>
   <data name="Message_SharedTextureOpenFailed" xml:space="preserve"><value>圖形裝置無法共用輸出畫面。請嘗試讓擷取與輸出使用同一顯示卡，或關閉補幀；若仍失敗，請更新顯示卡驅動程式。</value></data>
-  <data name="Message_DlssNrUnavailable" xml:space="preserve"><value>DLSSNR 尚未參與影像處理，畫面會繼續顯示，其他效果依原順序處理。請開啟詳細資料查看 DLSSNR 的失敗步驟，處理後重新啟用效果組；恢復前，DLSSNR 參數暫時無法調整。</value></data>
+  <data name="Message_DlssNrUnavailable" xml:space="preserve">
+    <value>DLSSNR 已略過，效果組繼續執行。請開啟詳細資料查看已偵測到的原因和復原步驟；復原後確認「DLSSNR 正在執行」。</value>
+  </data>
   <data name="Message_FrameGenerationDisabled" xml:space="preserve"><value>補幀連續失敗，已在本次執行中停用，原始幀會繼續顯示。請嘗試降低倍率或更換光流設定，然後重新啟用效果組。</value></data>
   <data name="Message_ConfigurationWriteFailed" xml:space="preserve"><value>最近的修改尚未儲存至磁碟。請先保持 Magpie 開啟，在「檢視詳細資料」中核對設定檔路徑與失敗原因；處理後按「重試儲存」。儲存成功後再結束。</value></data>
   <data name="Message_EffectParameterConflict" xml:space="preserve"><value>效果組或參數已在其他位置更新，本面板的修改未覆寫儲存。請停用並重新啟用效果組，載入最新設定後再調整。</value></data>
@@ -1308,7 +1310,9 @@
   <data name="Message_ScreenshotEncodeFailed" xml:space="preserve"><value>目前畫面尚未能編碼為截圖。請重新啟用效果組後再次按工具列「截圖」；若仍失敗，請複製詳細資料並附上記錄。</value></data>
   <data name="Message_ScreenshotReadbackFailed" xml:space="preserve"><value>無法從顯示卡讀取擷取畫面。請重新啟用效果組後重試；若仍失敗，可嘗試降低輸出尺寸、減少效果器，並提供詳細資料與記錄。</value></data>
   <data name="Overlay_EffectParameters_Unavailable" xml:space="preserve"><value>無法使用</value></data>
-  <data name="Overlay_EffectParameters_BackendUnavailable" xml:space="preserve"><value>DLSSNR 後端未初始化，目前僅透傳。請檢視首頁 → 最近一次問題，處理後重新啟用效果組。</value></data>
+  <data name="Overlay_EffectParameters_BackendUnavailable" xml:space="preserve">
+    <value>效果目前未處理畫面。請查看上方狀態和處理步驟；調整參數不能使其恢復。</value>
+  </data>
   <data name="Message_SourceWindowClosed" xml:space="preserve"><value>目標視窗已關閉。請重新開啟，將其切到前景後再啟用效果組。</value></data>
   <data name="Message_SourceWindowUnresponsive" xml:space="preserve"><value>目標視窗暫時沒有回應。請等待其恢復，或重新啟動目標程式後再啟用效果組。</value></data>
   <data name="Message_SourceWindowTooSmall" xml:space="preserve"><value>可見擷取區域小於 64 × 64 像素。請放大目標視窗，並將其完整移入螢幕後重試。</value></data>
@@ -1339,7 +1343,7 @@
   <data name="Motion_Nvidia_4" xml:space="preserve"><value>高品質</value></data>
   <data name="Motion_Amd_0" xml:space="preserve"><value>效能</value></data>
   <data name="Motion_Amd_1" xml:space="preserve"><value>品質</value></data>
-  <data name="Overlay_Profiler_FrameRateWithFG" xml:space="preserve"><value>幀率（總 / 真實）</value></data>
+  <data name="Overlay_Profiler_FrameRateWithFG" xml:space="preserve"><value>影格率（內容輸出 / 真實輸入）</value></data>
   <data name="EffectParam_DLSS_DLSS_SR_opticalFlowMethod_Label" xml:space="preserve"><value>光流估算方式</value></data>
   <data name="EffectParam_DLSS_DLSS_SR_opticalFlowMethod_Option_0" xml:space="preserve"><value>不使用</value></data>
   <data name="EffectParam_DLSS_DLSS_SR_opticalFlowMethod_Option_1" xml:space="preserve"><value>AMD OF</value></data>
@@ -1515,7 +1519,7 @@
   <data name="Message_HdrCaptureRequired" xml:space="preserve"><value>HDR → SDR 需要保留 HDR 來源畫面。請在 Windows 顯示設定中開啟來源應用程式所在螢幕的 HDR；處理原生 SDR 時可直接使用 SDR 效果，再按需新增 SDR → HDR。</value></data>
   <data name="Message_HdrDisplayRequired" xml:space="preserve"><value>效果組輸出 HDR。請在 Windows 顯示設定中開啟目標螢幕的 HDR，或在效果組末尾使用 HDR → SDR 的顯示映射。跨螢幕輸出時，各目標螢幕都需要開啟 HDR。</value></data>
   <data name="Message_HdrCaptureMethodRequired" xml:space="preserve"><value>請在目前設定中將擷取方式改為 Graphics Capture，再嘗試 HDR → SDR。此路徑可以保留 HDR 擷取的亮度範圍。</value></data>
-  <data name="Message_RtxHdrUnavailable" xml:space="preserve"><value>RTX Video HDR 未能完成處理。請更新 NVIDIA 驅動程式，確認使用 RTX 20 系或更新顯示卡，並檢查本程式目錄中的 Magpie.RtxVideo.dll 與 nvngx_truehdr.dll 是否完整。可先將本項替換為 SDR → HDR 的原生 SDR 映射；仍失敗時完全結束 Magpie，重新開啟並複製詳細資料。</value></data>
+  <data name="Message_RtxHdrUnavailable" xml:space="preserve"><value>Nvidia VFX TrueHDR 未能完成處理。請檢查實際繪製顯示卡、NVIDIA 驅動程式及配套 VFX Core／TrueHDR 元件；仍失敗時完全結束 Magpie，重新開啟並複製詳細資料。</value></data>
   <data name="EffectParam_Color_HDR_to_SDR_mode_Label" xml:space="preserve"><value>轉換模式</value></data>
   <data name="EffectParam_Color_HDR_to_SDR_mode_Option_0" xml:space="preserve"><value>相容配對</value></data>
   <data name="EffectParam_Color_HDR_to_SDR_mode_Option_1" xml:space="preserve"><value>SDR 顯示映射</value></data>
@@ -1643,8 +1647,6 @@
   <data name="EffectParam_DLSSNR_DLSSNR_AI_Filter_antiFlicker_Option_2" xml:space="preserve"><value>光流累積</value></data>
   <data name="EffectParam_DLSSNR_DLSSNR_AI_Filter_antiFlicker_Option_3" xml:space="preserve"><value>光流累積+</value></data>
   <data name="EffectParam_DLSSNR_DLSSNR_AI_Filter_antiFlicker_Option_4" xml:space="preserve"><value>低頻時域重建</value></data>
-  <data name="EffectParam_DLSSFG_DLSS_FrameGeneration_duplicateFrameFiltering_Label" xml:space="preserve"><value>重複影格過濾</value></data>
-  <data name="EffectParam_XeSSFG_XeSS_FrameGeneration_duplicateFrameFiltering_Label" xml:space="preserve"><value>重複影格過濾</value></data>
   <data name="EffectParam_DLSSNR_DLSSNR_AI_Filter_residualHueProtection_Label" xml:space="preserve"><value>色相保護</value></data>
   <data name="EffectParam_DLSSNR_DLSSNR_AI_Filter_residualDarkProtection_Label" xml:space="preserve"><value>暗部保護</value></data>
   <data name="EffectParam_DLSSNR_DLSSNR_AI_Filter_residualHighlightProtection_Label" xml:space="preserve"><value>亮部保護</value></data>
@@ -1729,14 +1731,14 @@
   <data name="FrameRefresh_Reset.Header" xml:space="preserve"><value>還原重新整理預設設定</value></data>
   <data name="Home_FrameRefresh.Header" xml:space="preserve"><value>預設影格率與重新整理</value></data>
   <data name="FrameRefresh.Description" xml:space="preserve"><value>按設定檔儲存，重新啟用縮放後生效。</value></data>
-  <data name="FrameRefresh_Content.Description" xml:space="preserve"><value>控制 Magpie 的內容處理影格率；自動模式按顯示更新率和補幀倍率計算。</value></data>
+  <data name="FrameRefresh_Content.Description" xml:space="preserve"><value>設置內容畫面的處理幀率。</value></data>
   <data name="FrameRefresh_Pacing.Description" xml:space="preserve"><value>選擇內容影格的處理節奏。</value></data>
   <data name="FrameRefresh_ContentRate.Description" xml:space="preserve"><value>設定基礎內容處理的目標影格率。</value></data>
-  <data name="FrameRefresh_Cursor.Description" xml:space="preserve"><value>選擇系統游標的更新方式。</value></data>
+  <data name="FrameRefresh_Cursor.Description" xml:space="preserve"><value>設置光標的刷新策略。</value></data>
   <data name="FrameRefresh_CursorSupplement.Description" xml:space="preserve"><value>選擇自動或自訂的游標補充更新率。</value></data>
   <data name="FrameRefresh_CursorRate.Description" xml:space="preserve"><value>設定游標補充更新的目標最低影格率。</value></data>
-  <data name="FrameRefresh_Advanced.Description" xml:space="preserve"><value>重複影格偵測與閒置重繪。</value></data>
-  <data name="FrameRefresh_Idle.Description" xml:space="preserve"><value>閒置時重繪目前畫面。</value></data>
+  <data name="FrameRefresh_Advanced.Description" xml:space="preserve"><value>可變更新率、重複影格偵測與閒置重繪。</value></data>
+  <data name="FrameRefresh_Idle.Description" xml:space="preserve"><value>畫面不變時按指定影格率重繪。FG 約 0.5 秒沒有新內容後重用快取重繪，不額外插幀。</value></data>
   <data name="FrameRefresh_IdleRate.Description" xml:space="preserve"><value>設定閒置重繪的目標影格率。</value></data>
   <data name="FrameRefresh_Reset.Description" xml:space="preserve"><value>還原內容 60、游標補充 60、閒置重繪 30 FPS，節奏方式為 Front Edge。</value></data>
   <data name="FrameRefresh_Content_Input.[using:Windows.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>內容影格率</value></data>
@@ -1756,5 +1758,407 @@
     <value>重設</value>
   </data>
   <data name="FrameRefresh_DuplicateDetection_Input.[using:Windows.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>重複影格偵測</value></data>
+  <data name="Profile_General_GraphicsCard.Header" xml:space="preserve">
+    <value>渲染顯示卡</value>
+  </data>
+  <data name="Profile_General_GraphicsCard_Input.[using:Windows.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>渲染顯示卡</value>
+  </data>
+  <data name="Profile_General_GraphicsCard_Auto" xml:space="preserve">
+    <value>自動</value>
+  </data>
+  <data name="Profile_General_GraphicsCard_None" xml:space="preserve">
+    <value>找不到可用的顯示卡</value>
+  </data>
+  <data name="Profile_General_GraphicsCard_Unavailable" xml:space="preserve">
+    <value>指定顯示卡暫時無法使用</value>
+  </data>
+  <data name="Profile_General_NoGraphicsCard.Title" xml:space="preserve">
+    <value>找不到可用的顯示卡</value>
+  </data>
+  <data name="Profile_General_NoGraphicsCard.Message" xml:space="preserve">
+    <value>啟用效果時將嘗試 CPU 算繪。請檢查顯示卡驅動程式。</value>
+  </data>
+  <data name="Profile_General_GraphicsCardUnavailable.Title" xml:space="preserve">
+    <value>指定顯示卡暫時無法使用</value>
+  </data>
+  <data name="Profile_General_GraphicsCardUnavailable.Message" xml:space="preserve">
+    <value>啟用效果時將自動選擇可用的顯示卡；該顯示卡恢復後會重新使用。</value>
+  </data>
+
+  <data name="FrameRefresh_VRR.Header" xml:space="preserve"><value>VRR 可變更新率</value></data>
+  <data name="FrameRefresh_VRR.Description" xml:space="preserve"><value>让顯示器刷新率跟隨輸出幀率。</value></data>
+  <data name="FrameRefresh_VRR_Input.OffContent" xml:space="preserve"><value>關閉</value></data>
+  <data name="FrameRefresh_VRR_Input.OnContent" xml:space="preserve"><value>開啟</value></data>
+  <data name="FrameRefresh_VRR_Input.[using:Windows.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>VRR 可變更新率</value></data>
+
+
   <data name="ScalingModes_General_MoreOptions.Content" xml:space="preserve"><value>更多選項</value></data>
+  <!-- RTSS target application linkage; English fallback outside zh-Hans. -->
+
+  <data name="HdrParameter_InvalidInput" xml:space="preserve"><value>請輸入所示範圍內的數值；整數參數需要輸入整數。</value></data>
+  <data name="HdrParameter_PreciseInputHelp" xml:space="preserve"><value>可輸入精確數值；Shift 配合方向鍵或滾輪進行粗調。</value></data>
+  <data name="EffectParam_Color_SDR_to_HDR_nativeWhiteNits_Label" xml:space="preserve"><value>SDR 白色亮度（尼特）</value></data>
+  <data name="EffectParam_Color_SDR_to_HDR_nativeWhiteNits_Description" xml:space="preserve"><value>高值會提高整體畫面亮度。預設 203，新輸入範圍為 80–4000 尼特。舊低亮度值保持到主動編輯。</value></data>
+  <data name="ScalingModes_HdrMigrationInvalid_Description" xml:space="preserve"><value>儲存的 HDR 設定無法安全展開，原始資料已保留。請還原原群組或修復儲存的設定後再啟動。</value></data>
+  <data name="HdrParameter_PairSource" xml:space="preserve"><value>使用第 {} 個效果器（HDR → SDR）的配對參數還原。</value></data>
+
+  <data name="Rtss_TargetLimit.Header" xml:space="preserve"><value>Target application frame rate limit</value></data>
+  <data name="Rtss_Takeover.Description" xml:space="preserve"><value>通過 RTSS 限制程序幀率。</value></data>
+  <data name="Rtss_Scope_None.Content" xml:space="preserve"><value>Do not manage RTSS profiles</value></data>
+  <data name="Rtss_Scope_Global.Content" xml:space="preserve"><value>Modify global profile</value></data>
+  <data name="Rtss_Scope_Target.Content" xml:space="preserve"><value>Modify target application profile</value></data>
+  <data name="Rtss_Status.Header" xml:space="preserve"><value>RTSS status</value></data>
+  <data name="Rtss_Tools.Content" xml:space="preserve"><value>Launch tools</value></data>
+  <data name="Rtss_Recheck.[using:Windows.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Recheck RTSS</value></data>
+  <data name="Rtss_Recheck.ToolTipService.ToolTip" xml:space="preserve"><value>Recheck RTSS and retry the current request</value></data>
+  <data name="Rtss_GlobalNotice.Text" xml:space="preserve"><value>Applications using the global profile share this limit.</value></data>
+  <data name="Rtss_RateMode.Header" xml:space="preserve"><value>Frame rate setting</value></data>
+  <data name="Rtss_Rate_Custom.Content" xml:space="preserve"><value>指定幀率</value></data>
+  <data name="Rtss_Rate_Sync.Content" xml:space="preserve"><value>同步內容幀率</value></data>
+  <data name="Rtss_CustomRate.Header" xml:space="preserve"><value>Frame rate limit</value></data>
+  <data name="Rtss_ExitPolicy.Header" xml:space="preserve"><value>When scaling stops</value></data>
+  <data name="Rtss_Exit_Keep.Content" xml:space="preserve"><value>Keep changes</value></data>
+  <data name="Rtss_Exit_Restore.Content" xml:space="preserve"><value>Restore original value</value></data>
+  <data name="Rtss_UnmanagedNotice" xml:space="preserve"><value>Magpie is not managing RTSS profiles.</value></data>
+  <data name="Rtss_Status_Checking" xml:space="preserve"><value>正在檢測 RTSS</value></data>
+  <data name="Rtss_Status_NotInstalled" xml:space="preserve"><value>未安装 RTSS</value></data>
+  <data name="Rtss_Status_NotRunning" xml:space="preserve"><value>RTSS is not running.</value></data>
+  <data name="Rtss_Status_Incompatible" xml:space="preserve"><value>Required RTSS profile interface is unavailable.</value></data>
+  <data name="Rtss_Status_Failed" xml:space="preserve"><value>RTSS 聯動未完成</value></data>
+  <data name="Rtss_Status_WaitingTarget" xml:space="preserve"><value>等待開始縮放</value></data>
+  <data name="Rtss_Status_Read" xml:space="preserve"><value>Profile read successfully.</value></data>
+  <data name="Rtss_Status_MissingProfile" xml:space="preserve"><value>A target profile will be created when scaling starts.</value></data>
+  <data name="Rtss_Status_WaitingContent" xml:space="preserve"><value>等待固定內容幀率 · 同步限幀暂停</value></data>
+  <data name="Rtss_Status_Applying" xml:space="preserve"><value>正在加載限幀配置</value></data>
+  <data name="Rtss_Status_Written" xml:space="preserve"><value>RTSS 已就绪</value></data>
+  <data name="Rtss_Status_Conflict" xml:space="preserve"><value>The profile was changed externally.</value></data>
+  <data name="Rtss_Status_Kept" xml:space="preserve"><value>Changes kept.</value></data>
+  <data name="Rtss_Status_Restored" xml:space="preserve"><value>Original frame rate settings restored.</value></data>
+  <data name="Rtss_Status_RestoreFailed" xml:space="preserve"><value>Restoration failed.</value></data>
+  <data name="Rtss_Status_StartingTool" xml:space="preserve"><value>正在啟動 RTSS</value></data>
+  <data name="Rtss_Status_ToolStartFailed" xml:space="preserve"><value>RTSS 聯動未完成</value></data>
+  <data name="Rtss_DetectionDisabled" xml:space="preserve"><value>RTSS application detection is disabled.</value></data>
+  <data name="Rtss_TargetOverridesGlobal" xml:space="preserve"><value>The target uses its own profile.</value></data>
+  <data name="Rtss_NoLimit" xml:space="preserve"><value>No frame rate limit</value></data>
+  <data name="Rtss_TimeLimit" xml:space="preserve"><value>The original profile uses a frame time limit.</value></data>
+  <data name="Rtss_SyncUnavailable" xml:space="preserve"><value>Sync is unavailable when content follows the source.</value></data>
+  <data name="Rtss_SyncAtStart" xml:space="preserve"><value>Sync with the current content frame rate.</value></data>
+  <data name="Rtss_CustomAtStart" xml:space="preserve"><value>Apply when scaling starts.</value></data>
+  <data name="Rtss_LaunchRtss" xml:space="preserve"><value>Launch RTSS</value></data>
+  <data name="Rtss_LaunchRtssMissing" xml:space="preserve"><value>RTSS is not installed</value></data>
+  <data name="Rtss_LaunchRtssRunning" xml:space="preserve"><value>RTSS is running</value></data>
+  <data name="Rtss_LaunchAfterburner" xml:space="preserve"><value>Launch MSI Afterburner</value></data>
+  <data name="Rtss_LaunchAfterburnerMissing" xml:space="preserve"><value>MSI Afterburner is not installed</value></data>
+  <data name="Rtss_LaunchAfterburnerRunning" xml:space="preserve"><value>MSI Afterburner is running</value></data>
+  <data name="Rtss_Failure_Access" xml:space="preserve"><value>The RTSS profile interface is unavailable.</value></data>
+  <data name="Rtss_Failure_Target" xml:space="preserve"><value>Could not identify the target application.</value></data>
+  <data name="Rtss_Failure_Read" xml:space="preserve"><value>Could not read the profile.</value></data>
+  <data name="Rtss_Failure_Write" xml:space="preserve"><value>Could not save the profile.</value></data>
+  <data name="Rtss_Failure_Restore" xml:space="preserve"><value>Could not restore the profile.</value></data>
+  <data name="Rtss_Scope_Input.[using:Windows.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>RTSS profile management</value></data>
+  <data name="Rtss_RateMode_Input.[using:Windows.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>RTSS frame rate setting</value></data>
+  <data name="Rtss_CustomRate_Input.[using:Windows.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>RTSS integer frame rate limit</value></data>
+  <data name="Rtss_ExitPolicy_Input.[using:Windows.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>RTSS stop policy</value></data>
+  <data name="Rtss_Failure_Interface" xml:space="preserve"><value>The RTSS interface faulted. Restart Magpie.</value></data>
+  <data name="Rtss_Failure_StartTimeout" xml:space="preserve"><value>Tool launch timed out.</value></data>
+  <data name="Rtss_Failure_LibraryMissing" xml:space="preserve"><value>The RTSS profile interface library is missing.</value></data>
+  <data name="Rtss_Failure_Permission" xml:space="preserve"><value>Access denied.</value></data>
+  <data name="Rtss_SyncedRate_Input.[using:Windows.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>RTSS synced frame rate limit</value></data>
+  <data name="Rtss_Failure_Set" xml:space="preserve"><value>Could not set the frame rate.</value></data>
+  <data name="Rtss_Failure_Verify" xml:space="preserve"><value>Could not verify the profile.</value></data>
+  <data name="Rtss_Failure_Reload" xml:space="preserve"><value>Could not reload the profile.</value></data>
+  <data name="Rtss_Failure_TimeMode" xml:space="preserve"><value>Could not switch from frame time mode.</value></data>
+  <data name="Rtss_InitializeMagpie" xml:space="preserve">
+    <value>Initialize</value>
+  </data>
+  <data name="Rtss_InitializingMagpie" xml:space="preserve">
+    <value>Initializing…</value>
+  </data>
+  <data name="Rtss_InitializeMagpieButton.ToolTipService.ToolTip" xml:space="preserve">
+    <value>Create an unlimited RTSS profile for Magpie.</value>
+  </data>
+  <data name="Rtss_InitializeMagpieButton.AutomationProperties.Name" xml:space="preserve">
+    <value>Initialize the RTSS profile for Magpie</value>
+  </data>
+  <data name="Rtss_Status_InitializingMagpie" xml:space="preserve">
+    <value>正在初始化 Magpie</value>
+  </data>
+  <data name="Rtss_Status_MagpieInitialized" xml:space="preserve">
+    <value>Profile initialized.</value>
+  </data>
+  <data name="Rtss_Status_MagpieAlreadyUnlimited" xml:space="preserve">
+    <value>Already unlimited.</value>
+  </data>
+  <data name="Rtss_Failure_ProfileFormat" xml:space="preserve">
+    <value>Could not process the profile format.</value>
+  </data>
+  <data name="Rtss_Failure_MissingInterface" xml:space="preserve"><value>An interface required for this operation is missing.</value></data>
+  <data name="Rtss_Failure_Property" xml:space="preserve"><value>A property required for this operation could not be read.</value></data>
+  <data name="Rtss_Failure_Architecture" xml:space="preserve"><value>Profile library architecture does not match.</value></data>
+  <data name="Rtss_Failure_ProfileObject" xml:space="preserve"><value>Could not confirm the initialization target.</value></data>
+  <data name="Rtss_Failure_SelfProfileConflict" xml:space="preserve"><value>The target and Magpie share the same profile name.</value></data>
+  <data name="Rtss_Failure_InstallationChanged" xml:space="preserve"><value>RTSS profile directory has changed.</value></data>
+  <data name="Rtss_ProfileRate" xml:space="preserve"><value>配置限幀：{} FPS</value></data>
+  <data name="Rtss_RateUnknown" xml:space="preserve"><value>Profile limit could not be read.</value></data>
+  <data name="Rtss_Reloaded" xml:space="preserve"><value>Profile reload requested.</value></data>
+  <data name="Rtss_ProfileSaved" xml:space="preserve"><value>Profile saved.</value></data>
+  <data name="Home_Toolbar_ScreenshotContent.Description" xml:space="preserve"><value>選擇工具列按鈕和截圖快捷鍵儲存的內容。</value></data>
+  <data name="Home_Toolbar_ScreenshotContent.Header" xml:space="preserve"><value>截圖內容</value></data>
+  <data name="Home_Toolbar_ScreenshotContent_InputAndOutput.Content" xml:space="preserve"><value>同時截圖原始輸入和最終效果</value></data>
+  <data name="Home_Toolbar_ScreenshotContent_InputOnly.Content" xml:space="preserve"><value>只截圖原始輸入</value></data>
+  <data name="Home_Toolbar_ScreenshotContent_OutputOnly.Content" xml:space="preserve"><value>只截圖最終效果</value></data>
+  <data name="Message_ScreenshotBusy" xml:space="preserve"><value>正在儲存截圖，請完成後重試。</value></data>
+  <data name="Message_ScreenshotPairSaved" xml:space="preserve"><value>已儲存截圖：{0}、{1}</value></data>
+  <data name="Message_ScreenshotPartialSaved" xml:space="preserve"><value>已儲存 {0}；{1} 儲存失敗，請查看錯誤詳細資訊。</value></data>
+  <data name="EffectParam_NvidiaVFX_VFG_model_Option_0" xml:space="preserve"><value>效能</value></data>
+  <data name="EffectParam_NvidiaVFX_VFG_model_Option_1" xml:space="preserve"><value>均衡</value></data>
+  <data name="FrameRefresh_Mode.Header" xml:space="preserve"><value>設定模式</value></data>
+  <data name="FrameRefresh_Mode.Description" xml:space="preserve"><value>簡單模式統一管理其餘更新設定。模式全域記憶，重新啟用縮放後生效。</value></data>
+  <data name="FrameRefresh_Mode_Input.[using:Windows.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>設定模式</value></data>
+  <data name="FrameRefresh_Mode_Simple.Content" xml:space="preserve"><value>簡單</value></data>
+  <data name="FrameRefresh_Mode_Advanced.Content" xml:space="preserve"><value>進階</value></data>
+  <data name="FrameRefresh_Title.Text" xml:space="preserve">
+    <value>幀率與刷新</value>
+  </data>
+  <data name="FrameRefresh_RateGroup.Header" xml:space="preserve">
+    <value>幀率控制</value>
+  </data>
+  <data name="FrameRefresh_RateGroup.Description" xml:space="preserve">
+    <value>設定內容畫面的處理幀率與節奏。</value>
+  </data>
+  <data name="FrameRefresh_StaticGroup.Header" xml:space="preserve">
+    <value>靜态畫面</value>
+  </data>
+  <data name="FrameRefresh_StaticGroup.Description" xml:space="preserve">
+    <value>設置畫面不變時的刷新。</value>
+  </data>
+  <data name="Rtss_SimpleSync.Header" xml:space="preserve">
+    <value>同步限制目標程序</value>
+  </data>
+  <data name="Rtss_SimpleSync.Description" xml:space="preserve">
+    <value>跟隨內容幀率，停止縮放後恢復原設定。</value>
+  </data>
+  <data name="Rtss_SimpleSync_Input.OnContent" xml:space="preserve">
+    <value>開</value>
+  </data>
+  <data name="Rtss_SimpleSync_Input.OffContent" xml:space="preserve">
+    <value>關</value>
+  </data>
+  <data name="Rtss_SimpleSync_Input.[using:Windows.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>同步限制目標程序</value>
+  </data>
+  <data name="Rtss_Mode_Input.[using:Windows.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>目標程序限幀方式</value>
+  </data>
+  <data name="Rtss_ScopeLabel.Text" xml:space="preserve">
+    <value>作用范圍</value>
+  </data>
+  <data name="Rtss_ExitLabel.Text" xml:space="preserve">
+    <value>停止縮放後</value>
+  </data>
+  <data name="Rtss_Download.Content" xml:space="preserve">
+    <value>獲取 RTSS</value>
+  </data>
+  <data name="Rtss_Retry.Content" xml:space="preserve">
+    <value>重試</value>
+  </data>
+  <data name="Rtss_Manage.Content" xml:space="preserve">
+    <value>管理</value>
+  </data>
+  <data name="Rtss_RecheckMenu.Text" xml:space="preserve">
+    <value>重新檢測</value>
+  </data>
+  <data name="Rtss_Status_Disabled" xml:space="preserve">
+    <value>RTSS 聯動未開啟</value>
+  </data>
+  <data name="Rtss_ScalingContinues" xml:space="preserve">
+    <value>縮放繼續運行</value>
+  </data>
+  <data name="Rtss_Failure_Launch" xml:space="preserve">
+    <value>啟動 RTSS 失败</value>
+  </data>
+  <data name="Home_FrameRefresh_SimpleSummary" xml:space="preserve">
+    <value>內容：{} · 空闲：{} · VRR：{}</value>
+  </data>
+  <data name="Rtss_Failure_ProcessExited" xml:space="preserve"><value>RTSS 程序已結束</value></data>
+  <data name="Rtss_Status_StartingAfterburner" xml:space="preserve"><value>正在啟動 MSI Afterburner</value></data>
+  <data name="Rtss_Status_AfterburnerStartFailed" xml:space="preserve"><value>MSI Afterburner 啟動失敗</value></data>
+  <data name="EffectParam_FSR3FG_FSR3_FrameGeneration_amdOpticalFlowMode_Label" xml:space="preserve"><value>光流品質</value></data>
+  <data name="EffectParam_FSR3FG_FSR3_FrameGeneration_amdOpticalFlowMode_Option_0" xml:space="preserve"><value>效能</value></data>
+  <data name="EffectParam_FSR3FG_FSR3_FrameGeneration_amdOpticalFlowMode_Option_1" xml:space="preserve"><value>品質</value></data>
+  <data name="EffectParam_FSR3FG_FSR3_FrameGeneration_nvidiaOpticalFlowQuality_Label" xml:space="preserve"><value>光流品質</value></data>
+  <data name="EffectParam_FSR3FG_FSR3_FrameGeneration_nvidiaOpticalFlowQuality_Option_1" xml:space="preserve"><value>效能</value></data>
+  <data name="EffectParam_FSR3FG_FSR3_FrameGeneration_nvidiaOpticalFlowQuality_Option_2" xml:space="preserve"><value>均衡（推薦）</value></data>
+  <data name="EffectParam_FSR3FG_FSR3_FrameGeneration_nvidiaOpticalFlowQuality_Option_3" xml:space="preserve"><value>品質</value></data>
+  <data name="EffectParam_FSR3FG_FSR3_FrameGeneration_nvidiaOpticalFlowQuality_Option_4" xml:space="preserve"><value>高品質（高開銷）</value></data>
+  <data name="EffectParam_FSR3FG_FSR3_FrameGeneration_opticalFlowMethod_Label" xml:space="preserve"><value>光流方法</value></data>
+  <data name="EffectParam_FSR3FG_FSR3_FrameGeneration_opticalFlowMethod_Option_1" xml:space="preserve"><value>AMD 光流</value></data>
+  <data name="EffectParam_FSR3FG_FSR3_FrameGeneration_opticalFlowMethod_Option_2" xml:space="preserve"><value>NVIDIA 光流</value></data>
+  <data name="EffectParam_FSR3FG_FSR3_FrameGeneration_nvidiaOpticalFlowQuality_Option_5" xml:space="preserve"><value>最高品質（極高開銷）</value></data>
+  <data name="FrameRefresh_CursorStrategy.Header" xml:space="preserve"><value>重新整理策略</value></data>
+  <data name="Rtss_Management.Header" xml:space="preserve"><value>管理</value></data>
+  <data name="Rtss_Recheck.Content" xml:space="preserve"><value>重新偵測</value></data>
+  <data name="Rtss_ProgramLabel.Text" xml:space="preserve"><value>RTSS</value></data>
+  <data name="Rtss_SelfLabel.Text" xml:space="preserve"><value>Magpie 設定</value></data>
+  <data name="Rtss_Title_WaitingContent" xml:space="preserve"><value>等待固定內容幀率</value></data>
+  <data name="Rtss_Detail_Disabled" xml:space="preserve"><value>不接管目標程式幀率。</value></data>
+  <data name="Rtss_Detail_WaitingContent" xml:space="preserve"><value>內容跟隨來源，同步限幀暫停。</value></data>
+  <data name="Rtss_Detail_WaitingTarget" xml:space="preserve"><value>開始縮放時自動準備 RTSS。</value></data>
+  <data name="Rtss_Detail_Checking" xml:space="preserve"><value>檢查程式與設定介面。</value></data>
+  <data name="Rtss_Detail_Starting" xml:space="preserve"><value>等待 RTSS 啟動完成。</value></data>
+  <data name="Rtss_Detail_Initializing" xml:space="preserve"><value>將 Magpie 自身設定設為不限幀。</value></data>
+  <data name="Rtss_Detail_Applying" xml:space="preserve"><value>套用目標程式限幀設定。</value></data>
+  <data name="Rtss_Detail_NotInstalled" xml:space="preserve"><value>安裝 RTSS 後重新偵測。</value></data>
+  <data name="Rtss_Detail_Global" xml:space="preserve"><value>RTSS 全域設定</value></data>
+  <data name="Rtss_Detail_Target" xml:space="preserve"><value>目前目標程式</value></data>
+  <data name="Rtss_Inventory_Checking" xml:space="preserve"><value>偵測中</value></data>
+  <data name="Rtss_Inventory_Missing" xml:space="preserve"><value>未安裝</value></data>
+  <data name="Rtss_Inventory_Running" xml:space="preserve"><value>執行中</value></data>
+  <data name="Rtss_Inventory_Stopped" xml:space="preserve"><value>已安裝，未執行</value></data>
+  <data name="Rtss_Inventory_Initializing" xml:space="preserve"><value>初始化中</value></data>
+  <data name="Rtss_Inventory_Unlimited" xml:space="preserve"><value>已不限幀</value></data>
+  <data name="Rtss_Inventory_Uninitialized" xml:space="preserve"><value>待初始化</value></data>
+  <data name="Rtss_Inventory_Unknown" xml:space="preserve"><value>待檢查</value></data>
+  <data name="Rtss_Management_Failed" xml:space="preserve"><value>Magpie 初始化未完成</value></data>
+  <data name="Rtss_Management_LaunchFailed" xml:space="preserve"><value>RTSS 啟動失敗</value></data>
+  <data name="Rtss_Management_Started" xml:space="preserve"><value>已啟動</value></data>
+  <data name="Rtss_Detail_RetryReady" xml:space="preserve"><value>已偵測到 RTSS，可重試連動。</value></data>
+  <data name="Rtss_Takeover.Header" xml:space="preserve"><value>RTSS 設定接管</value></data>
+  <data name="Rtss_ManageText.Text" xml:space="preserve"><value>管理</value></data>
+  <data name="Rtss_ManagementToggle.[using:Windows.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>管理</value></data>
+  <data name="Rtss_OptionalAfterburner.Header" xml:space="preserve"><value>MSI Afterburner</value></data>
+  <data name="Rtss_OptionalAfterburner.Description" xml:space="preserve"><value>選用工具</value></data>
+  <data name="Rtss_LaunchOptional.Content" xml:space="preserve"><value>啟動</value></data>
+  <data name="Rtss_LaunchOptional.[using:Windows.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>啟動 MSI Afterburner</value></data>
+  <data name="Profile_CropLeftLabel.Text" xml:space="preserve"><value>左</value></data>
+  <data name="Profile_CropLeft_Input.[using:Windows.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>左</value></data>
+  <data name="Profile_CropRightLabel.Text" xml:space="preserve"><value>右</value></data>
+  <data name="Profile_CropRight_Input.[using:Windows.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>右</value></data>
+  <data name="Profile_CropTopLabel.Text" xml:space="preserve"><value>上</value></data>
+  <data name="Profile_CropTop_Input.[using:Windows.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>上</value></data>
+  <data name="Profile_CropBottomLabel.Text" xml:space="preserve"><value>下</value></data>
+  <data name="Profile_CropBottom_Input.[using:Windows.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>下</value></data>
+  <data name="Rtss_ManagementExpanded" xml:space="preserve"><value>管理詳細資料已展開</value></data>
+  <data name="Rtss_ManagementCollapsed" xml:space="preserve"><value>管理詳細資料已收合</value></data>
+  <data name="Profile_InitialScale_Input.[using:Windows.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>初始縮放倍數</value></data>
+  <data name="Profile_CursorScale_Input.[using:Windows.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>縮放係數</value></data>
+  <data name="Overlay_FG_FrameRateHelp" xml:space="preserve"><value>內容輸出 / 真實輸入 FPS。R/s 單獨記錄成功提交的閒置重繪，不是生成影格率或螢幕實際更新率。</value></data>
+  <data name="Overlay_FG_IdleSubmissions" xml:space="preserve"><value>閒置重繪提交/秒（R/s）</value></data>
+  <data name="Overlay_FG_Waiting" xml:space="preserve"><value>等待新畫面</value></data>
+  <data name="Overlay_FG_GeneratedRate" xml:space="preserve"><value>已回報生成影格率</value></data>
+  <data name="Message_FSR3FGEffectChainUnsupported" xml:space="preserve"><value>FSR3 FG 不支援效果 {}：目前僅支援已驗證的矩形縮放和銳化。請移除此效果或更換補幀器。</value></data>
+  <data name="Message_FSR3FGHdrUnsupported" xml:space="preserve"><value>FSR3 FG 目前僅支援 SDR。請移除 HDR 元件並關閉 HDR 相容模式。</value></data>
+  <data name="Overlay_FG_SubmittedRateHelp" xml:space="preserve"><value>內容提交 / 真實輸入 FPS。生成提交不含 CPU 已知的重設影格，但 GPU 場景切換仍可能產生複製影格；不等於 SDK 呈現報告或螢幕實測影格率。R/s 單獨記錄重繪提交。</value></data>
+  <data name="Overlay_FG_SubmittedRate" xml:space="preserve"><value>影格率（內容提交 / 真實輸入）</value></data>
+  <data name="Overlay_FG_SubmittedGeneratedRate" xml:space="preserve"><value>已提交生成影格率</value></data>
+  <data name="Overlay_FG_InputCopyTiming" xml:space="preserve"><value>僅輸入複製</value></data>
+  <data name="Overlay_FG_UnmeasuredTiming" xml:space="preserve"><value>補幀 GPU 耗時尚未測量。代理補幀行僅統計輸入複製；已測總計不含 SDK 補幀耗時。</value></data>
+  <data name="Overlay_FG_MeasuredTotal" xml:space="preserve"><value>已測總計（不含補幀）</value></data>
+  <data name="DlssNr_State_Disabled" xml:space="preserve">
+    <value>DLSSNR 未執行（效果組已關閉）。</value>
+  </data>
+  <data name="DlssNr_State_Starting" xml:space="preserve">
+    <value>DLSSNR 正在啟動，等待首個成功處理的畫面。</value>
+  </data>
+  <data name="DlssNr_State_Running" xml:space="preserve">
+    <value>DLSSNR 正在執行。</value>
+  </data>
+  <data name="DlssNr_State_Skipped" xml:space="preserve">
+    <value>DLSSNR 已略過；效果組繼續顯示畫面，但未套用 DLSSNR 處理。</value>
+  </data>
+  <data name="DlssNr_State_Stopped" xml:space="preserve">
+    <value>效果組已停止；DLSSNR 未處理畫面。</value>
+  </data>
+  <data name="DlssNr_Reason_Adapter" xml:space="preserve">
+    <value>目前選取的算繪顯示卡不是 NVIDIA 顯示卡。</value>
+  </data>
+  <data name="DlssNr_Reason_Missing" xml:space="preserve">
+    <value>已確認程式目錄中缺少 nvngx_dlssnr.dll。</value>
+  </data>
+  <data name="DlssNr_Reason_Load" xml:space="preserve">
+    <value>DLSSNR 執行檔案載入失敗；尚不能確定是檔案本身還是其相依元件不相容。</value>
+  </data>
+  <data name="DlssNr_Reason_Exports" xml:space="preserve">
+    <value>已載入的 DLSSNR 檔案缺少所需介面。</value>
+  </data>
+  <data name="DlssNr_Reason_Compatibility" xml:space="preserve">
+    <value>NGX 不支援目前系統、圖形介面、顯示卡與執行檔案的組合；尚不能單獨歸因於顯示卡或 DLL。</value>
+  </data>
+  <data name="DlssNr_Reason_Version" xml:space="preserve">
+    <value>NGX 要求更新驅動程式或功能執行庫；傳回結果未指明是哪一項。</value>
+  </data>
+  <data name="DlssNr_Reason_Memory" xml:space="preserve">
+    <value>圖形介面或 NGX 傳回記憶體資源不足。</value>
+  </data>
+  <data name="DlssNr_Reason_Access" xml:space="preserve">
+    <value>詳細資料中的操作存取失敗；這不等於已確認需要系統管理員權限。</value>
+  </data>
+  <data name="DlssNr_Reason_Fault" xml:space="preserve">
+    <value>NGX 發生例外，已在本次 Magpie 處理程序中被保護性停用。</value>
+  </data>
+  <data name="DlssNr_Reason_Build" xml:space="preserve">
+    <value>目前 Magpie 組建未包含 DLSSNR 支援。</value>
+  </data>
+  <data name="DlssNr_Reason_Unknown" xml:space="preserve">
+    <value>DLSSNR 在詳細資料所示步驟失敗，現有結果還不足以確定原因。</value>
+  </data>
+  <data name="DlssNr_Advice_Restart" xml:space="preserve">
+    <value>請從系統匣完全結束 Magpie，重新開啟後啟用效果組；僅重新啟用效果組不能解除 NGX 保護。確認此處顯示「正在執行」；再次失敗時請複製診斷並回報。</value>
+  </data>
+  <data name="DlssNr_Advice_Files" xml:space="preserve">
+    <value>開啟程式目錄和復原說明。完全結束 Magpie，依本版本說明還原完整相容的執行檔案，再開啟 Magpie 並啟用效果組。確認「DLSSNR 正在執行」；仍失敗時複製診斷並回報。</value>
+  </data>
+  <data name="DlssNr_Advice_Adapter" xml:space="preserve">
+    <value>開啟本次設定檔，檢查「渲染顯示卡」。僅在有相容 NVIDIA 顯示卡時改選該顯示卡；否則在此效果組中移除 DLSSNR。重新啟用效果組並檢查狀態。</value>
+  </data>
+  <data name="DlssNr_Advice_Version" xml:space="preserve">
+    <value>在詳細資料中核對實際顯示卡、驅動程式和 DLL 版本，並對照本版本執行套件要求；只更新不符合要求的元件。重新開啟 Magpie 並啟用效果組，確認「正在執行」。要求不明確或仍失敗時，複製診斷回報。</value>
+  </data>
+  <data name="DlssNr_Advice_Memory" xml:space="preserve">
+    <value>先關閉其他占用顯示記憶體的程式、降低來源畫面解析度，或開啟此效果組，將大於 1 的 DLSSNR Multi Pass 層數減為 1。重新啟用後確認「正在執行」；仍失敗時複製診斷回報。</value>
+  </data>
+  <data name="DlssNr_Advice_Access" xml:space="preserve">
+    <value>先查看詳細資料中的失敗操作和路徑。讀取執行檔案失敗時還原可讀取的檔案；NGX 資料寫入失敗時使用目前使用者可寫的程式目錄。重新開啟 Magpie 並啟用效果組。未明確路徑或原因時，複製診斷回報，不盲目修改權限。</value>
+  </data>
+  <data name="DlssNr_Advice_Unknown" xml:space="preserve">
+    <value>開啟詳細資料，依本版本執行套件說明核對實際顯示卡和執行檔案。重新啟用一次效果組，確認「DLSSNR 正在執行」。再次失敗時，複製診斷並回報失敗步驟；可暫時移除 DLSSNR 後使用其他效果。</value>
+  </data>
+  <data name="DlssNr_Parameter_HdrRestricted" xml:space="preserve">
+    <value>此參數僅適用於 SDR DLSSNR 路徑。HDR 處理仍可正常執行，實際狀態見上方。</value>
+  </data>
+  <data name="Overlay_EffectParameters_Restricted" xml:space="preserve">
+    <value>此參數不適用於目前效果器或處理模式，或由配對 HDR 元件控制；這不代表後端故障。</value>
+  </data>
+  <data name="Message_DlssNrStopped" xml:space="preserve">
+    <value>DLSSNR 失敗，效果組已停止。請開啟詳細資料，依偵測到的原因處理後重新啟用效果組，並確認執行狀態。</value>
+  </data>
+  <data name="Message_WindowIntegrityQueryFailed" xml:space="preserve">
+    <value>無法查詢來源視窗權限，效果組未啟動。請切回目標程式，待視窗可正常操作後重新啟用效果組；仍失敗時複製診斷並附記錄回報。目前未確認目標程式權限較高。</value>
+  </data>
+  <data name="Home_DlssNrStatus.Title" xml:space="preserve">
+    <value>目前 DLSSNR 工作階段</value>
+  </data>
+  <data name="ErrorDetails_OpenEffectsButton.Content" xml:space="preserve">
+    <value>開啟相關效果組</value>
+  </data>
+  <data name="DlssNr_OpenHelp" xml:space="preserve">
+    <value>開啟狀態與處理步驟</value>
+  </data>
+  <data name="DlssNr_OpenGuide" xml:space="preserve">
+    <value>開啟復原說明</value>
+  </data>
+  <data name="DlssNr_OpenDirectory" xml:space="preserve">
+    <value>開啟程式目錄</value>
+  </data>
+  <data name="DlssNr_OpenFailed" xml:space="preserve">
+    <value>無法開啟位置，請使用下方路徑手動開啟。</value>
+  </data>
+  <data name="ErrorDetails_EffectsChanged" xml:space="preserve">
+    <value>記錄中的效果組或效果順序已改變，或存在同名。已開啟清單，請依診斷中的組名尋找；未自動選取其他組。</value>
+  </data>
+  <data name="ErrorDetails_EffectsLocated" xml:space="preserve">
+    <value>相關效果組：{}{}</value>
+  </data>
+  <data name="Overlay_EffectParameters_RestrictedBadge" xml:space="preserve"><value>正常受限</value></data>
 </root>

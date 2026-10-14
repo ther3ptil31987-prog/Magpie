@@ -14,9 +14,6 @@ static bool ShouldLogPresentationDiagnostic(uint32_t count) noexcept {
 }
 
 bool AdaptivePresenter::_Initialize(HWND hwndAttach) noexcept {
-	Logger::Get().Info(fmt::format("VRR request: enabled={} tearingSupported={} path={}",
-		ScalingWindow::Get().Options().isVRREnabled, _deviceResources->IsTearingSupported(),
-		ScalingWindow::Get().Options().IsDirectFlipDisabled() ? "DirectComposition (VRR unavailable)" : "DXGI"));
 	if (ScalingWindow::Get().Options().IsDirectFlipDisabled()) {
 		// 禁用 DirectFlip 时始终使用 DirectComposition 呈现
 		if (!_ResizeDCompVisual(hwndAttach)) {
@@ -29,6 +26,7 @@ bool AdaptivePresenter::_Initialize(HWND hwndAttach) noexcept {
 	}
 
 	const uint32_t bufferCount = _CalcBufferCount();
+	_VRRPathAvailable(true);
 
 	const SIZE rendererSize = Win32Helper::GetSizeOfRect(ScalingWindow::Get().RendererRect());
 	DXGI_SWAP_CHAIN_DESC1 sd{
@@ -53,8 +51,7 @@ bool AdaptivePresenter::_Initialize(HWND hwndAttach) noexcept {
 		.SwapEffect = DXGI_SWAP_EFFECT_FLIP_DISCARD,
 		.AlphaMode = DXGI_ALPHA_MODE_IGNORE,
 		// VRR is opt-in; creation and resize preserve the same tearing capability.
-		.Flags = UINT((_deviceResources->IsTearingSupported() && ScalingWindow::Get().Options().isVRREnabled ? DXGI_SWAP_CHAIN_FLAG_ALLOW_TEARING : 0)
-		| DXGI_SWAP_CHAIN_FLAG_FRAME_LATENCY_WAITABLE_OBJECT)
+		.Flags = _vrr.CreationFlags() | DXGI_SWAP_CHAIN_FLAG_FRAME_LATENCY_WAITABLE_OBJECT
 	};
 
 	ID3D11Device5* d3dDevice = _deviceResources->GetD3DDevice();
@@ -67,15 +64,26 @@ bool AdaptivePresenter::_Initialize(HWND hwndAttach) noexcept {
 		nullptr,
 		dxgiSwapChain.put()
 	);
+	if (hr == DXGI_ERROR_INVALID_CALL && (sd.Flags & DXGI_SWAP_CHAIN_FLAG_ALLOW_TEARING)) {
+		_vrr.RejectCreation();
+		sd.Flags &= ~UINT(DXGI_SWAP_CHAIN_FLAG_ALLOW_TEARING);
+		dxgiSwapChain = nullptr;
+		Logger::Get().ComWarn("VRR swap-chain creation rejected; retrying once without tearing", hr);
+		hr = _deviceResources->GetDXGIFactory()->CreateSwapChainForHwnd(
+			d3dDevice, hwndAttach, &sd, nullptr, nullptr, dxgiSwapChain.put());
+	}
 	if (FAILED(hr)) {
 		Logger::Get().ComError("创建交换链失败", hr);
 		return false;
 	}
+	// Keep the known immutable flags even if later descriptor probing fails.
+	_vrr.Created(sd.Flags);
 	_dxgiSwapChain = dxgiSwapChain.try_as<IDXGISwapChain4>();
 	if (!_dxgiSwapChain) {
 		Logger::Get().Error("获取 IDXGISwapChain2 失败");
 		return false;
 	}
+	_BindVRRSwapChain(_dxgiSwapChain.get());
 	if (ScalingWindow::Get().Options().IsHdrCompatibilityEnabled()) {
 		hr = _dxgiSwapChain->SetColorSpace1(DXGI_COLOR_SPACE_RGB_FULL_G10_NONE_P709);
 		if (FAILED(hr)) {
@@ -109,6 +117,8 @@ bool AdaptivePresenter::_Initialize(HWND hwndAttach) noexcept {
 
 	hr = _deviceResources->GetDXGIFactory()->MakeWindowAssociation(
 		hwndAttach, DXGI_MWA_NO_ALT_ENTER);
+	_vrr.AltEnterDisabled(SUCCEEDED(hr));
+	_UpdateForegroundCompatibility();
 	if (FAILED(hr)) {
 		Logger::Get().ComError("MakeWindowAssociation 失败", hr);
 	}
@@ -265,14 +275,12 @@ bool AdaptivePresenter::EndFrame(bool waitForGpu) noexcept {
 	} else {
 		// 两个垂直同步之间允许渲染数帧，SyncInterval = 0 只呈现最新的一帧，旧帧被丢弃
 		const auto tracePresent = FrameTrace::Tick();
-		const UINT flags = ScalingWindow::Get().Options().isVRREnabled &&
-			_deviceResources->IsTearingSupported() ? DXGI_PRESENT_ALLOW_TEARING : 0;
 		_lastSubmissionTime = std::chrono::steady_clock::now();
 		if (_reflexRendering) {
 			_reflex->FrontendRender(_reflexFrameId, _reflexPresentId, false);
 			_reflex->Present(_reflexFrameId, _reflexPresentId, _reflexGenerated, true);
 		}
-		const HRESULT presentResult = _dxgiSwapChain->Present(0, flags);
+		const HRESULT presentResult = _PresentWithVRR(_dxgiSwapChain.get(), true);
 		if (_reflexRendering) {
 			_reflex->Present(_reflexFrameId, _reflexPresentId, _reflexGenerated, false);
 			_reflexRendering = false;
@@ -333,6 +341,7 @@ bool AdaptivePresenter::OnResize() noexcept {
 		// 切换到 DirectComposition 呈现，失败则回落到交换链
 		_isDCompPresenting = _ResizeDCompVisual();
 		if (_isDCompPresenting) {
+			_VRRPathAvailable(false);
 			return true;
 		}
 
@@ -348,6 +357,7 @@ bool AdaptivePresenter::OnResize() noexcept {
 		Logger::Get().Error("_ResizeSwapChain 失败");
 		return false;
 	}
+	_VRRPathAvailable(!_isDCompPresenting);
 	
 	return true;
 }
@@ -365,12 +375,14 @@ void AdaptivePresenter::OnEndResize(bool& shouldRedraw) noexcept {
 		return;
 	}
 	_isDCompPresenting = false;
+	_VRRPathAvailable(true);
 	// 交换链呈现新帧后再清除 DirectCompostion 内容，确保无缝切换
 	_isSwitchingToSwapChain = true;
 }
 
 bool AdaptivePresenter::_ResizeSwapChain() noexcept {
 	assert(_dxgiSwapChain);
+	_RefreshVRREnvironment(true);
 
 	// ResizeBuffers retains this swap chain and its already acquired token.
 	const DWORD capacity = _frameLatencyGate.TryAcquire(_frameLatencyWaitableObject.get(), 1000);
@@ -389,8 +401,7 @@ bool AdaptivePresenter::_ResizeSwapChain() noexcept {
 		(UINT)swapChainSize.cx,
 		(UINT)swapChainSize.cy,
 		DXGI_FORMAT_UNKNOWN,
-		UINT((_deviceResources->IsTearingSupported() && ScalingWindow::Get().Options().isVRREnabled ? DXGI_SWAP_CHAIN_FLAG_ALLOW_TEARING : 0)
-		| DXGI_SWAP_CHAIN_FLAG_FRAME_LATENCY_WAITABLE_OBJECT)
+		_vrr.ResizeFlags()
 	);
 	if (FAILED(hr)) {
 		Logger::Get().ComError("ResizeBuffers 失败", hr);

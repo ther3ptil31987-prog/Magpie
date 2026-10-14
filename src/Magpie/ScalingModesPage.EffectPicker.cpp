@@ -90,7 +90,7 @@ void ScalingModesPage::_BuildEffectPicker() {
 	const auto weak = get_weak();
 	const auto &catalog = EffectCatalog::Get();
 	for (const auto &effect : EffectsService::Get().Effects()) {
-		if (RTXVideoStrength(effect.name) >= 0)
+		if (RTXVideoStrength(effect.name) >= 0 || effect.name == L"RTXVideo\\RTXVideo_Denoise")
 			continue;
 		EffectPickerEntry entry;
 		if (const auto metadata = catalog.Find(effect.name))

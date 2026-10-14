@@ -1,6 +1,22 @@
 # Magpie 实验分支文档索引
 
+## 0.6.10 待审核分发 / Distribution under review
+
+[完整中英更新说明](../RELEASE_NOTES_v0.6.10-experimental.md)汇总 0.6.9 之后的已整合功能。分发候选以 Beta8 为基线，更新 GitHub 源码并创建 Draft + Pre-release 供维护者 review；公开入口保持 0.6.9。真实 GPU／游戏／HDR／VRR 与完整 DPI 验收另行记录。
+
+The 0.6.10 candidate builds on Beta8. Source is synchronized to GitHub and assets are staged as Draft + Pre-release for review. Public downloads remain at 0.6.9; hardware and full UI acceptance remain separate.
+
+- [错误状态与操作引导规范](../ERROR-REPORTING-GUIDELINES.md)：修改错误状态、提示或恢复入口时按需使用。
+- [DLSSNR 状态与恢复](../DLSSNR-TROUBLESHOOTING.md)：检测结果、处理入口及恢复确认。
+- [报错引导与 DLSSNR 状态细分 TODO](todos/20261013-error-guidance-and-dlssnr-status-TODO.md)：功能分支实现与独立编译验收交接。
+
+- [2026-10-12 FG 设置与空闲重绘源码交接](reviews/20261012-fg-settings-idle-source-handoff.md)：FSR3 默认必选 AMDOF 质量，四类 FG 共用重复检测与空闲重绘。源码完成；本轮未编译部署，原生与 GPU 验收待执行。
+
+帧率与刷新及配置页布局：原 `feature/0610-frame-refresh-rtss-auto` 分支在整页 280 DIP 布局基础上，完成模式外框圆角、10 处单位外置及 RTSS 独立分组。见[第五阶段实施与交接](reviews/20261011-rtss-grouped-units.md)及[TODO R01–R06](todos/20261011-frame-refresh-modes-TODO.md)。最新设计参照为 `profile-rtss-grouped.html`；R06 / S07 / V07 原生视觉与运行验收、产品编译部署交给后续会话。[第四阶段](reviews/20261011-profile-controls-unified.md)、[第三阶段](reviews/20261011-frame-refresh-visual-alignment.md)、[第二阶段](reviews/20261011-frame-refresh-rtss-auto.md)与[第一阶段](reviews/20261011-frame-refresh-modes.md)保留为历史。
+
 当前公开版本为 [Magpie Experimental v0.6.9](https://github.com/SAOG0721/Magpie/releases/tag/v0.6.9-experimental)：[完整中英 Release Note](../RELEASE_NOTES_v0.6.9-experimental.md)、[分发准备记录](reviews/20261002-v0.6.9-release-preparation.md)。默认分支 `experimental` 已同步完整 0.6.9 源码，`version.json` 指向该版本。发布标签及运行包的准确构建提交为 `27c5df91177a29b33be612e98274169f3d2fca49`；后续文档与版本入口更新保留为独立提交。
+
+HDR 兼容模式更新开发中：见[功能文档](design/20261005-hdr-compatibility-update-functional-spec.md)和[开发需求与进度](todos/20261005-hdr-compatibility-update-development-TODO.md)。本轮进行源码和针对性回归，应用完整编译及部署留给后续会话。
 
 帧同步当前状态：保留 Front Edge 默认，普通效果与 DLSS FG 支持 Async／Reflex 驱动基础限帧，XeSS FG 由 XeLL 接管；自动回退仅记简短日志，实时参数面板不显示运行状态。见 [使用指南](../FRAME_SYNC_GUIDE.md) 与 [实施记录](reviews/20260909-v0.6.7-frame-sync-modes.md)。
 
@@ -21,6 +37,56 @@ HDR 当前状态：旧配置页入口保持隐藏，新旧配置中的旧开关�
 本目录只收纳实验功能的路线图、TODO、测试矩阵和运行记录。上游通用 Wiki 文档继续保留在 `docs/` 根目录，避免实验说明与用户文档混在一起。
 
 ## 当前工作
+
+- [效果器用户说明重写 TODO](todos/20261013-effect-description-user-copy-revision-TODO.md)／[样稿、全量审查与交接](reviews/20261013-effect-description-user-copy-revision.md)：已重写 165 项双语说明并整理 40 项分类／家族说明；减少防御句，聚焦自身用途，统一新旧表达。文案 review 与静态检查完成；编译部署及界面／GPU 验收待后续会话执行。
+- [效果器说明维护规范](EFFECT-DESCRIPTION-GUIDE.md)：已修订为用户理解和选择优先，明确比较／组合／参数信息的归属；技术来源与证据要求继续保留。
+- [上一轮效果器说明 TODO](todos/20261013-effect-descriptions-and-guidelines-TODO.md)／[逐项审查与交接](reviews/20261013-effect-description-standards.md)：保留 165 项事实核对、分类／进阶入口及 VFG RCAS ID 修正记录。本轮文案重写结果见上方；编译部署及实机验收交给独立会话。
+
+- [DLSSFG sm86 启动修复源码交接](reviews/20261011-issue37-dlssfg-sm86-startup-fix.md)：原功能分支补齐显式 bundle 加载和 NGX 搜索目录；独立 loader 四场景通过，修改后的 Magpie 编译与真实补帧由后续会话验收。
+
+- [DLSSFG Beta7 启用失败修复 TODO](todos/20261011-issue37-dlssfg-sm86-startup-failure-TODO.md)：`FeatureNotFound` 实机记录与独立加载探针；补齐 bundle 准备和 NGX 搜索路径。
+
+- [Issue 37：DLSSFG 社区兼容接入开发交接](reviews/20261011-issue37-dlssfg-sm86-implementation.md)：默认统一接入、最高 4×；源码候选已写入，编译与实机验收交后续会话。
+- [Issue 37：DLSSFG 社区兼容接入 TODO](todos/20261011-issue37-dlssfg-sm86-unified-TODO.md)：原需求与完整验收清单。
+- **Issue 19：FSR 3 FG 源码集成**：独立分支 `feature/fsr3-frame-generation`，固定 2×、SDR、捕获时间戳优先及捕获接收间隔回退，未限制 WGC。见 [TODO](todos/20261011-issue19-fsr3-frame-generation-TODO.md)、[源码与编译交接](reviews/20261011-fsr3fg-source-development.md)、[效果说明](effects/FSR3FG.md)。本会话没有编译、部署或实机验收。
+
+- **0.6.10 Beta5 本地整合**：继承 Beta4 49de3f25，合入 RTSS e830078a 的初始化／能力判断和启动更新、NVIDIA VFX 999e94e2 的统一套件、截图 abfce2ef 的内容选择。见[中英说明](../RELEASE_NOTES_v0.6.10-beta5.md)。完整构建与本地验证以 reports/0610-beta5-20261009 的记录及包内清单为准，真实 GPU／UI／游戏验收另行记录。
+
+- **0.6.10 Beta4 本地整合**：继承 Beta3 `3c071cc6`，整合 HDR `fac29926` 的手动链和试用组迁移、RTSS `50144ea0` 的固定布局／同步帧率显示及保存／恢复修复、VRR `9e5f89f7` 的开销与诊断更新。见[本版中英说明](../RELEASE_NOTES_v0.6.10-beta4.md)。下方记录保留开发阶段边界，完整构建、包与配置保留以本轮审计为准；实际 UI、RTSS、HDR／RTX／FG 和 VRR 性能继续单独验收。
+
+- **0.6.10 Beta3 本地整合**：`release/0.6.10-beta3` 继承 Beta2 `6e50812a`，增量合入 RTSS `f5f534c2`；保留统一 VRR、开关样式、UWP／参数焦点和渲染显卡选择。RTSS 设置 C++ 176 项与结构合同、原有 11 组相关软件回归通过；补齐同步夹具并验证实际基础帧率通知。完整构建及本地包以本轮整合审计和清单为准。真实 RTSS 事务、Hook、游戏帧率和原生界面验收仍待进行。见[本版中英说明](../RELEASE_NOTES_v0.6.10-beta3.md)。下方功能交接文档保留其开发阶段状态。
+
+- [0.6.10 VRR GPU 占用与性能 TODO](todos/20261009-v0.6.10-vrr-performance-TODO.md)：已在原 VRR 分支精简前台查询、默认诊断与发布快照，缓存模块／输出资格，移除完整复制前的冗余 GPU 清空，并接入显式工作量统计。源码合同检查与夹具生成通过；C++ 回归／构建／部署和等帧率 GPU 对照交给独立会话，GPU 增量根因仍待确认。[源码实施与诊断交接](reviews/20261009-v0.6.10-vrr-performance-source-development.md)。
+
+- [0.6.10 VRR 统一入口、FG 与前台关联修正 TODO](todos/20261004-v0.6.10-vrr-unified-fg-foreground-TODO.md)：用户已反馈双开关、无 FG 时输出指示器正常，DLSS／XeSS FG 都使其消失；部署日志确认共同 FG 资格排除。已在原功能分支合入 Beta2 基线，收敛为高级选项中的“VRR 可变刷新率”，解除 FG／窗口模式排除，接入实际交换链绑定与主界面身份更新。四项静态合同及资源检查通过；C++ 编译／执行、部署和实测交给独立会话。[源码交接](reviews/20261005-v0.6.10-vrr-unified-fg-source-development.md)。
+
+- [0.6.10 G-SYNC 输出前台身份兼容 TODO](todos/20261004-v0.6.10-gsync-output-foreground-TODO.md)：第一版查询兼容、真实业务查询隔离、生命周期及短时真实前台参考入口已由单独会话集成到 Beta2。后续双开关与 FG 扩展按上方新 TODO 推进；[初次源码实施与交接](reviews/20261004-v0.6.10-gsync-foreground-source-development.md)保留原型阶段记录。
+
+- **0.6.10 Beta2 本地整合**：`release/0.6.10-beta2` 继承 Beta1，保留参数焦点／输入所有权和“性能”分组渲染显卡选择；2026-10-05 增量合入 `df0e1ac8` 的统一 VRR／DLSS 与 XeSS 前台兼容，产品仅保留一个默认关闭的开关。修正前台测试夹具重名并完成 11 组软件回归。见 [本版中英说明](../RELEASE_NOTES_v0.6.10-beta2.md)。上下功能分支交接状态保留当时的开发记录；完整构建、部署与准确源码以本轮整合审计和包清单为准，实际游戏、输入和 G-SYNC 验收继续保留。
+- [069 RTSS 目标应用限帧开发](todos/20261005-v0.6.9-rtss-target-frame-rate-TODO.md)：`feature/069-rtss-target-frame-rate` 已接入配置/四部分界面、工具入口、公开配置接口及会话同步与一次恢复；Beta3 动态文字读取错误资源表导致的配置页闪退已修复，209 项源码合同、325 项独立原生资源检查及原有刷新/GPU 位置合同通过。修复尚未编译部署到产品或进行真实写入与游戏验收，详见[闪退修复记录](reviews/20261005-rtss-profile-page-crash-fix.md)、[实施与编译交接](reviews/20261005-v0.6.9-rtss-target-frame-rate-implementation.md)和[功能文档](design/20261005-v0.6.9-rtss-target-frame-rate-plan.md)。
+
+- [RTSS 能力判断与固定门槛整改 TODO](todos/20261009-rtss-capability-checks-TODO.md)：按实际接口、字段和操作条件判断可用性。第一阶段 10 项已完成：移除版本/名称及整项拒绝、解除同步模式的无关手动值依赖，开放可验证的离线配置操作，恢复只尝试一次且不阻断开始。源码与隔离回归通过，第二阶段 4 项安装发现、架构、格式和范围扩展后置；产品构建/UI/FPS 交给独立会话。[实施与交接](reviews/20261009-rtss-capability-checks.md)。
+
+- [RTSS 状态分段与 Magpie 初始化及管理员启动 TODO](todos/20261009-rtss-status-magpie-init-and-admin-TODO.md)：已确认优先同行、按内容类型整段换行，三按钮统一普通操作样式，初始化 Magpie 独立不限帧配置且保留其他设置，主程序启动默认请求管理员权限。源码及隔离回归已完成，真实 UI、UAC/自启动与产品 FPS 待独立会话验收，见[实施与交接](reviews/20261009-rtss-status-magpie-init-and-admin.md)。
+
+- [RTSS 配置保存失败 TODO](todos/20261009-rtss-save-failure-TODO.md)：普通 FPS 的 Apply/Restore 已按当前值跳过无效 setter，失败阶段与日志已拆分。216 项配置事务、64 项会话事务、55 项本机隔离原生事务及 358 项当前资源检查通过；非零帧时间兼容方案已设计，本次已完成 Magpie 初始化的清零文件路径和默认管理员启动；Global/目标转正 FPS、缺失字段恢复与其他版本验证仍待完成；本机普通权限无法写安装目录，已加入明确权限检测。产品构建、部署及目标应用 FPS 由独立会话验收。[修复与交接](reviews/20261009-rtss-save-failure-fix.md)。
+
+- [RTSS 界面文案精简与控件样式 TODO](todos/20261009-rtss-ui-text-and-style-TODO.md)：固定帧率行、只读同步 FPS、停止策略直接排列和精简文案已在原分支完成，工具按钮局部对齐沿用原生样式。297 项合同、176 项设置、54 项生产代码显示回归、334 项当前资源原生检查通过；产品构建、主题/DPI 与真实交互交给独立会话。[实施与交接](reviews/20261009-rtss-ui-text-and-style.md)。
+
+- [069 RTSS 目标应用限帧开发](todos/20261005-v0.6.9-rtss-target-frame-rate-TODO.md)：`feature/069-rtss-target-frame-rate` 已接入配置、工具入口、公开配置接口、会话同步与一次恢复，并修复配置页动态文字读取错误资源表的问题。原始源码及资源检查见[闪退修复记录](reviews/20261005-rtss-profile-page-crash-fix.md)和[实施记录](reviews/20261005-v0.6.9-rtss-target-frame-rate-implementation.md)；当前界面要求以[功能文档](design/20261005-v0.6.9-rtss-target-frame-rate-plan.md)和上方界面 TODO 为准，真实写入与游戏验收仍保留在交接清单。
+
+- [069 渲染显卡常驻与选择状态整理 TODO](todos/20261004-v0.6.9-rendering-gpu-selection-TODO.md)：已在 `feature/069-rendering-gpu-selection` 实现“性能”分组中的常驻显卡选择、单卡自动／指定选项及设备缺失提示；79 项选择回归、51 项原有适配器回归、20 种语言资源合同和当前 IDL／XAML／页面语法检查通过。完整 Release 编译部署与实际 UI／热插拔／GPU 验收交给后续独立会话。[实施记录](reviews/20261004-v0.6.9-rendering-gpu-selection.md)。
+
+- [参数焦点交接与会话窗口判定 TODO](todos/20261004-parameter-focus-coordination-TODO.md)：已在 `fix/069-uwp-window-owner` 完成根窗口判定、输入所有权、宿主层级及停止／重建协调，通过自动回归和测试窗口的原生层级验证；完整产品编译部署及游戏／GPU／VRR 验收待独立会话。
+
+- [0.6.10 Beta1 VRR／G-SYNC 焦点诊断](reviews/20261004-v0.6.10-vrr-gsync-focus-diagnosis.md)：运行日志支持标准 DXGI 请求完整，但用户未看到指示器；非前台输出是首要待验证原因。真实前台对照、查询伪装／消息分离和 PresentMon 尚未执行，本轮仅调查与文档记录。
+
+- **0.6.10 Beta1 本地整合**：`release/0.6.10-beta1` 以公开 0.6.9 源码为基线，合入当前 UWP 与标准 DXGI VRR 分支。见 [本版中英说明](../RELEASE_NOTES_v0.6.10-beta1.md)。下方 0.6.9 功能分支交接文档保留原开发阶段记录；本版构建与回归以整合审计及包清单为准，实机验收继续保留。
+
+- [069 VRR／G-SYNC 标准呈现源码开发](reviews/20261004-v0.6.9-vrr-gsync-source-development.md)：`feature/069-vrr-gsync` 接入默认关闭的配置选项和共享 DXGI 策略。[TODO](todos/20261004-v0.6.9-vrr-gsync-nofocusloss-TODO.md) 保留 NoFocusLoss、最终输出预算及硬件验收；本轮未编译、部署或合并主线。
+
+- **0.6.9 UWP 窗口兼容与死锁保护**：`fix/069-uwp-window-owner` 已实现两种协作模式、首帧准入与完整退役边界，保留 Win32 owner 和 NGX 防护，通过离线回归。完整构建／部署和实机验收待独立会话。[当前 TODO](todos/20261004-v0.6.9-uwp-window-coordination-and-lifecycle-TODO.md)、[第二阶段实施记录](reviews/20261004-v0.6.9-uwp-coordination-implementation.md)、[原定位](todos/20261004-v0.6.9-issues-65-67-uwp-window-owner-TODO.md)、[阶段 1 记录](reviews/20261004-v0.6.9-uwp-window-owner.md)。
+
 
 - [069 “其他选项”按钮样式协调 TODO](todos/20261002-v0.6.9-effect-options-button-style-TODO.md)：已继承普通按钮的 14 号字与默认留白，保留 36 DIP 高度、纯文字、中性填充和零边框。144 组原生页头布局及页脚、容器和配置目录检查通过；单线程完整 Release 与包／编译资源校验通过。按用户明确授权关闭 Magpie 后，已归档旧完整目录、保留最新配置并替换至原 Beta3 路径，替换后的实际文件校验通过；Magpie 保持关闭，实际界面验收待完成。[实施与部署记录](reviews/20261002-v0.6.9-effect-options-button-style.md)。
 

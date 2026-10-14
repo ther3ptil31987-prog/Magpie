@@ -6,6 +6,7 @@
 
 namespace Magpie {
 
+// Auto is retained only as a legacy serialized value; do not renumber Custom.
 enum class ContentFrameRateMode : uint32_t { Source, Auto, Custom };
 enum class CursorRefreshMode : uint32_t { Responsive, OriginalOnly, Supplement };
 enum class CursorSupplementMode : uint32_t { Auto, Custom };
@@ -23,6 +24,8 @@ struct FrameRefreshSettings {
 	float cursorRate = 60.0f;
 	bool idleEnabled = true;
 	float idleRate = 30.0f;
+	// Explicit per-profile opt-in. Do not migrate the dormant global vrr field.
+	bool vrrEnabled = false;
 	// Migration-only constraints. Auto must remain dynamic when an old cap
 	// coexists with it. Explicit edits to content/cursor mode release these.
 	float legacyContentLimit = 0.0f;
@@ -70,6 +73,30 @@ struct FrameRefreshSettings {
 	}
 };
 
+inline FrameRefreshSettings NormalizeContentFrameRate(FrameRefreshSettings settings) noexcept {
+	if (settings.contentMode == ContentFrameRateMode::Auto) {
+		settings.contentMode = ContentFrameRateMode::Source;
+		settings.ContentEdited();
+	}
+	return settings;
+}
+
+// Saved fields remain the advanced preferences. Simple mode only projects them
+// into runtime values; content, idle and VRR remain shared.
+inline FrameRefreshSettings EffectiveFrameRefreshSettings(
+	FrameRefreshSettings settings, bool simple) noexcept {
+	settings = NormalizeContentFrameRate(settings);
+	if (simple) {
+		settings.pacing = FrameSyncMode::FrontEdge;
+		settings.cursorMode = CursorRefreshMode::Supplement;
+		settings.cursorSupplement = CursorSupplementMode::Custom;
+		settings.cursorRate = settings.contentMode == ContentFrameRateMode::Custom ? settings.contentRate : 60.0f;
+		settings.ContentEdited();
+		settings.CursorEdited();
+	}
+	return settings;
+}
+
 // Transactional field merge for stale runtime panels. Independent edits are
 // retained; any conflicting edit rejects the entire refresh transaction.
 inline bool MergeFrameRefreshSettings(FrameRefreshSettings& current,
@@ -86,6 +113,7 @@ inline bool MergeFrameRefreshSettings(FrameRefreshSettings& current,
 	MERGE_REFRESH(contentMode); MERGE_REFRESH(contentRate); MERGE_REFRESH(pacing);
 	MERGE_REFRESH(cursorMode); MERGE_REFRESH(cursorSupplement); MERGE_REFRESH(cursorRate);
 	MERGE_REFRESH(idleEnabled); MERGE_REFRESH(idleRate);
+	MERGE_REFRESH(vrrEnabled);
 	MERGE_REFRESH(legacyContentLimit); MERGE_REFRESH(legacyLimiterOnly); MERGE_REFRESH(legacyResponsiveMinimum);
 	MERGE_REFRESH(legacySourceTarget);
 #undef MERGE_REFRESH
@@ -104,15 +132,17 @@ inline bool MergeFrameRefreshSettings(FrameRefreshSettings& current,
 }
 
 template<class Options>
-void ApplyFrameRefreshSettings(Options& options, const FrameRefreshSettings& settings) noexcept {
+void ApplyFrameRefreshSettings(Options& options, const FrameRefreshSettings& settings, bool simple = false) noexcept {
 	options.frameRefresh = settings;
-	const auto sync = settings.ContentSync();
+	const auto effective = EffectiveFrameRefreshSettings(settings, simple);
+	options.isVRREnabled = effective.vrrEnabled;
+	const auto sync = effective.ContentSync();
 	options.isFrontEdgeSyncEnabled = sync.enabled;
 	options.frontEdgeSyncFrameRate = sync.frameRate;
 	options.frameSyncMode = sync.mode;
-	options.maxFrameRate = settings.ContentLimit();
-	options.minFrameRate = settings.idleEnabled ? settings.idleRate : 0;
-	options.cursorRefresh = settings.Cursor();
+	options.maxFrameRate = effective.ContentLimit();
+	options.minFrameRate = effective.idleEnabled ? effective.idleRate : 0;
+	options.cursorRefresh = effective.Cursor();
 }
 
 }

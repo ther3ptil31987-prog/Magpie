@@ -5,6 +5,8 @@
 
 **当前版本：[Magpie Experimental v0.6.9](https://github.com/SAOG0721/Magpie/releases/tag/v0.6.9-experimental)** · [完整更新说明](docs/RELEASE_NOTES_v0.6.9-experimental.md)
 
+**0.6.10 待审核草稿：** [完整更新说明](docs/RELEASE_NOTES_v0.6.10-experimental.md)。源码已包含 0.6.10 候选版；审核完成前，上方公开下载入口保留 0.6.9。
+
 Magpie Experimental 是面向 Windows 的窗口画面处理工具，也是 [Blinue/Magpie](https://github.com/Blinue/Magpie) 的非官方实验分支。它在 Magpie 的窗口缩放与效果系统基础上，探索 DLSS、XeSS、FSR、RTX Video 等技术在游戏、视频和其他窗口内容中的应用。
 
 程序捕获目标窗口的画面，按用户配置的效果组处理，再以全屏或窗口形式显示。目标应用无需为这些效果单独集成接口。本项目不代表 Magpie 官方，实验分支的问题请在本仓库反馈。
@@ -19,13 +21,15 @@ Magpie Experimental 是面向 Windows 的窗口画面处理工具，也是 [Blin
 | 实验性时序超分辨率 | DLSS SR、FSR 2/3/4、XeSS SR | 探索从捕获画面和估算运动信息进行图像重建 |
 | AI 画面调整 | DLSSNR | 同分辨率 SDR 画面处理，调整色调、结构、阴影、反射与辉光 |
 | 视频增强 | RTX Video | 视频超分辨率与降噪，改善低分辨率或压缩内容的观感 |
-| 帧生成 | DLSSFG、XeSSFG | 在真实帧之间生成中间画面，提高视觉流畅度 |
+| 帧生成 | DLSSFG、XeSSFG、FSR3FG、NVIDIA VFG | 在真实帧之间生成中间画面，提高视觉流畅度 |
 
 实验效果的可用性取决于显卡、驱动、运行组件和具体效果组合。各版本包含的效果及硬件要求见 [Release 说明](https://github.com/SAOG0721/Magpie/releases)。
 
 ### 效果组与参数调节
 
 一个**效果组**可以按顺序组合多个效果器，并保存各自的参数和缩放设置。可以使用内置效果组，也可以为不同应用创建自己的组合。
+
+当前分支的补帧组合、HDR 转换和共用设置见[内置效果使用说明](docs/Built-in%20effects.md#current-branch-setup)。
 
 工具栏中的参数面板支持边看画面边调节，修改自动保存。控件会标明参数是实时生效，还是需要重新启用效果组；双击滑条可恢复效果器自身的默认值。参数支持分组、下拉选项和中文翻译。
 

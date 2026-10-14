@@ -12,7 +12,7 @@ root = Path(__file__).resolve().parents[2]
 core = root / 'src/Magpie.Core'
 renderer = (core / 'Renderer.cpp').read_text(encoding='utf-8-sig')
 window = (core / 'ScalingWindow.h').read_text(encoding='utf-8-sig')
-teardown = (core / 'ScalingWindow.cpp').read_text(encoding='utf-8-sig').split('case WM_DESTROY:', 1)[1]
+teardown = (core / 'ScalingWindow.cpp').read_text(encoding='utf-8-sig')
 capture = (core / 'GraphicsCaptureFrameSource.cpp').read_text(encoding='utf-8-sig')
 
 error = renderer.split('case FrameSourceState::Error:', 1)[1]
@@ -26,6 +26,7 @@ show_error = window[start:end]
 # Integration ordering not exercised by the fake dispatcher.
 assert teardown.index('++_runId') < teardown.index('ClearOverlayStates')
 assert teardown.index('BeginShutdown') < teardown.index('_cursorManager.reset()')
+assert teardown.index('void ScalingWindow::_FinishDestroy') < teardown.index('_cursorManager.reset()')
 assert 'std::make_shared<ScalingSessionLifetime>(ScalingWindow::RunId())' in renderer
 assert 'session = _sessionLifetime' in callback
 assert capture.index('if (_captureStopping) return FrameSourceState::Waiting;') < capture.index('if (!_captureSession || !_captureFramePool)')

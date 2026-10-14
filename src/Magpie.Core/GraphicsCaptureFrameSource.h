@@ -1,5 +1,6 @@
 #pragma once
 #include "FrameSourceBase.h"
+#include "CaptureTargetLifetime.h"
 #include <memory>
 #include <ShlObj.h>
 #include <Windows.Graphics.Capture.Interop.h>
@@ -36,6 +37,8 @@ private:
 	struct FrameReadySignal;
 	std::shared_ptr<FrameReadySignal> _frameReady;
 	winrt::event_token _frameArrivedToken{};
+	winrt::event_token _itemClosedToken{};
+	std::shared_ptr<CaptureTargetLifetime> _targetLifetime;
 
 	bool _StartCapture(const char* reason) noexcept;
 

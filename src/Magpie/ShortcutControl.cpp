@@ -1,5 +1,6 @@
 #include "pch.h"
 #include "ShortcutControl.h"
+#include "Win32Helper.h"
 #if __has_include("ShortcutControl.g.cpp")
 #include "ShortcutControl.g.cpp"
 #endif
@@ -184,7 +185,7 @@ LRESULT ShortcutControl::_LowLevelKeyboardProc(int nCode, WPARAM wParam, LPARAM 
 	}
 
 	// 只有位于前台时才监听按键
-	if (GetForegroundWindow() != App::Get().MainWindow().Handle()) {
+	if (Win32Helper::GetRealForegroundWindow() != App::Get().MainWindow().Handle()) {
 		return CallNextHookEx(NULL, nCode, wParam, lParam);
 	}
 

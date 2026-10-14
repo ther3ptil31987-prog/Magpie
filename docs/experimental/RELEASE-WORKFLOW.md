@@ -121,7 +121,7 @@ Contributor: [GitHub 用户名](https://github.com/用户名) 具体贡献。
 
 ### DLSSNR DLL 选项包
 
-- 使用 `DLSSNR-DLL-Options-<版本>.zip` 命名。
+- 使用 `DLSSNR-DLL-Options.zip` 命名；DLL 文件版本和 SHA-256 保留在包内说明中。目录名直接标明 NVIDIA 原版 RTX 50、社区 RTX 40/50 或 SF-v2 FP16 RTX 30/20 的适用范围。
 - 包内明确区分 NVIDIA 原版与社区兼容版本，并附带切换说明、文件版本和 SHA-256。
 - 替换前必须完全退出 Magpie。第三方 DLL 不进入源码仓库或 GitHub 自动生成的源码归档。
 

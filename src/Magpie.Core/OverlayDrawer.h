@@ -22,7 +22,8 @@ public:
 	void Draw(
 		uint32_t fps,
 		const SmallVector<float>& effectTimings,
-		POINT drawOffset
+		POINT drawOffset,
+		float hdrWhiteScale
 	) noexcept;
 	void ClearStates() noexcept;
 	void OnPresentSucceeded() noexcept;
@@ -74,15 +75,17 @@ public:
 
 private:
 	bool _parameterFocusSwitchingEnabled = false;
-	void _SetParameterPanelState(ParameterPanelState state, bool returnFocus = true) noexcept;
+	void _SetParameterPanelState(ParameterPanelState state, bool returnFocus = true, const char* request = "user action") noexcept;
 	void _ToggleParameterPanel() noexcept;
 	bool _EnsureParameterInputHost() noexcept;
 	void _UpdateParameterPreviewHost() noexcept;
 	bool _HasParameterForeground() const noexcept;
+	bool _OwnsParameterInput() const noexcept;
+	bool _PositionParameterInputHost(const RECT& rect) noexcept;
 	void _SyncInheritedParameterKeys() noexcept;
 	std::optional<ImGuiInputResult> _HandleParameterInputMessage(
 		HWND sourceWindow, UINT message, WPARAM wParam, LPARAM lParam) noexcept;
-	bool _BeginParameterInput() noexcept;
+	bool _BeginParameterInput(const char* request) noexcept;
 	void _EndParameterInput(bool returnFocus) noexcept;
 	void _FinishParameterInput() noexcept;
 	static LRESULT CALLBACK _ParameterInputWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) noexcept;
@@ -90,6 +93,12 @@ private:
 	ParameterPanelState _parameterPanelState = ParameterPanelState::Closed;
 	ParameterPanelState _pendingParameterPanelState = ParameterPanelState::Edit;
 	bool _parameterInputTransition = false;
+	bool _parameterInputOwned = false;
+	bool _parameterLayerFailed = false;
+	bool _parameterHostCanceled = false;
+	uint32_t _parameterInputRunId = 0;
+	bool _parameterEditPending = false;
+	uint32_t _parameterEditRunId = 0;
 	std::chrono::steady_clock::time_point _parameterFocusSettlesAt{};
 	bool _returnClickPending = false;
 	bool _escapePending = false;
@@ -104,6 +113,7 @@ private:
 	void _BuildFontIcons(const char* fontPath) noexcept;
 
 	struct _EffectDrawInfo {
+		std::string label;
 		const EffectDesc* desc = nullptr;
 		std::span<const float> passTimings;
 		float totalTime = 0.0f;
@@ -142,8 +152,8 @@ private:
 	bool _DrawEffectParameters(int& itemId) noexcept;
 	void _InitEffectParameterValues() noexcept;
 	void _SyncEffectParameterValues() noexcept;
-	std::vector<EffectOption> _BuildDraftEffectOptions() const noexcept;
-	bool _RequestEffectParameters(EffectParametersRequestKind kind) noexcept;
+	std::vector<EffectOption> _BuildDraftEffectOptions(bool restoreStartupSizing = false) const noexcept;
+	bool _RequestEffectParameters(EffectParametersRequestKind kind, bool restoreStartupSizing = false) noexcept;
 
 	const std::string& _GetResourceString(const std::wstring_view& key) noexcept;
 
@@ -169,6 +179,7 @@ private:
 
 	SmallVector<uint32_t> _timelineColors;
 	std::vector<std::vector<EffectParameterDesc>> _localizedEffectParameters;
+	std::vector<EffectOption> _startupEffectOptions;
 	std::vector<std::vector<float>> _startupEffectParameterValues;
 	std::vector<std::vector<float>> _appliedEffectParameterValues;
 	EffectParameterSessionState::Snapshot _parameterSessionSnapshot;
@@ -187,6 +198,7 @@ private:
 	} _hardwareInfo;
 
 	ImGuiImpl _imguiImpl;
+	bool _isHdrOverlay = false;
 
 	uint32_t _lastFPS = std::numeric_limits<uint32_t>::max();
 	std::string _lastFrameRateText;

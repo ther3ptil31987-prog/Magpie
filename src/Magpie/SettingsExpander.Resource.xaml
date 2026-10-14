@@ -74,7 +74,7 @@
 						               IsExpanded="{Binding IsExpanded, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}"
 						               Style="{StaticResource SettingsExpanderExpanderStyle}">
 							<muxc:Expander.Header>
-								<local:SettingsCard Padding="{StaticResource SettingsExpanderHeaderPadding}"
+								<local:SettingsCard Padding="{TemplateBinding Padding}"
 								                    VerticalAlignment="Center"
 								                    Background="Transparent"
 								                    BorderThickness="0"

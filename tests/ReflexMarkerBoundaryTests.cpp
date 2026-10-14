@@ -134,7 +134,8 @@ struct AdaptivePresenter {
     bool _reflexRendering = false, _reflexGenerated = false, _frameCapacityBusy = false, _isDCompPresenting = false;
     FrameLatencyGate _frameLatencyGate;
     Handle _frameLatencyWaitableObject;
-    SwapChain swap; SwapChain* _dxgiSwapChain = &swap; Surface* _dcompSurface = nullptr;
+    SwapChain swap; winrt::com_ptr<SwapChain> _dxgiSwapChain{&swap}; Surface* _dcompSurface = nullptr;
+    HRESULT _PresentWithVRR(SwapChain* chain, bool) { return chain->Present(0, 0); }
     Resources* _deviceResources = nullptr;
     std::chrono::steady_clock::time_point _lastSubmissionTime{};
     winrt::com_ptr<ID3D11Texture2D> _backBuffer{&texture};
@@ -167,6 +168,8 @@ struct Renderer {
     std::atomic<uint32_t> _latestSharedTextureSlot{0};
     std::array<std::pair<uint64_t, uint64_t>, 1> _sharedReflexIds{{{40, 90}}};
     std::pair<uint64_t, uint64_t> _frontendReflexIds{};
+    std::array<std::shared_ptr<int>, 1> _sharedScreenshotFrames{};
+    std::shared_ptr<int> _frontendScreenshotFrame;
     std::array<Metadata, 1> _sharedFrameMetadata{};
     Metadata _frontendFrameMetadata, _frontendPresentedFrameMetadata;
     uint64_t _frontendCaptureFrameId = 0, _frontendMotionFrameId = 0;
@@ -180,9 +183,12 @@ struct Renderer {
     AdaptivePresenter* _presenter;
     winrt::com_ptr<ID3D11Texture2D> _frontendBaseTexture, _frontendPresentedBaseTexture, _frontendMotionTexture;
     void SetPassThroughActive(bool value) { _isPassThroughActive = value; }
+    // Diagnostic-only sampling is outside this marker boundary fixture.
+    uint32_t _FrontendDiagnosticReasons() const noexcept { return 0; }
     FrontendBaseResult _UpdateFrontendBase(uint32_t sharedTextureSlot) noexcept;
     bool Render(uint32_t sharedTextureSlot, FrontendRenderTimings* timings = nullptr, bool stableBaseOnly = false, bool* droppedFrame = nullptr) {
 /* ADMISSION */
+        (void)diagnosticReasons;
         _frontendResources.GetD3DDC()->CopyResource(frameTex.get(), baseTexture);
         return _presenter->EndFrame();
     }

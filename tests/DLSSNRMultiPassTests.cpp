@@ -11,6 +11,7 @@
 #include <string>
 #include <vector>
 #include "DLSSNRParameters.h"
+#include "DlssNrStatus.h"
 #include "EffectParameterRules.h"
 #include "MotionVectorRequest.h"
 
@@ -62,6 +63,8 @@ struct NativeEffectBackend {
 	virtual void SetHdrBoundary(HdrEffectBoundaryContext value) noexcept { _hdrBoundary = value; }
 	virtual FrameGuidanceRequirements GetFrameGuidanceRequirements() const noexcept = 0;
 	virtual bool Drain() noexcept = 0;
+	virtual DlssNrFailure GetDlssNrFailure() const { return {}; }
+	virtual bool IsDlssNrProcessing() const noexcept { return false; }
 	virtual bool Resize(struct DeviceResources&, ID3D11Texture2D*, ID3D11Texture2D*) noexcept = 0;
 	virtual bool Draw(const NativeEffectDrawContext&) noexcept = 0;
 	virtual EffectParameterApplyMode GetParameterApplyMode(std::string_view) const noexcept = 0;
@@ -108,7 +111,9 @@ struct DLSSNRFilter {
 	std::vector<EffectOption> settings;
 	DLSSNRFilter() { ++liveInstances; }
 	~DLSSNRFilter() { --liveInstances; featureCount -= static_cast<int>(settings.size()); }
+	std::string LibraryInfo() const { return "fixture library"; }
 	bool IsHealthy() const { return healthy; }
+	DlssNrFailure GetDlssNrFailure() const { return { DlssNrStage::Evaluate, DlssNrReason::Unknown, DlssNrCodeKind::Ngx, 0xBAD00001, "fixture Evaluate" }; }
 	bool InitializeChain(DeviceResources&, NgxD3D12Core&, ID3D11Texture2D* input,
 		ID3D11Texture2D* output, std::span<const EffectOption> options) {
 		assert(input != output);

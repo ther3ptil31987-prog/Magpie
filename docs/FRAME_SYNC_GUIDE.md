@@ -1,88 +1,89 @@
-# 帧率与刷新（0.6.9）
+# 帧率与刷新 / Frame rate and refresh — 0.6.10
 
-默认配置与应用配置的“帧率与刷新”统一保存内容目标、节奏方式、光标策略和空闲重绘。新建应用配置复制当时的默认配置或所选模板，之后独立保存；已有配置按旧行为迁移。主页只显示默认配置摘要并提供编辑入口。
+## 设置入口与默认值
 
-新配置／恢复默认：内容自定义 60 FPS、Front Edge、原始帧优先并补充、光标自定义最低 60 FPS、空闲持续重绘启用 30 FPS。旧的有效设置不被这些新默认值覆盖。
+默认配置和应用配置各自保存刷新设置。新建配置复制默认配置或所选模板，之后独立保存；主页提供默认配置摘要和编辑入口。
 
-| 设置 | 选择与位置 | 含义 |
-| --- | --- | --- |
-| 内容帧率 | 跟随源／自动／自定义 | 控制 Magpie 的基础内容处理目标 |
-| 节奏控制方式 | 内容选择下方、基础数值上方 | Front Edge／Async／NVIDIA Reflex；跟随源时禁用，保留选择 |
-| 目标基础帧率 | 自定义时显示 | 15–360 FPS；模式切换保留数值 |
-| 光标刷新方式 | 响应优先／仅随原始内容帧／原始帧优先并补充 | 仅控制 Magpie 发布的系统光标 |
-| 光标补充刷新率 | 补充模式时显示：自动／自定义 | 自动随显示刷新率；自定义显示最低目标，15–360 FPS |
-| 高级：空闲持续重绘 | 默认折叠，关闭／自定义 | 没有新内容时重绘旧画面，15–360 FPS；可能增加功耗 |
-| 高级：重复帧检测 | 从不／动态／总是 | 检测并跳过相同画面，沿用全局设置 |
+简单／高级是全局选择，默认简单；切换保留高级偏好。内容、空闲重绘和 VRR 为共享设置。高级提供节奏、光标和通用重复检测。RTSS 使用独立的配置接管组，关闭联动或跟随源时仍可打开工具管理。
 
-所有修改自动保存，重新启用缩放后生效。运行时参数面板使用同一模型和相同模式；保存写回启动当前缩放所匹配的配置，点击“保存并重启”可重新启用。多个应用共用效果组时刷新策略仍分别保存。旧窗口／旧配置身份及冲突检查继续生效。
+| 设置 | 选择与新配置默认值 |
+| --- | --- |
+| 内容帧率 | 跟随源／自定义；默认自定义 60 FPS |
+| 静态画面重绘 | 关闭／自定义；默认开启，30 FPS |
+| 节奏方式 | Front Edge（默认）／Async／NVIDIA Reflex；高级可选 |
+| 光标刷新 | 响应优先／仅随原始内容帧／原始帧优先并补充（默认） |
+| 光标补充率 | 自动跟随显示刷新率／自定义；默认自定义 60 FPS |
+| VRR（实验） | 默认关闭，重新开始缩放后生效 |
+| 通用重复检测 | 从不（默认）／动态／总是；高级可选 |
+| RTSS 接管 | 默认不管理；可管理全局或目标应用 |
 
-## 三种模式
+内容、光标和空闲手动值为 **15–360 FPS、整数、步进 1**；已有有效数值保留。简单使用 Front Edge 与原始帧优先并补充，自定义内容 N FPS 时光标补充目标为 N，跟随源时为 60。简单模式的通用重复检测关闭，高级偏好保留。
 
-| 模式 | 普通 NR／SR 等效果 | DLSS FG | XeSS FG／MFG |
-| --- | --- | --- | --- |
-| Front Edge | 在提交前对齐节奏，可能增加等待 | 保留原有 FG 输入和输出节奏 | XeLL 接管 |
-| Async | 在取帧前限制开始间隔，迟到后不追赶旧网格 | 控制基础输入，保留生成帧排序与输出间隔 | XeLL 接管 |
-| NVIDIA Reflex | 将统一目标交给驱动；请求低延迟 On、Boost Off | 驱动负责统一基础 FPS；每个基础候选在捕获前 Sleep 一次 | XeLL 接管 |
+修改自动保存并在重新开始缩放时生效。运行时参数面板按当前会话模式显示，“保存并重启”应用更改，单独切换模式也需重启会话。简单模式恢复默认只恢复可见字段，保留高级偏好及其他配置。
 
-Beta 6 中，普通效果与 DLSS FG 都可使用 Reflex 驱动基础限帧：要求 NVIDIA DXGI 呈现、效果与呈现位于同一显卡，当前 D3D11 异步标记接口要求 R565+。初始化／调用失败时先清除应用设置的驱动限帧，再回退 Async 并保留有效基础目标。清除失败时只记录日志并停止本轮缩放，避免残留限帧与 Async 同时运行。窗口切换期间清除驱动配置，恢复 DXGI 后重新应用最新目标。
+## 内容节奏与源应用限帧
 
-Reflex 生效时不再为同一基础目标运行 StepTimer 固定限帧，也不使用 Front Edge 的 FG 输入期限等待。生成／真实帧 FIFO、独立输出间隔、容量与资源背压和 fence 保留。显式 Async／Front Edge 或关闭帧同步时，DLSS FG 仍请求低延迟 On、Boost Off，应用驱动限帧间隔为 0。
+跟随源按捕获的新内容工作；自定义控制 Magpie 基础内容目标。旧内容“自动”迁移为跟随源，光标的“自动”仍保留。补帧倍率不会把自定义基础目标反向改成游戏限帧。
 
-实时参数面板显示统一刷新设置和效果参数，不显示当前同步方式、Reflex 状态或 FG 输出状态。Reflex 自动回退仅记简短日志，不弹出提示、报错或更新面板状态。
+Front Edge 在提交前对齐，可能增加等待；Async 在取帧前限制开始间隔，不追赶过期时间网格；NVIDIA Reflex 在支持路径交由驱动控制基础目标，失败时按既有保护回退或停止。XeSS 使用 XeLL 自身限帧，不叠加另一套基础限帧器。源程序、捕获或效果跟不上目标时实际帧率更低。
 
-低延迟查询 Off 不代表帧率间隔不可用：成功接受的驱动限帧继续负责基础节奏，Sleep 与标记也保留。实际基础帧率、显示间隔及性能收益仍须实机验证。XeSS 使用 XeLL 自身的低延迟和限帧，不叠加 Magpie 的 Async／Reflex 限帧器。
+RTSS 联动在开始缩放时准备已安装工具与 Magpie 自身不限帧配置，再写入当前目标。同步使用有效基础目标；指定值 15–360 FPS、步进 1。跟随源时不使用同步限帧。重新检测只读，重试针对当前会话。默认正常结束时尝试恢复原限帧；崩溃或强制退出不能保证恢复。“已写入”只说明配置核验通过。
 
-## 目标基础帧率
+## 光标、静态画面与补帧
 
-| 目标 | 无 FG | 2 倍 FG | 3 倍 FG | 4 倍 FG |
-| --- | --- | --- | --- | --- |
-| 手动 80 FPS | 基础内容目标 80 FPS | 基础 80，名义输出 160 FPS | 基础 80，名义输出 240 FPS | 基础 80，名义输出 320 FPS |
-| 自动，240 Hz 显示器 | 240 FPS | 基础 120 FPS | 基础 80 FPS | 基础 60 FPS |
+光标策略控制 Magpie 发布的系统光标；源程序画入图像的光标属于内容。补充率是最低目标，受显示和呈现通道约束，静止光标不要求持续空呈现。
 
-- 直接 NVAPI 使用 `ceil(1,000,000 / 有效基础 FPS)` 微秒。80 FPS 在 2×／3×／4× 下均为 12500 µs；0 自动且 240 Hz 时分别为 8334／12500／16667 µs。倍率只参与自动基础目标计算，不再额外乘除驱动间隔。
-- 自动按输出刷新率和 FG 倍率计算；刷新率不可读取时按 60 Hz。捕获／效果约束和迁移保留的旧上限继续生效，后者在配置页和运行时面板显示数值。跟随源不主动设置固定目标，仍受这些约束。
-- 配置页与实时面板使用明确的“自动”模式；内容、光标和空闲三项手动数值统一为 15–360 FPS、整数、步进 1。旧已保存的小数与自动计算的小数目标继续兼容，仅显式编辑时取整数；打开面板或隐藏数值控件不会改变保存值。
-- 模式控制 Magpie 自己的捕获、处理和提交；源程序继续使用其自身限帧或 RTSS。两侧 FPS 相同不表示建立了逐帧同步。
-- Async 的目标约束基础处理开始频率；工具栏／光标的旧图重绘单独计数，不承诺所有 Present 都恰好等于该 FPS。
-- 源程序、捕获或处理跟不上目标时实际帧率会更低。不会重复送旧输入给 NR／FG 来凑帧率。
-- 呈现策略不受支持时，仍由普通内容限帧兜底；同一目标只由一个责任方执行。共享纹理同步、结果消费反馈、交换链容量和 FG 逐输出排序仍保留。
+开启空闲重绘后，普通路径按既有缓存规则更新。DLSS／XeSS／FSR3／VFG 约 0.5 秒没有新内容后刷新已完成的缓存，避免把正常 24/30 FPS 内容误判为空闲，不重跑效果或光流。关闭时保持最后画面等待。新内容恢复时重置插帧历史。有效重绘率受内容上限和显示刷新率约束，倍率不乘到重绘率。
 
-## 光标与空闲重绘
+工具栏 R/s 单独记录缓存重绘提交。FSR3 Submitted 表示成功提交，不能直接作为显示 FPS 或有效插值画面数。四类 FG 共用通用重复检测；旧效果字段迁移移除，不覆盖已保存的通用偏好。
 
-响应优先在光标状态变化时请求发布；仅随原始内容帧等待新的非生成内容；原始帧优先并补充在内容较慢时补充变化的光标。首次显示、显隐切换和系统光标交接等必要转换保留。补充最低值不是上限：原始内容 120 FPS 时，光标可以高于最低 60 FPS；静止光标不发起持续空呈现。
+## VRR 与排查
 
-内容 30、光标补充 60 时，光标可以复用已经成功呈现的背景。普通 Front Edge 的光标／工具栏呈现不重置内容期限，未到内容期限的间隙也可安排光标补充。呈现失败、重画缓存光标或界面刷新不推进光标的成功发布期限，不触发效果链、时域历史或额外 FG 基础输入。
+VRR 默认关闭，开启后按输出路径、显卡和显示器资格请求，重新开始缩放生效。软件开关或成功提交不能证明物理 VRR 工作，请结合显示器指示或显示间隔确认。
 
-光标实际速率受显示与呈现通道容量限制。DLSS FG 仍共用呈现通道，XeSS 使用独立叠加层；本次修改不保证所有组合都达到独立光标目标。源应用自己绘制进画面的光标属于内容，不受这套系统光标策略控制。
+先使用简单模式和简单效果链，再逐项开启 RTSS、VRR 或补帧。比较时保持同一源上限、场景和参数。遇到问题先关闭相关选项，记录日志、捕获方式、驱动和复现步骤。完整变化和组合限制见包内 RELEASE-NOTES.md 与 FSR3FG-README.md。
 
-空闲持续重绘承接旧“最小帧率”。内容上限 20、空闲保存值 30 时，实际空闲值不高于 20，保存值仍为 30。没有有效首帧、捕获中断或资源未就绪时不处理无效旧输入。旧画面可复用未变化效果的输出，动态效果按已有规则更新；不会提高源应用真实帧率。启用任何 FG 后暂停后端空闲重绘，保留配置，光标补充仍单独工作。
+---
 
-## FrameRate Filter 与迁移兼容
+## Settings and defaults
 
-跟随项改称“跟随内容帧率目标”。效果器 ID、旧数值和自定义选择继续兼容。
+Default and application profiles store their own refresh settings. New profiles copy the default or chosen template, then save independently. Home offers a default-profile summary and editing entry.
 
-| 内容模式 | 效果器模式 | 实际来源 |
-| --- | --- | --- |
-| 自动／自定义 | 使用跟随目标，自定义控件禁用 | 统一基础 FPS，由当前策略负责限帧 |
-| 跟随源 | 跟随内容目标 | 使用保留的目标，作为效果约束，不隐式开启固定节奏 |
-| 跟随源 | 自定义 | 效果器的 1–240 FPS 目标 |
+Simple / Advanced is global, defaults to Simple and retains advanced preferences. Content, idle redraw and VRR are shared. Advanced adds pacing, cursor and general duplicate detection. RTSS has a separate management group accessible when integration is off or content follows the source.
 
-旧全局空闲率迁入默认配置和所有已有应用配置，保存新版本后不重复迁移。旧自动同步加独立上限保留动态自动计算和上限；关闭同步时仍保留帧率过滤器原来的自动／固定跟随值。旧光标四种组合映射到三个模式，并保留响应优先中原有最低期限的兼容状态。
+| Setting | Options and new-profile default |
+| --- | --- |
+| Content rate | Follow source / Custom; default Custom 60 FPS |
+| Static-picture redraw | Off / Custom; enabled at 30 FPS |
+| Pacing | Front Edge (default) / Async / NVIDIA Reflex, selectable in Advanced |
+| Cursor | Response first / Original frames only / Prefer original frames with supplementation (default) |
+| Cursor supplementation | Automatic display refresh / Custom; default Custom 60 FPS |
+| VRR (experimental) | Off; restart scaling to apply |
+| General duplicate detection | Never (default) / Dynamic / Always, selectable in Advanced |
+| RTSS management | Off; global or target-application management available |
 
-页面说明哪些旧约束仍存在，并显示旧上限。显式修改内容模式、基础目标或节奏方式时释放对应旧内容约束；修改光标模式时释放响应优先的旧兼容期限。恢复刷新默认值只重置当前配置。合法旧行为与新默认值分别处理，迁移沿用配置备份／恢复机制。
+Manual content, cursor and idle rates use **15–360 FPS, integers, 1-FPS steps**; valid existing values remain. Simple uses Front Edge and supplemental cursor refresh at N FPS for Custom N content or 60 FPS for Follow source. Simple disables general duplicate detection while retaining Advanced preferences.
 
-两处界面按字段合并，同一字段冲突时拒绝整组刷新保存；配置身份和运行会话标识阻止过期回调覆盖其他配置。保存的目标与运行时有效值分别维护，不因设备限制永久改写用户选择。
+Edits save automatically and apply on restart. Runtime controls follow the current session's mode; Save and restart applies changes, including mode-only changes. Reset in Simple restores visible fields while retaining advanced preferences and other profiles.
 
-## 验证与测试
+## Content pacing and source-application limiting
 
-Beta2 已完成整项目 Release x64、配置／策略、生产视图模型、计时器／限速责任方、配置恢复、重复帧与缓存回归，核验编译后的 XAML／PRI 并检查真实主窗口启动和旧配置迁移。45 组真实 NGX 合成管线检查通过，不能代替实际捕获内容或游戏验收。原生 UI／DPI 完整操作矩阵、HDR／FG 组合、真实刷新计数、帧时间与延迟仍待实测，见 [Beta2 整合部署记录](experimental/reviews/20261002-v0.6.9-beta2-integration.md)；[统一刷新实施记录](experimental/reviews/20261002-v0.6.9-unified-frame-refresh.md) 保留功能分支阶段的验证边界。
+Follow source processes new captures; Custom controls Magpie's base content target. Legacy content Automatic migrates to Follow source; automatic cursor supplementation remains. The FG multiplier does not turn the custom base target into a different game limit.
 
-保持相同源程序上限、场景和效果参数，比较三种模式。分别观察新内容间隔、Present 间隔、显示间隔、捕获后延迟和 CPU／GPU 占用；另测切屏、窗口调整、静止输入、停止重启及目标变化。UI 重绘造成的 Present 增多不代表新的游戏画面变多。
+Front Edge aligns before submission and can add waiting. Async limits processing starts before capture without catching up to an expired grid. NVIDIA Reflex uses driver control on supported paths with protected fallback or stopping on failure. XeSS uses XeLL without stacking another base limiter. Actual rate falls below target when the source, capture or effects cannot keep up.
 
-普通 Release 不增加周期 GetLatency、每帧文字日志或诊断 GPU 像素回读；必要的 SDK 插值状态读取仍保留。VRR 入口与显式请求继续暂缓，GPU REALTIME 优先级沿用原设置。
+RTSS prepares the installed tool and Magpie's unlimited profile at scaling start, then writes the target. Synchronization uses the effective base rate; custom values use 15–360 FPS in 1-FPS steps. Follow source does not use synchronized limiting. Recheck is read-only and retry belongs to the current session. Normal exit attempts restoration by default; crashes or forced exits cannot guarantee it. A verified write confirms configuration only.
 
-Beta 6 新增源窗口焦点交接保护、持久待重建请求、FIFO 重试计时及捕获前背压。见 [Beta 6 实施与验证](experimental/reviews/20260910-beta6-implementation.md)。
+## Cursor, static pictures and frame generation
 
-实现记录：[帧同步模式与 Reflex 职责](experimental/reviews/20260909-v0.6.7-frame-sync-modes.md)。技术来源：[RTSS 与官方资料调查](experimental/reviews/20260909-rtss-async-reflex-frame-sync-review.md)、[NVAPI](https://docs.nvidia.com/nvapi/group__dx.html)、[XeLL](https://github.com/intel/xess/blob/main/doc/xell_developer_guide_english.md)。
+Cursor policy controls Magpie's system cursor; a cursor drawn into the source picture is content. Supplementation is a minimum target subject to display and presentation capacity. A stationary cursor does not require continuous empty presentation.
 
-Reflex 驱动限帧的代码、自动验证与实机状态分别见 [Reflex 驱动基础限帧实施记录](experimental/reviews/20260910-beta6-reflex-pacing.md)。
+With idle redraw enabled, ordinary paths use existing cache rules. DLSS / XeSS / FSR3 / VFG refresh completed cached pictures after about 0.5 seconds without content, avoiding false idle transitions at normal 24/30 FPS, without rerunning effects or optical flow. Disabling holds the last picture. Resumed content resets FG history. Effective redraw is constrained by content and display rates and is not multiplied by FG.
+
+Toolbar R/s counts cached redraw submissions separately. FSR3 Submitted counts successful submissions, not display FPS or unique interpolated images. All four FG types share general duplicate detection; old effect fields are removed without overriding general preferences.
+
+## VRR and troubleshooting
+
+VRR defaults to Off and requests variable refresh according to output path, GPU and display qualification after restarting scaling. A toggle or successful submission alone cannot prove physical VRR; check the display indicator or display intervals.
+
+Start with Simple and a simple chain, then add RTSS, VRR or FG individually. Compare with the same source limit, scene and parameters. Disable the relevant option first if issues occur; retain logs, capture method, driver information and steps. See packaged RELEASE-NOTES.md and FSR3FG-README.md for changes and restrictions.

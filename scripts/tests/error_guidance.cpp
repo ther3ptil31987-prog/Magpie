@@ -13,6 +13,19 @@
 using namespace Magpie;
 
 int main() {
+	assert(GetIssueAction(ScalingError::DlssNrStopped) == IssueAction::Effects);
+	assert(GetIssueAction(ScalingError::WindowIntegrityQueryFailed) == IssueAction::None);
+	DlssNrStatus nr{ .state = DlssNrState::Skipped };
+	nr.failure.reason = DlssNrReason::LibraryMissing;
+	assert(GetDlssNrIssueAction(nr, true) == IssueAction::ProgramDirectory);
+	nr.restartRequired = true;
+	assert(GetDlssNrIssueAction(nr, true) == IssueAction::RecoveryGuide);
+	nr.restartRequired = false;
+	nr.failure.reason = DlssNrReason::UnsupportedAdapter;
+	assert(GetDlssNrIssueAction(nr, true) == IssueAction::Profile);
+	assert(GetDlssNrIssueAction(nr, false) == IssueAction::Effects);
+	nr.failure.reason = DlssNrReason::Compatibility;
+	assert(GetDlssNrIssueAction(nr, true) == IssueAction::Effects);
 	assert(GetIssueAction(ScalingError::CaptureMethodUnavailable) == IssueAction::Profile);
 	// The next step must exist on this machine and differ from the current value.
 	assert(!CanSuggestAnotherAdapter(0));

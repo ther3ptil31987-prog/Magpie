@@ -1,5 +1,6 @@
 #include "HdrComponents.h"
 #include "HdrComponentRuntime.h"
+#include "OverlayColor.h"
 #include "../src/RtxVideoBridge/RtxVideoBridge.h"
 #include <cassert>
 #include <iostream>
@@ -46,6 +47,7 @@ int main() {
 	assert(metadata.color.transfer == HdrTransferFunction::SRGB);
 	ApplyHdrComponentOutputColor(metadata, plan, 3);
 	assert(metadata.color.transfer == HdrTransferFunction::Linear && metadata.color.sdrWhiteNits == 360);
+	assert(metadata.overlayReferenceWhiteNits == 360); // Paired exposure is undone, not multiplied.
 	assert(metadata.frameId == 77 && metadata.captureSequence == 9 && metadata.resourceGeneration == 12 &&
 		metadata.timestamp100ns == 123456 && metadata.generated);
 	for (const auto& id : {"Color\\SDR_to_HDR", "RTXVideo\\RTXVideo_HDR"}) {
@@ -66,5 +68,58 @@ int main() {
 		assert(BuildHdrComponentPlan(Effects{{"Color\\SDR_to_HDR",{{"mode",value}}}}).error == HdrComponentError::InvalidParameters);
 	for (float value : {399.0f, 2001.0f, 1000.5f})
 		assert(BuildHdrComponentPlan(Effects{{"RTXVideo\\RTXVideo_HDR",{{"peakNits",value}}}}).error == HdrComponentError::InvalidParameters);
+	for (float white : {8.f, 203.f, 1000.f, 1500.f, 4000.f}) {
+		const auto p = BuildHdrComponentPlan(Effects{{"Color\\SDR_to_HDR",{{"nativeWhiteNits",white}}}});
+		assert(p.error == HdrComponentError::None && p.stages[0].whiteNits == white && p.stages[0].exposure == 1);
+		HdrFrameMetadata frame;
+		ApplyHdrComponentOutputColor(frame, p, 0);
+		assert(frame.color.sdrWhiteNits == white && frame.color.referenceWhiteNits == 80 && frame.color.displayPeakNits == std::max(80.f, white));
+		assert(frame.overlayReferenceWhiteNits == white);
+		assert(ResolveOverlayWhiteScale(true, output.Format, frame, 250) == std::clamp(white, 160.f, 300.f) / 80);
+	}
+	for (const auto& values : {std::map<std::string,float>{{"whiteNits",80},{"exposure",.1f}},
+		std::map<std::string,float>{{"whiteNits",400},{"exposure",4}}}) {
+		const auto p = BuildHdrComponentPlan(Effects{{"Color\\SDR_to_HDR",values}});
+		assert(p.error == HdrComponentError::None && p.stages[0].whiteNits == values.at("whiteNits") && p.stages[0].exposure == values.at("exposure"));
+		HdrFrameMetadata frame;
+		ApplyHdrComponentOutputColor(frame, p, 0);
+		assert(frame.overlayReferenceWhiteNits == values.at("whiteNits") * values.at("exposure"));
+	}
+	const auto paired = BuildHdrComponentPlan(Effects{{"Color\\HDR_to_SDR"},{"Color\\SDR_to_HDR",{{"nativeWhiteNits",1500}}}});
+	assert(paired.stages[1].pairIndex == 0 && HdrComponentTransform(paired,1).sdrWhiteNits == 203);
+	const auto convertedExport = ResolveHdrExportColor({}, paired, 1, false);
+	assert(convertedExport.hdr && convertedExport.color.sdrWhiteNits == 203);
+	const auto appendedExport = ResolveHdrExportColor(convertedExport.color, paired, paired.stages.size(), false);
+	assert(appendedExport.hdr && appendedExport.color == convertedExport.color);
+	assert(!ResolveHdrExportColor({}, display, display.stages.size(), true).hdr);
+	assert(!ResolveHdrExportColor({}, {}, 0, false).hdr);
+	HdrFrameMetadata frame;
+	const auto finalPair = BuildHdrComponentPlan(Effects{{"Color\\HDR_to_SDR",{{"whiteNits",400}}},
+		{"Color\\SDR_to_HDR"},{"Color\\HDR_to_SDR",{{"whiteNits",240},{"exposure",2}}},
+		{"Color\\SDR_to_HDR"},{"Bicubic"}});
+	for (size_t i = 0; i < finalPair.stages.size(); ++i) ApplyHdrComponentOutputColor(frame, finalPair, i);
+	assert(frame.overlayReferenceWhiteNits == 240); // Last pair, then an ordinary effect.
+	assert(ResolveOverlayWhiteScale(true, output.Format, frame, 80) == 3);
+	assert(ResolveOverlayWhiteScale(false, output.Format, frame, 80) == 0);
+	assert(ResolveOverlayWhiteScale(true, DXGI_FORMAT_R8G8B8A8_UNORM, frame, 80) == 0);
+	assert(ResolveOverlayWhiteScale(true, DXGI_FORMAT_R10G10B10A2_UNORM, frame, 80) == 0);
+	frame.color.transfer = HdrTransferFunction::PQ; // XeSS scene is PQ; UI target remains scRGB.
+	assert(ResolveOverlayWhiteScale(true, output.Format, frame, 80) == 3);
+	const auto trueHdr = BuildHdrComponentPlan(Effects{{"RTXVideo\\RTXVideo_HDR",{{"peakNits",2000},{"middleGray",100}}}});
+	ApplyHdrComponentOutputColor(frame, trueHdr, 0);
+	assert(frame.overlayReferenceWhiteNits == 203);
+	ApplyHdrComponentOutputColor(frame, display, 0);
+	assert(frame.overlayReferenceWhiteNits == 0);
+	for (float invalid : {0.f,-1.f,std::numeric_limits<float>::infinity(),std::numeric_limits<float>::quiet_NaN()}) {
+		frame = {};
+		frame.overlayReferenceWhiteNits = invalid;
+		assert(ResolveOverlayWhiteScale(true, output.Format, frame, 240) == 3);
+		assert(ResolveOverlayWhiteScale(true, output.Format, frame, invalid) == 203.f / 80);
+		frame.color.transfer = HdrTransferFunction::Linear;
+		frame.color.sdrWhiteNits = 280;
+		assert(ResolveOverlayWhiteScale(true, output.Format, frame, 240) == 3.5f);
+		frame.color.sdrWhiteNits = invalid;
+		assert(ResolveOverlayWhiteScale(true, output.Format, frame, 240) == 3);
+	}
 	std::cout << "PASS: HDR component domains, pairing, independent mapping, frame identity, invalid values, RTX SDK parameter bounds and direct BGRA/RGBA capture endpoints\n";
 }

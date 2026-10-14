@@ -1,5 +1,8 @@
 namespace Magpie {
 	runtimeclass HomeViewModel : Windows.UI.Xaml.Data.INotifyPropertyChanged {
+		Boolean ShowDlssNrStatus { get; };
+		String DlssNrStatusSummary { get; };
+		void OpenDlssNrEffects();
 		Boolean ShowRecentIssue;
 		String RecentIssueSummary { get; };
 		Microsoft.UI.Xaml.Controls.InfoBarSeverity RecentIssueSeverity { get; };
@@ -28,6 +31,7 @@ namespace Magpie {
 		Int32 FullscreenInitialToolbarState;
 		Int32 WindowedInitialToolbarState;
 		String ScreenshotSaveDirectory { get; };
+		Int32 ScreenshotContent;
 		void OpenScreenshotSaveDirectory();
 		void ChangeScreenshotSaveDirectory();
 

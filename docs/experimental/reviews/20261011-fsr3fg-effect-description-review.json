@@ -1,0 +1,119 @@
+{
+  "schemaVersion": 1,
+  "date": "2026-10-11",
+  "scope": "FSR3FG source integration; compilation, GPU quality, performance and display acceptance pending",
+  "effects": [
+    {
+      "id": "FSR3FG\\FSR3_FrameGeneration",
+      "category": "frame",
+      "purposes": [
+        "frame"
+      ],
+      "family": null,
+      "subfamily": null,
+      "level": "advanced",
+      "source": {
+        "path": "src/Effects/FSR3FG/FSR3_FrameGeneration.hlsl",
+        "sha256": "701669e105cce03718e41588c8ee44d3c0dbafdef3c642ff84215f9ae55262a3",
+        "output": {
+          "WIDTH": "INPUT_WIDTH",
+          "HEIGHT": "INPUT_HEIGHT"
+        },
+        "passCount": 1,
+        "parameters": [
+          {
+            "name": "opticalFlowMethod",
+            "type": "int",
+            "label": "Optical Flow Method",
+            "default": "1",
+            "options": [
+              "1 AMDOF",
+              "2 NVOF"
+            ]
+          },
+          {
+            "name": "amdOpticalFlowMode",
+            "type": "int",
+            "label": "OF Quality",
+            "default": "1",
+            "options": [
+              "0 Performance",
+              "1 Quality"
+            ]
+          },
+          {
+            "name": "nvidiaOpticalFlowQuality",
+            "type": "int",
+            "label": "OF Quality",
+            "default": "2",
+            "options": [
+              "1 Performance",
+              "2 Balanced (Recommended)",
+              "3 Quality",
+              "4 High Quality (High Cost)",
+              "5 Highest Quality (Very High Cost)"
+            ]
+          }
+        ],
+        "includes": []
+      },
+      "review": {
+        "status": "source-reviewed",
+        "previousLevel": "advanced",
+        "issuesAddressed": [
+          "issue-19",
+          "fixed-2x-sdr-experimental-scope"
+        ],
+        "recommendationBasis": "experimental-image-only-integration",
+        "runtimeEvidence": [
+          "src/Magpie.Core/FSR3FGPresenter.cpp",
+          "src/Magpie.Core/FSR3FGPolicy.h",
+          "src/Magpie.Core/Renderer.cpp",
+          "src/Magpie.Core/include/FrameGenerationParameters.h"
+        ],
+        "externalReferences": [
+          "https://gpuopen.com/manuals/fsr_sdk/techniques/frame-interpolation-api/"
+        ],
+        "notVerified": [
+          "compilation",
+          "native-sdk-runtime",
+          "target-content-image-quality",
+          "hardware-performance",
+          "HDR",
+          "VRR-display-activation"
+        ],
+        "settingsRevision": "2026-10-12 FG common filtering and idle redraw; source only, uncompiled",
+        "copyReviewedOn": "2026-10-13",
+        "copyDisposition": "revised",
+        "copyScope": "User-focused bilingual purpose, content and starting steps; shared guidance moved to categories, parameter help and usage docs. Source review only; no build, deployment, UI or GPU acceptance.",
+        "runtimeEvidenceSha256": {
+          "src/Magpie.Core/FSR3FGPresenter.cpp": "84b37cd0543f88813fd5d09c19463d883a1cf2ceb2f23faca9f09628f7da035e",
+          "src/Magpie.Core/FSR3FGPolicy.h": "fc8083f161bc29eb3781453c4207ff1de64809a7214d1c25292a798701dc5ed3",
+          "src/Magpie.Core/Renderer.cpp": "b03b12ffcbc19f9f84b8cba6e765e2618de77a558105b46299de2f7792fa3eb2",
+          "src/Magpie.Core/include/FrameGenerationParameters.h": "3d83785bc44ef71c2ad68d4c55aa6ac3993e3d860b3aff0a4aedbce91d99688d"
+        },
+        "evidenceBaseline": "cbe2c2cb + UWP fullscreen, HDR overlay, DLSSNR guidance and effect-description integration; copy contracts rechecked"
+      },
+      "zh-Hans": {
+        "name": "FSR3 FrameGeneration",
+        "subcategory": "补帧",
+        "summary": "生成中间帧，让 SDR 画面以固定 2× 倍率补帧。",
+        "details": "在连续画面之间生成中间帧，适合改善游戏和视频的运动连贯性，保持画面尺寸。从默认 AMDOF 质量档开始，按处理余量调整光流质量。实验性功能，需支持该功能的 x64 程序、渲染 GPU 与配套运行库；仅支持 SDR 及已适配的效果组合，画面须完整位于输出区域内。",
+        "search": "FSR3FG\\FSR3_FrameGeneration FSR3_FrameGeneration FSR3FG FSR 3 FG FSR3_FrameGeneration AMD FidelityFX opticalFlowMethod Optical Flow Method 1 AMDOF 2 NVOF amdOpticalFlowMode OF Quality 0 Performance 1 Quality nvidiaOpticalFlowQuality OF Quality 1 Performance 2 Balanced (Recommended) 3 Quality 4 High Quality (High Cost) 5 Highest Quality (Very High Cost) FSR3 FrameGeneration 补帧与帧率 补帧 生成中间帧，让 SDR 画面以固定 2× 倍率补帧。 在连续画面之间生成中间帧，适合改善游戏和视频的运动连贯性，保持画面尺寸。从默认 AMDOF 质量档开始，按处理余量调整光流质量。实验性功能，需支持该功能的 x64 程序、渲染 GPU 与配套运行库；仅支持 SDR 及已适配的效果组合，画面须完整位于输出区域内。"
+      },
+      "en-US": {
+        "name": "FSR3 FrameGeneration",
+        "subcategory": "Frame generation",
+        "summary": "Generates intermediate SDR frames at a fixed 2x multiplier.",
+        "details": "Adds intermediate frames for smoother motion in games and video while keeping the image size. Start with the default AMDOF Quality setting and adjust optical-flow quality to suit processing headroom. Experimental; requires an x64 build with this feature, a supported rendering GPU, and matching runtimes. SDR and compatible effect chains only; the image must fit entirely within the output area.",
+        "search": "FSR3FG\\FSR3_FrameGeneration FSR3_FrameGeneration FSR3FG FSR 3 FG FSR3_FrameGeneration AMD FidelityFX opticalFlowMethod Optical Flow Method 1 AMDOF 2 NVOF amdOpticalFlowMode OF Quality 0 Performance 1 Quality nvidiaOpticalFlowQuality OF Quality 1 Performance 2 Balanced (Recommended) 3 Quality 4 High Quality (High Cost) 5 Highest Quality (Very High Cost) FSR3 FrameGeneration Frame generation and frame rate Frame generation Generates intermediate SDR frames at a fixed 2x multiplier. Adds intermediate frames for smoother motion in games and video while keeping the image size. Start with the default AMDOF Quality setting and adjust optical-flow quality to suit processing headroom. Experimental; requires an x64 build with this feature, a supported rendering GPU, and matching runtimes. SDR and compatible effect chains only; the image must fit entirely within the output area."
+      }
+    }
+  ],
+  "copyRevision": {
+    "date": "2026-10-13",
+    "guide": "docs/experimental/EFFECT-DESCRIPTION-GUIDE.md",
+    "review": "docs/experimental/reviews/20261013-effect-description-user-copy-revision.md",
+    "scope": "User-focused bilingual rewrite; preserve IDs, parameters, behavior and source evidence. No compilation or deployment."
+  }
+}

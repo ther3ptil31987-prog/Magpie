@@ -17,6 +17,8 @@
 #include "EffectDesc.h"
 #include "EffectParameterValue.h"
 #include "EffectParameterRules.h"
+#include "HdrParameterPolicy.h"
+#include "NvidiaVfxParameterPolicy.h"
 #include "ScalingService.h"
 #include "EffectParameterLocalization.h"
 #include "EffectParameterPopupLayout.h"
@@ -107,9 +109,14 @@ EffectParametersViewModel::EffectParametersViewModel(uint32_t scalingModeIdx, ui
 	auto displayParams = _effectInfo->params;
 	EffectParameterLocalization::Localize(StrHelper::UTF16ToUTF8(_effectInfo->name), displayParams);
 	for (uint32_t i = 0, size = (uint32_t)displayParams.size(); i < size; ++i) {
-		const EffectParameterDesc& param = displayParams[i];
+		EffectParameterDesc param = displayParams[i];
+		const auto category = params.find(L"category");
+		FilterNvidiaVfxVsrChoices(StrHelper::UTF16ToUTF8(_effectInfo->name), param,
+			NvidiaVfxCategory(category == params.end() ? 0.f : category->second));
 
 		std::optional<float> paramValue;
+		if (_effectInfo->name == L"Color\\SDR_to_HDR" && param.name == "nativeWhiteNits")
+			paramValue = NativeHdrWhiteValue(params, std::wstring(L"nativeWhiteNits"), std::wstring(L"whiteNits"), std::wstring(L"exposure"));
 		{
 			auto it = params.find(StrHelper::UTF8ToUTF16(param.name));
 			if (it != params.end()) {
@@ -150,6 +157,7 @@ EffectParametersViewModel::EffectParametersViewModel(uint32_t scalingModeIdx, ui
 				constant.step,
 				defaultValue
 			);
+			paramItem->ConfigureDescriptor(param);
 			paramItem->PropertyChanged({
 				this, &EffectParametersViewModel::_ScalingModeParameter_PropertyChanged });
 
@@ -177,6 +185,7 @@ EffectParametersViewModel::EffectParametersViewModel(uint32_t scalingModeIdx, ui
 					(float)constant.step,
 					defaultValue
 				);
+				paramItem->ConfigureDescriptor(param);
 				paramItem->PropertyChanged({
 					this, &EffectParametersViewModel::_ScalingModeParameter_PropertyChanged });
 
@@ -210,7 +219,9 @@ EffectParametersViewModel::EffectParametersViewModel(uint32_t scalingModeIdx, ui
 	_SynchronizeParameters();
 	_parameterChangedRevoker = ScalingModesService::Get().EffectParametersChanged(
 		auto_revoke, [this](uint32_t mode, uint32_t effect) {
-			if (!_IsRemoved() && mode == _scalingModeIdx && effect == _effectIdx) _SynchronizeParameters();
+			if (_IsRemoved() || mode != _scalingModeIdx) return;
+			if (effect == _effectIdx) _SynchronizeParameters();
+			else { _RefreshConditionalVisibility(); _RefreshLayoutWidth(); }
 		});
 }
 
@@ -261,11 +272,17 @@ void EffectParametersViewModel::_ScalingModeParameter_PropertyChanged(
 		sender.try_as<Magpie::ScalingModeParameter>());
 	if (paramImpl->Index() >= _effectInfo->params.size()) return;
 	const std::string& effectName = _effectInfo->params[paramImpl->Index()].name;
+	if (_effectInfo->name == L"RTXVideo\\RTXVideo_VSR" && effectName == "category") {
+		auto& item = ScalingModesService::Get().GetScalingMode(_scalingModeIdx).effects[_effectIdx];
+		ChangeNvidiaVfxVsrCategory(item, paramImpl->ChoiceValue());
+		_SynchronizeParameters();
+	} else {
 	_Data()[StrHelper::UTF8ToUTF16(effectName)] = paramImpl->IsBoolean()
 		? static_cast<float>(paramImpl->BooleanValue())
 		: paramImpl->IsChoice()
 			? static_cast<float>(paramImpl->ChoiceValue())
 			: static_cast<float>(paramImpl->Value());
+	}
 	_RefreshConditionalVisibility();
 	_RefreshLayoutWidth();
 	ScalingService::Get().EffectParameterEdited(_scalingModeIdx, _effectIdx, effectName,
@@ -278,7 +295,13 @@ void EffectParametersViewModel::_ScalingModeParameter_PropertyChanged(
 void EffectParametersViewModel::_RefreshConditionalVisibility() {
 	const std::string effect = StrHelper::UTF16ToUTF8(_effectInfo->name);
 	const auto& values = _Data();
+	std::vector<EffectOption> options;
+	for (const auto& item : ScalingModesService::Get().GetScalingMode(_scalingModeIdx).effects)
+		options.push_back(static_cast<EffectOption>(item));
+	const auto hdrPlan = BuildHdrComponentPlan(options, ScalingModesService::Get().GetScalingMode(_scalingModeIdx).legacyHdrCaptureIntent);
 	auto getValue = [&](std::string_view name, float fallback) {
+		if (name == "__hdrHasPair") return hdrPlan.error == HdrComponentError::None && _effectIdx < hdrPlan.stages.size() &&
+			hdrPlan.stages[_effectIdx].pairIndex != size_t(-1) ? 1.f : 0.f;
 		const auto it = values.find(StrHelper::UTF8ToUTF16(name));
 		if (it != values.end()) return it->second;
 		const auto descriptor = std::ranges::find(_effectInfo->params, name, &EffectParameterDesc::name);
@@ -290,6 +313,17 @@ void EffectParametersViewModel::_RefreshConditionalVisibility() {
 	auto reset = wil::scope_exit([this, wasSynchronizing] { _synchronizing = wasSynchronizing; });
 	for (const auto& parameter : _parameterImpls) {
 		const auto& name = _effectInfo->params[parameter->Index()].name;
+		if (effect == NVIDIA_VFX_VSR_ID && name == "strength") {
+			auto descriptor = _effectInfo->params[parameter->Index()];
+			std::vector<EffectParameterDesc> localized{ std::move(descriptor) };
+			EffectParameterLocalization::Localize(effect, localized);
+			FilterNvidiaVfxVsrChoices(effect, localized.front(), NvidiaVfxCategory(getValue("category", 0.f)));
+			std::vector<std::pair<int, hstring>> choices;
+			for (const auto& choice : localized.front().choices)
+				choices.emplace_back(choice.value, to_hstring(choice.label));
+			parameter->_RebuildChoices(choices);
+			parameter->SynchronizeValue(float(NvidiaVfxTier(NvidiaVfxCategory(getValue("category", 0.f)), getValue("strength", 1.f))));
+		}
 		if (IsFrameRateFilterEffect(effect) && name == "frameRateMode") {
 			parameter->SynchronizeValue(UsesFrontEdgeSyncFrameRate(frontEdgeSyncEnabled,
 				getValue(name, 0.0f)) ? 0.0f : 1.0f);
@@ -300,7 +334,11 @@ void EffectParametersViewModel::_RefreshConditionalVisibility() {
 		auto display = _effectInfo->params[parameter->Index()];
 		std::vector<EffectParameterDesc> localized{ std::move(display) };
 		EffectParameterLocalization::Localize(effect, localized);
-		parameter->Tooltip(to_hstring(EffectParameterLocalization::Tooltip(effect, localized.front(), parameter->IsEnabled())));
+		auto tooltip = EffectParameterLocalization::Tooltip(effect, localized.front(), parameter->IsEnabled());
+		if (name == "mode" && hdrPlan.error == HdrComponentError::None && _effectIdx < hdrPlan.stages.size() &&
+			hdrPlan.stages[_effectIdx].pairIndex != size_t(-1))
+			tooltip += '\n' + EffectParameterLocalization::HdrPairSource(hdrPlan.stages[_effectIdx].pairIndex);
+		parameter->Tooltip(to_hstring(tooltip));
 	}
 	for (const auto& group : _groupImpls) group->RefreshVisibility();
 }
@@ -316,8 +354,10 @@ void EffectParametersViewModel::_SynchronizeParameters() {
 	for (const auto& parameter : _parameterImpls) {
 		const auto& descriptor = _effectInfo->params[parameter->Index()];
 		const auto it = values.find(StrHelper::UTF8ToUTF16(descriptor.name));
-		const float fallback = descriptor.constant.index() == 0 ?
+		float fallback = descriptor.constant.index() == 0 ?
 			std::get<0>(descriptor.constant).defaultValue : float(std::get<1>(descriptor.constant).defaultValue);
+		if (name == L"Color\\SDR_to_HDR" && descriptor.name == "nativeWhiteNits")
+			fallback = NativeHdrWhiteValue(values, std::wstring(L"nativeWhiteNits"), std::wstring(L"whiteNits"), std::wstring(L"exposure"));
 		parameter->SynchronizeValue(NormalizeEffectParameterValue(descriptor,
 			it == values.end() ? fallback : it->second));
 	}
@@ -332,6 +372,25 @@ phmap::flat_hash_map<std::wstring, float>& EffectParametersViewModel::_Data() co
 
 hstring ScalingModeParameter::ValueText() const noexcept {
 	return App::DoubleFormatter().FormatDouble(_value);
+}
+
+void ScalingModeParameter::EditableValue(hstring const& text) {
+	if (!IsPreciseInput() || text == ValueText()) return;
+	const auto parsed = App::DoubleFormatter().as<Windows::Globalization::NumberFormatting::INumberParser>().ParseDouble(text);
+	const double minimum = std::max(_minimum, double(_descriptor->editMinimum));
+	const float candidate = parsed ? float(parsed.Value()) : std::numeric_limits<float>::quiet_NaN();
+	// Compare in the stored float domain: a typed decimal 0.1 must match the
+	// float minimum, which is slightly greater than the parsed double 0.1.
+	if (!parsed || !std::isfinite(candidate) || candidate < float(minimum) || candidate > float(_maximum) ||
+		(_descriptor->constant.index() == 1 && parsed.Value() != std::floor(parsed.Value()))) {
+		_inputError = to_hstring(::Magpie::EffectParameterLocalization::Resource(L"HdrParameter_InvalidInput",
+			"Enter a number in the shown range; integer parameters require whole numbers."));
+	} else {
+		_inputError = {};
+		Value(parsed.Value());
+	}
+	RaisePropertyChanged(L"InputError");
+	RaisePropertyChanged(L"HasInputError");
 }
 
 }
