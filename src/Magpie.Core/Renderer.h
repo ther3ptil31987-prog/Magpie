@@ -53,6 +53,9 @@ public:
 	bool RenderOverlay() noexcept;
 	bool HasFrameGeneration() const noexcept { return _hasFrameGeneration; }
 	PresentationRateSnapshot PresentationRate() const noexcept { return _presentationRate.Get(); }
+	PresentationProfilerSnapshot PresentationProfile(ProfilerHistory::Time now) const noexcept {
+		return _presentationRate.Profile(now);
+	}
 	bool IsWaitingForNewContent() const noexcept {
 		return _hasFrameGeneration && _captureAllowsIdle.load(std::memory_order_acquire) &&
 			!HasPendingContent() && !_backendContentInFlight.load(std::memory_order_acquire) &&
@@ -155,14 +158,14 @@ public:
 	) noexcept;
 
 private:
-	// Frontend-only admission; backend-only request/candidate; per-slot pointers
-	// use the same lock as frame metadata and scene copies.
+	// Frontend-only admission/output and backend-only request; input handoff
+	// is protected by the request mutex, independently of presentation slots.
 	std::shared_ptr<SceneScreenshotRequest> _sceneScreenshotRequest;
 	uint64_t _nextScreenshotRequestId = 0;
 	std::shared_ptr<SceneScreenshotRequest> _backendScreenshotRequest;
-	std::shared_ptr<SceneScreenshotFrame> _backendScreenshotFrame;
-	std::shared_ptr<SceneScreenshotFrame> _frontendScreenshotFrame;
 	void _SnapshotScreenshotInput() noexcept;
+	void _TryCompleteSceneScreenshot() noexcept;
+	void _FixScreenshotOutput(const std::shared_ptr<SceneScreenshotRequest>& request);
 	static void _QueueScreenshotCleanup(std::shared_ptr<SceneScreenshotRequest> request) noexcept;
 	static winrt::fire_and_forget _WatchScreenshotRequest(std::shared_ptr<SceneScreenshotRequest> request);
 	static winrt::fire_and_forget _SaveSceneScreenshot(
@@ -174,7 +177,7 @@ private:
 		HdrFrameMetadata outputMetadata,
 		std::shared_ptr<SceneScreenshotFrame> input = {});
 	static void _FailScreenshotRequest(const std::shared_ptr<SceneScreenshotRequest>& request,
-		std::string_view stage, uint32_t code = 0) noexcept;
+		std::string_view stage, uint32_t code = 0, bool pendingOnly = false) noexcept;
 	bool _frameTraceStarted = false;
 	// Set before starting the backend; immutable for this session.
 	bool _frameSyncEnabled = false;
@@ -349,7 +352,6 @@ private:
 	// reference-image capacity and apply backpressure rather than allocating
 	// seven extra HDR outputs before the frontend can consume them.
 	static constexpr uint32_t MAX_SHARED_TEXTURE_SLOTS = PassThroughFrames::MAX_SLOTS;
-	std::array<std::shared_ptr<SceneScreenshotFrame>, MAX_SHARED_TEXTURE_SLOTS> _sharedScreenshotFrames{};
 	std::array<winrt::com_ptr<ID3D11Texture2D>, MAX_SHARED_TEXTURE_SLOTS>
 		_frontendSharedTextures;
 	std::array<winrt::com_ptr<IDXGIKeyedMutex>, MAX_SHARED_TEXTURE_SLOTS>

@@ -1,4 +1,4 @@
-param(
+﻿param(
     [string]$PackageName = "Magpie-Experimental-x64",
     [string]$ReleaseDirectory,
     [string]$Configuration = "Release",
@@ -21,8 +21,6 @@ $ErrorActionPreference = "Stop"
 Set-StrictMode -Version Latest
 
 $sourceRoot = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot ".."))
-$workspaceRoot = Split-Path $sourceRoot -Parent
-$releaseRoot = [System.IO.Path]::GetFullPath((Join-Path $workspaceRoot "release"))
 
 $featureOptions = [ordered]@{}
 $buildOptionsPath = Join-Path $sourceRoot "src\BuildOptions.props"
@@ -45,6 +43,18 @@ if (Test-Path -LiteralPath $userOptionsPath) {
     foreach ($property in $properties) {
         $featureOptions[$property.Name] = [string]$property.InnerText
     }
+}
+# Read the same runtime override used by MSBuild. The checked-in default is
+# relative to BuildOptions.props, while local worktrees can use an absolute path.
+$dlssnrRuntimeNode = $buildOptions.SelectSingleNode("//*[local-name()='DLSSNRRuntimeDir']")
+$dlssnrRuntimeDirectory = if ($dlssnrRuntimeNode) { $dlssnrRuntimeNode.InnerText } else { '' }
+if (Test-Path -LiteralPath $userOptionsPath) {
+    $dlssnrRuntimeNode = $userOptions.SelectSingleNode("//*[local-name()='DLSSNRRuntimeDir']")
+    if ($dlssnrRuntimeNode) { $dlssnrRuntimeDirectory = $dlssnrRuntimeNode.InnerText }
+}
+if ($dlssnrRuntimeDirectory) {
+    $dlssnrRuntimeDirectory = $dlssnrRuntimeDirectory.Replace('$(MSBuildThisFileDirectory)', (Join-Path $sourceRoot 'src/'))
+    $dlssnrRuntimeDirectory = [IO.Path]::GetFullPath($dlssnrRuntimeDirectory, (Join-Path $sourceRoot 'src'))
 }
 # Match the compatibility defaults as well as explicit user overrides.
 if (!$featureOptions.Contains("EnableDLSSSR") -and
@@ -157,6 +167,16 @@ function Invoke-Git([string[]]$Arguments) {
     return ($value | Out-String).Trim()
 }
 
+# Linked worktrees share the primary checkout's .git directory. Their own
+# parent directories are not the workspace root.
+$commonGitDirectory = Invoke-Git @("rev-parse", "--path-format=absolute", "--git-common-dir")
+if (!$commonGitDirectory) {
+    throw "Cannot resolve the shared Git directory for $sourceRoot. Run from a Git checkout."
+}
+$primarySourceRoot = Split-Path ([System.IO.Path]::GetFullPath($commonGitDirectory)) -Parent
+$workspaceRoot = Split-Path $primarySourceRoot -Parent
+$releaseRoot = [System.IO.Path]::GetFullPath((Join-Path $workspaceRoot "release"))
+
 $commit = Invoke-Git @("rev-parse", "HEAD")
 $shortCommit = Invoke-Git @("rev-parse", "--short=12", "HEAD")
 $commitTimeText = Invoke-Git @("show", "-s", "--format=%cI", "HEAD")
@@ -211,6 +231,11 @@ if (!$stagingDir.StartsWith($releaseContainer + [System.IO.Path]::DirectorySepar
         [System.StringComparison]::OrdinalIgnoreCase)) {
     throw "Release path escaped the release directory."
 }
+
+Write-Host "Source directory:  $sourceRoot"
+Write-Host "Workspace root:    $workspaceRoot"
+Write-Host "Release directory: $stagingDir"
+Write-Host "Release ZIP:       $zipPath"
 
 function Stop-RunningMagpie {
     $running = Get-Process -Name "Magpie" -ErrorAction SilentlyContinue
@@ -324,6 +349,13 @@ if ($missingRuntimePaths.Count -ne 0) {
     throw "Release runtime layout is incomplete in $buildOutput. Missing: $($missingRuntimePaths -join ', ')"
 }
 
+if ($Platform -eq 'x64' -and $featureOptions['EnableDLSSNR'] -eq 'true') {
+    if (!$dlssnrRuntimeDirectory) { throw 'DLSSNRRuntimeDir must point to the prepared DLSSNR distribution inputs.' }
+    # Also refresh -SkipBuild packages so a stale DLL cannot silently survive.
+    & (Join-Path $PSScriptRoot 'Copy-DlssnrDistribution.ps1') `
+        -RuntimeDirectory $dlssnrRuntimeDirectory -PackageDirectory $stagingDir -OptionsDirectory $releaseContainer
+}
+
 if ($IncludeSymbols) {
     $requiredSymbolPaths = @("Magpie.pdb", "Magpie.map")
     $missingSymbolPaths = @($requiredSymbolPaths | Where-Object {
@@ -407,7 +439,9 @@ $featureOptions["EnableFrameTrace"] = if ($EnableFrameTrace) { "true" } else { "
 if ($featureOptions["EnableDLSSFrameGeneration"] -eq 'true') {
     # Includes -SkipBuild: old native/mixed output must not become a new package.
     & (Join-Path $PSScriptRoot 'Test-DlssgSm86Package.ps1') -PackageDirectory $stagingDir
-    $featureOptions['DLSSFrameGenerationProvider'] = 'dlssg_for_sm86/0.3.5/9621db573e07ed54f50c15bbb585ed9a7bdfac28'
+    . (Join-Path $PSScriptRoot 'DlssgSm86Package.ps1')
+    $fgContract = Get-DlssgSm86Contract
+    $featureOptions['DLSSFrameGenerationProvider'] = "dlssg_for_sm86/$($fgContract.Version)/$($fgContract.Revision)"
 }
 if ($featureOptions["EnableNvidiaVfx"] -eq 'true') {
     # Also protects -SkipBuild: a former full-Core output cannot silently be

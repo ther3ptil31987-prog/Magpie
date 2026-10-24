@@ -5,6 +5,22 @@
 //!SORT_NAME DLSS SR
 
 //!PARAMETER
+//!LABEL Model Preset
+//!DEFAULT 11
+//!OPTION 0 Auto
+//!OPTION 1 A (CNN)
+//!OPTION 2 B (CNN)
+//!OPTION 3 C (CNN)
+//!OPTION 4 D (CNN)
+//!OPTION 5 E (CNN)
+//!OPTION 6 F (CNN)
+//!OPTION 10 J (Transformer 1)
+//!OPTION 11 K (Transformer 1)
+//!OPTION 12 L (Transformer 2)
+//!OPTION 13 M (Transformer 2)
+int renderPreset;
+
+//!PARAMETER
 //!LABEL Optical Flow Method
 //!DEFAULT 0
 //!OPTION 0 None

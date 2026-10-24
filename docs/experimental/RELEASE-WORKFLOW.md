@@ -12,7 +12,7 @@
 | Git 标签 | `vX.Y.Z-experimental` | `v0.6.0-experimental` |
 | Release 标题 | `Magpie Experimental vX.Y.Z` | `Magpie Experimental v0.6.0` |
 | 主包 | `Magpie-Experimental-x64.zip` | `Magpie-Experimental-x64.zip` |
-| 本地说明 | `docs/RELEASE_NOTES_vX.Y.Z-experimental.md` | `docs/RELEASE_NOTES_v0.6.0-experimental.md` |
+| 仓库说明快照 | `docs/RELEASE_NOTES_vX.Y.Z-experimental.md` | `docs/RELEASE_NOTES_v0.6.0-experimental.md` |
 
 - GitHub Release 始终标记为 **Pre-release**。Draft 只是审核状态，不是版本类型。
 - 首个紧急修复可使用 `vX.Y.Z-experimental-hotfix`；同一基础版本继续修复时在末尾增加序号，例如 `.2`。
@@ -28,7 +28,7 @@
 1. 在功能分支完成实现和测试，再合并到 `experimental`。
 2. 更新版本说明、包内 README、第三方声明及相关测试文档。
 3. 从准备发布的提交构建完整主包和全部可选附件。
-4. 检查文件名、目录结构、文件大小、SHA-256 和安装说明。
+4. 核对发布目录的绝对路径，并按分发清单逐项检查本地文件名、文件是否存在、大小、SHA-256 和安装说明。
 5. 文件全部准备完成后停止，交由维护者进行本地检查。
 
 在维护者明确确认“文件检查通过”前，不创建 GitHub Release Draft，也不上传附件。
@@ -81,9 +81,7 @@
 
 ## 应该下载哪个文件？
 
-### 如果你的 Magpie 是上一实验版本
-
-### 如果你使用更早版本，或者第一次下载
+首次安装和常规升级使用完整主包 `Magpie-Experimental-x64.zip`；升级前备份设置并完全退出旧版，完整解压到新目录后运行。
 
 ### 可选组件（如有）
 
@@ -100,20 +98,23 @@ Contributor: [GitHub 用户名](https://github.com/用户名) 具体贡献。
 
 写作要求：
 
-- 功能变化优先按“Magpie 本体易用性”和“效果器”分组；下载说明按用户当前版本分流。
-- 参数变化必须写明范围、默认值、步进、开关关闭时的行为和旧配置兼容性。
+- 正文面向用户，说明功能变化、操作入口、生效方式和必要限制。实现过程、调试经验、测试轮次及本机验证覆盖范围记录在 `RELEASE-REVIEW.md` 或 `docs/experimental/reviews/`。
+- 功能变化按用户能识别的功能分组，可使用“Magpie 本体易用性”和“效果器”等分组。只有下载内容或升级步骤确实不同时才按版本分流，相同则合并。
+- 新增或改变的参数写明范围、默认值、步进与生效方式；仅在升级行为有变化时补充旧配置处理，完整技术解释放在对应使用文档。
 - 画质、性能或稳定性存在取舍时必须明确写出，不能只描述收益。
 - 性能数字必须同时给出测试 GPU、分辨率、测试条件、单位和近似范围，并说明实际结果会因环境而异。
 - 安装说明使用用户在压缩包中实际看到的文件名和目录，不使用内部构建目录名称。
 - 已知问题应提供可操作的排查或回退方法。
 - Contributor 使用准确的 GitHub 用户名、主页链接和具体贡献内容，不用含糊的“感谢贡献”。README 和 `.all-contributorsrc` 的展示与 GitHub 自动统计是独立事项。
 - 面向用户的 Release Note 不重复列出附件哈希；GitHub 附件界面提供公开校验信息。本地准备仍使用 `SHA256SUMS.txt` 和审计记录逐项核对，附件更新后必须同步更新本地校验值。
+- 发布目录的 `RELEASE_BODY.md` 为审核主稿；定稿后同步到仓库版本说明快照和包内 `RELEASE-NOTES.md`，三份正文保持一致。包内 README 保留简短安装说明和使用要点。若重新打包，更新本地文件清单与校验值。
 
 ## 4. 附件与目录结构
 
 ### 完整主包
 
 - `Magpie-Experimental-x64.zip` 是所有用户可独立安装的完整包。
+- 本地主发布文件名与分发清单、`SHA256SUMS.txt` 一致。网盘需要带版本号的名称时，另建渠道副本并记录对应关系，保留主发布文件名和原内容。
 - 用户必须完全退出 Magpie，将 ZIP 完整解压到新目录后运行。
 - 不允许让用户在压缩包内直接运行，也不能把“只替换 `Magpie.exe`”写成常规更新方式。
 - `Magpie.exe` 与 `resources.pri` 必须来自同一次完整构建。涉及 UI 资源或索引映射时，两者必须一起更新。
@@ -121,7 +122,11 @@ Contributor: [GitHub 用户名](https://github.com/用户名) 具体贡献。
 
 ### DLSSNR DLL 选项包
 
-- 使用 `DLSSNR-DLL-Options.zip` 命名；DLL 文件版本和 SHA-256 保留在包内说明中。目录名直接标明 NVIDIA 原版 RTX 50、社区 RTX 40/50 或 SF-v2 FP16 RTX 30/20 的适用范围。
+- 默认来源固定为维护者指定的 `release/v0.6.10-experimental/updated-20261017-two-options/DLSSNR-DLL-Options.zip`。主包使用其中 `Community-Patched-310.9.16-RTX20-RTX30-RTX40-Series/nvngx_dlssnr.dll`；分发用的可选 ZIP 原样复制，不重新压缩或恢复已移除的 SF-v2。
+- 准备依赖时，将上述社区 DLL 提取为 `dependencies/dlssnr-runtime/nvngx_dlssnr.dll`，同时把原 ZIP 复制为该目录下的 `DLSSNR-DLL-Options.zip`。普通构建和 Release 使用同一个 `DLSSNRRuntimeDir`；独立 worktree 的本地 props 可将它设为工作区内该目录的绝对路径。第三方二进制不提交 Git。
+- 已选输入的 SHA-256：社区 DLL `A8A237A967469C455A84654932B513AB656FBAA1E0C44504B1E1BF0890F902B8`；可选 ZIP `1F900DF1063E3FFCA632220E7F1830AB0B22EA56AAC629AD9E858C3A13115EC1`。构建复制时校验完整性；开发者仍可显式指定其它运行库目录。
+- `Build-Release.ps1`（含 `-SkipBuild`）从同一依赖目录刷新主包 DLL，并将可选包放在主 ZIP 旁。缺少输入文件时直接报错，不能沿用旧包冒充新的默认来源。这里的可选包 README 中保留原有 0.6.10 来源版本标记。
+- 使用 `DLSSNR-DLL-Options.zip` 命名；包内只保留 NVIDIA 原版 RTX 50 和社区兼容 RTX 20/30/40 两个目录，以及安装说明、文件版本和 SHA-256。
 - 包内明确区分 NVIDIA 原版与社区兼容版本，并附带切换说明、文件版本和 SHA-256。
 - 替换前必须完全退出 Magpie。第三方 DLL 不进入源码仓库或 GitHub 自动生成的源码归档。
 
@@ -134,13 +139,15 @@ Contributor: [GitHub 用户名](https://github.com/用户名) 具体贡献。
 
 ## 5. 构建与附件检查
 
-发布构建使用 `scripts/Build-Release.ps1`。正式附件至少满足：
+发布构建使用所选源码工作树中的 `scripts/Build-Release.ps1`。下文 `release/` 均相对于工作区根目录，即主检出 `source/` 的父目录；不相对于当前工作树或终端目录。
 
-构建直接输出到 `release/<版本>/Magpie-Experimental-x64/`，中间文件归入该版本的 `obj/`；不使用 `source/bin` 或额外 `.build` 作为发布输出。正式打包脚本会重建可分发目录、分离符号并生成 ZIP。
+源码可位于 `source/`、`worktrees/<名称>/`、`.worktrees/<名称>/source/` 等已登记的 Git 工作树。脚本通过 Git 共享目录确定主检出和工作区根目录，解析失败即报错；构建前输出源码、工作区和发布文件的绝对路径。正式分发始终写入工作区根目录的 `release/<版本>/Magpie-Experimental-x64/`，中间文件归入该版本的 `obj/`，同级保存 ZIP 和独立符号目录。
 
-维护者当前使用的 `0.6.7-local` 是持续覆盖的本地运行目录，由 `scripts/Deploy-Local067.ps1` 更新；该脚本使用增量完整解决方案构建并保留本地配置、日志和自定义文件。正式打包脚本拒绝将该目录作为可清空的打包目标。本地更新没有创建 GitHub Draft、上传或发布的含义。
+现有本机运行目录和快捷方式以对应部署记录为准，准备分发文件不迁移或覆盖它们。`scripts/Deploy-Local067.ps1` 是历史 `0.6.7-local` 部署入口；正式打包脚本拒绝将该历史运行目录作为可清空的打包目标。本地更新没有创建 GitHub Draft、上传或发布的含义。
 
-- 工作区无未提交修改，`build-manifest.json` 中 `sourceDirty` 为 `false`；
+正式附件至少满足：
+
+- 构建所用的源码工作树无未提交修改，`build-manifest.json` 中 `sourceDirty` 为 `false`；
 - Release x64 构建为 0 error，运行时必需文件齐全；
 - 清单中的版本、完整提交 SHA、平台、功能开关与文件哈希正确；
 - 主包能够解压到新目录并启动，关键功能完成一次目标 GPU 验收；
@@ -170,11 +177,12 @@ Contributor: [GitHub 用户名](https://github.com/用户名) 具体贡献。
 ## 8. 最终检查清单
 
 - [ ] 功能和 GPU 验收通过。
+- [ ] 发布目录的绝对路径位于工作区根目录 `release/<版本>/`，分发清单中的每个文件均按原名存在。
 - [ ] 源码、Release Note、包内 README 和版本信息一致。
 - [ ] 主包及所有可选附件已在本地准备并由维护者检查。
 - [ ] 远端源码提交与 `build-manifest.json` 一致。
 - [ ] Draft 同时设置 `draft: true` 和 `prerelease: true`。
-- [ ] 中英文正文信息完整对应。
+- [ ] 中英文正文信息完整对应，只含用户功能、操作和必要限制；相同的下载／升级步骤已合并。
 - [ ] 安装路径、默认值、范围、步进、风险和回退方法准确。
 - [ ] Contributor 的用户名、链接和贡献内容准确。
 - [ ] 每个附件的名称、大小和 SHA-256 已复核。

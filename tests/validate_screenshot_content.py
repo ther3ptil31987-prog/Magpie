@@ -29,14 +29,32 @@ effect_loops = [renderer.find(marker, snapshot) for marker in (
     'for (uint32_t i = 0; i < preEnd; ++i)')]
 assert snapshot < min(index for index in effect_loops if index >= 0)
 assert '_isPassThroughActive' not in new
-assert 'frame->input.get(), source' in new and 'GetPipelineTexture()' in new
-assert 'frame->metadata.width = desc.Width' in new
-assert 'frame->metadata.height = desc.Height' in new
+transfer = read('src/Magpie.Core/SceneScreenshot.h')
+assert 'CopyResource(input.get(), source)' in transfer and 'GetPipelineTexture()' in new
+assert 'metadata.width = desc.Width' in transfer
+assert 'metadata.height = desc.Height' in transfer
+assert '_sharedScreenshotFrames' not in renderer
+request = new[new.index('void Renderer::TakeDisplayedScreenshot'):new.index('void Renderer::_FixScreenshotOutput')]
+assert '_SnapshotScreenshotInput();' in request and '_forceNextRender' not in request
+assert '_TryCompleteSceneScreenshot();' in renderer
 save = new[new.index('winrt::fire_and_forget Renderer::_SaveSceneScreenshot('):]
 suspended = save[save.index('co_await winrt::resume_background();'):]
 assert 'ScalingWindow::' not in suspended and '[this]' not in suspended
+# The SINGLETHREADED frontend may not touch DXGI from the background wait.
+input_wait = save[save.index('const bool inputReady'):save.index('snapshot(original.get()')]
+assert input_wait.index('co_await dispatcher;') < input_wait.index('device->OpenSharedResource1')
+assert 'mutex->AcquireSync(1, 0)' in input_wait
+assert 'mutex->AcquireSync(1, 10000)' not in save
+assert 'request->CancelPending()' in new
 assert 'input->metadata.color' in save and 'outputMetadata.color' in save
-assert 'images.size() == 2' in save and 'Magpie_{:03}_{}.png' in save
+assert 'images.size() == 2' in save and 'fmt::format(L"{}_{}.png", stem, image.side)' in save
+assert 'request->timestamp = ScreenshotHelper::CaptureTimestamp();' in request
+assert 'FindUnusedScreenshotStem(request->directory, request->timestamp)' in save
+export = renderer[renderer.index('winrt::IAsyncOperation<bool> Renderer::_TakeScreenshotImpl('):]
+assert export.index('ScreenshotHelper::CaptureTimestamp()') < export.index('co_await dispatcher')
+assert 'FindUnusedScreenshotStem(screenshotsDir, timestamp)' in export
+assert 'effect_{:02}_output' in export and 'effect_{:02}_pass_{:02}_texture_{:02}' in export
+assert 'FindUnusedScreenshotNum' not in renderer and 'FindUnusedScreenshotNum' not in new
 assert 'ScreenshotHelper::SaveMutex()' in renderer and 'ScreenshotHelper::SaveMutex()' in save
 assert 'SaveTextureExclusive' in renderer and 'SaveTextureExclusive' in save
 assert 'TakeDisplayedScreenshot();' in renderer

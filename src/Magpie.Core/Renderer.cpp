@@ -701,16 +701,22 @@ void Renderer::ClearOverlayStates() noexcept {
 }
 
 void Renderer::StartProfile() noexcept {
+	_presentationRate.StartProfile();
+	_presenter->SetProfilerEnabled(true);
 	_backendThreadDispatcher.TryEnqueue([this] {
 		uint32_t passCount = 0;
 		for (const EffectDesc* desc : _activeEffectDescs) {
 			passCount += (uint32_t)desc->passes.size();
 		}
-		_effectsProfiler.Start(_backendResources.GetD3DDevice(), passCount);
+		_effectsProfiler.Start(_backendResources.GetD3DDevice(), passCount,
+			_hasFrameGeneration || std::ranges::any_of(_nativeEffectBackends, [](const auto& backend) { return bool(backend); }));
+		_effectsProfiler.SetSuspended(_backendResources.GetD3DDevice(), _frameSource->IsCaptureInterrupted());
 	});
 }
 
 void Renderer::StopProfile() noexcept {
+	_presenter->SetProfilerEnabled(false);
+	_presentationRate.StopProfile();
 	_backendThreadDispatcher.TryEnqueue([this] {
 		_effectsProfiler.Stop();
 	});
@@ -947,7 +953,6 @@ Renderer::FrontendBaseResult Renderer::_UpdateFrontendBase(uint32_t sharedTextur
 		_frontendCaptureFrameId = _sharedTextureFrameIds[sharedTextureSlot].load(std::memory_order_acquire);
 		_frontendFrameMetadata = _sharedFrameMetadata[sharedTextureSlot];
 		_frontendMotionAvailability = _sharedMotionAvailability[sharedTextureSlot];
-		_frontendScreenshotFrame = std::move(_sharedScreenshotFrames[sharedTextureSlot]);
 		FrameTrace::SetFrame(_frontendCaptureFrameId);
 		traceBase.FrameId(_frontendCaptureFrameId);
 		if (!_passThroughFrames.Consume(sharedTextureSlot) && _isPassThroughActive) {
@@ -1269,15 +1274,17 @@ bool Renderer::_SubmitFrontendFrame() noexcept {
 		_idlePresentationClock.Presented(std::chrono::steady_clock::now(), contentFrame);
 		if (idleRedraw) _presentationRate.RecordIdleSubmission();
 	}
-	if (submitted && contentFrame && _hasFrameGeneration && _frontendCaptureFrameId != 0 &&
+	if (submitted && contentFrame && _frontendCaptureFrameId != 0 &&
 		(generatedFrame || _frontendCaptureFrameId != _lastCountedRealFrameId)) {
 		const auto sample = _presenter->LastContentFrameCount();
 		const auto count = sample.total;
 		_presentationRate.Record(count, !generatedFrame && (!count || *count > 0) ? 1u : 0u,
-			PresentationFrameRate::Clock::now(), sample.source);
+			PresentationFrameRate::Clock::now(), sample.source, sample.individualTimestamp);
 		if (!generatedFrame && (!count || *count > 0)) _lastCountedRealFrameId = _frontendCaptureFrameId;
 	}
 	bool overlayColorChanged = false;
+	if (_presentationRate.Profiling())
+		_presentationRate.RecordIntervals(_presenter->TakePresentationIntervals());
 	if (submitted) {
 		if (!stableBaseOnly && _frontendPresentedBaseTexture) {
 			const bool hdrOutput = ScalingWindow::Get().Options().IsHdrCompatibilityEnabled();
@@ -1293,22 +1300,7 @@ bool Renderer::_SubmitFrontendFrame() noexcept {
 			_frontendPresentedFrameMetadata = _frontendFrameMetadata;
 			_frontendPresentedFrameMetadata.stage = HdrFrameStage::PresentedOutput;
 			_passThroughFrames.OnPresented();
-			// Only a successfully submitted real scene may complete an input pair.
-			if (_frontendScreenshotFrame && contentFrame &&
-				_frontendScreenshotFrame->Identity().Matches(
-					{ _frontendPresentedFrameMetadata.frameId,
-						_frontendPresentedFrameMetadata.captureSequence,
-						_frontendPresentedFrameMetadata.resourceGeneration },
-					_frontendPresentedFrameMetadata.generated)) {
-				winrt::com_ptr<ID3D11Device5> device;
-				device.copy_from(_frontendResources.GetD3DDevice());
-				winrt::com_ptr<ID3D11DeviceContext4> context;
-				context.copy_from(d3dDC);
-				_SaveSceneScreenshot(_frontendScreenshotFrame->request, std::move(device),
-					std::move(context), ScalingWindow::Dispatcher(), _frontendPresentedBaseTexture,
-					_frontendPresentedFrameMetadata, _frontendScreenshotFrame);
-				_frontendScreenshotFrame.reset();
-			}
+			_TryCompleteSceneScreenshot();
 		}
 		if (!stableBaseOnly) _frontendBaseNeedsPresent = false;
 		if (!uiInIndependentLayer) {
@@ -1355,7 +1347,13 @@ void Renderer::_DrawOverlay(ID3D11Texture2D* target, const HdrFrameMetadata& fra
 			_overlayMonitorSdrWhiteNits = Win32Helper::GetMonitorSdrWhiteNits(monitor);
 		}
 	}
-	_overlayDrawer.Draw(_stepTimer.FPS(), _effectsProfiler.GetTimings(), drawOffset,
+	const auto profile = _effectsProfiler.GetSnapshot();
+	_presenter->SetProfilerEnabled(_presentationRate.Profiling() && profile.history.Active() && !profile.history.Suspended());
+	if (profile.history.Active())
+		_presentationRate.SynchronizeProfile(profile.generation, profile.history.Suspended());
+	if (_presentationRate.Profiling())
+		_presentationRate.RecordIntervals(_presenter->TakePresentationIntervals());
+	_overlayDrawer.Draw(_stepTimer.FPS(), profile, drawOffset,
 		ResolveOverlayWhiteScale(hdrOutput, desc.Format, frame, _overlayMonitorSdrWhiteNits));
 }
 
@@ -2216,6 +2214,7 @@ ID3D11Texture2D* Renderer::_BuildEffects() noexcept {
 				.multiplier = std::clamp(
 					(uint32_t)std::lround(getParameter("multiplier", 2.0f)),
 					2u, 4u),
+				.renderPreset = ParseDLSSFGRenderPreset(getParameter("renderPreset", 0.0f)),
 				.motionRequest = ParseDlssOpticalFlowRequest(effects[i])
 			};
 		}
@@ -2570,7 +2569,7 @@ void Renderer::_ApplyPendingEffectParameters() noexcept {
 					return it == values.end() ? fallback : it->second;
 				});
 				changesOutput = std::ranges::any_of(changedNames, [&](const std::string& name) {
-					return DLSSNRParameterPass(name) <= activePasses;
+					return DLSSNRParameterChangesCurrentOutput(name, activePasses);
 				});
 			}
 			if (changesOutput) {
@@ -2708,7 +2707,8 @@ ID3D11Texture2D* Renderer::_ResizeEffects() noexcept {
 			if (_effectsProfiler.IsProfiling()) {
 				uint32_t passes = 0;
 				for (auto* desc : _activeEffectDescs) passes += uint32_t(desc->passes.size());
-				_effectsProfiler.SetPassCount(_backendResources.GetD3DDevice(), passes);
+				_effectsProfiler.SetPassCount(_backendResources.GetD3DDevice(), passes,
+					_hasFrameGeneration || std::ranges::any_of(_nativeEffectBackends, [](const auto& backend) { return bool(backend); }));
 			}
 		}
 		return result;
@@ -2832,14 +2832,15 @@ ID3D11Texture2D* Renderer::_ResizeEffects() noexcept {
 	if (changed) {
 		_UpdateActiveEffectDescs();
 		_overlayDrawer.UpdateAfterActiveEffectsChanged();
-
-		if (_effectsProfiler.IsProfiling()) {
-			uint32_t passCount = 0;
-			for (const EffectDesc* desc : _activeEffectDescs) {
-				passCount += (uint32_t)desc->passes.size();
-			}
-			_effectsProfiler.SetPassCount(_backendResources.GetD3DDevice(), passCount);
+	}
+	// Resize changes the measurement domain even when the pass count is stable.
+	if (_effectsProfiler.IsProfiling()) {
+		uint32_t passCount = 0;
+		for (const EffectDesc* desc : _activeEffectDescs) {
+			passCount += (uint32_t)desc->passes.size();
 		}
+		_effectsProfiler.SetPassCount(_backendResources.GetD3DDevice(), passCount,
+			_hasFrameGeneration || std::ranges::any_of(_nativeEffectBackends, [](const auto& backend) { return bool(backend); }));
 	}
 	_UpdateHdrEffectBoundaryContexts();
 
@@ -3535,6 +3536,8 @@ void Renderer::_BackendThreadProc() noexcept {
 		if (_sessionLifetime->IsStopping()) continue;
 		_stepTimer.CaptureStarting();
 		const FrameSourceState frameSourceState = _frameSource->Update();
+		_effectsProfiler.SetSuspended(_backendResources.GetD3DDevice(), _frameSource->IsCaptureInterrupted());
+		_effectsProfiler.Poll(_backendResources.GetD3DDC());
 		_captureAllowsIdle.store(frameSourceState != FrameSourceState::Error &&
 			!_frameSource->IsCaptureInterrupted(), std::memory_order_release);
 		// A rejected GPU comparison is a completed attempt. Polls without GPU
@@ -3550,6 +3553,9 @@ void Renderer::_BackendThreadProc() noexcept {
 		switch (frameSourceState) {
 		case FrameSourceState::Waiting:
 			if (_frameSource->IsCaptureInterrupted()) {
+				if (_backendScreenshotRequest &&
+					_backendScreenshotRequest->state.load() == SceneScreenshotState::Pending)
+					_FailScreenshotRequest(_backendScreenshotRequest, "Capture interrupted before screenshot handoff completed", ERROR_CANCELLED, true);
 				_reflex.CompleteCapture();
 				// Keep the last published frame; even live parameter edits must wait
 				// for valid input before re-entering temporal effects. The timeout
@@ -3909,6 +3915,8 @@ void Renderer::_BackendRender(
 	_activeResourceGeneration.store(_frameSource->ResourceGeneration(), std::memory_order_release);
 	FrameTrace::Scope traceRender(FrameTrace::Event::BackendRender, isNewCaptureFrame);
 	_stepTimer.PrepareForRender();
+	_effectsProfiler.OnFrame(_backendResources.GetD3DDevice(), _frameSource->CaptureSequence(),
+		_frameSource->ResourceGeneration(), isNewCaptureFrame);
 	if (isNewCaptureFrame) {
 		const auto captureTime = std::chrono::steady_clock::now();
 		const uint64_t sequence = _frameSource->CaptureSequence();
@@ -4026,7 +4034,7 @@ void Renderer::_BackendRender(
 			FrameTrace::Mark(FrameTrace::Event::EffectReuse, i, inputRevision);
 			VRRPerformance::Record(VRRPerformance::Event::EffectReuse);
 			// Keep the profiler's pass slots aligned without executing image work.
-			for (size_t p = 0; p < desc.passes.size(); ++p) _effectsProfiler.OnEndPass(d3dDC);
+			for (size_t p = 0; p < desc.passes.size(); ++p) _effectsProfiler.OnEndPass(d3dDC, false);
 			inputRevision = frameState.OutputRevision();
 			inputHistoryRevision = frameState.OutputHistoryRevision();
 			continue;
@@ -4187,7 +4195,7 @@ void Renderer::_BackendRender(
 	if (_nvidiaVfxFrameGenerator) {
 		_vfxUpstreamHistoryRevision = inputHistoryRevision;
 		for (size_t i = preEnd; i < _effectDrawers.size(); ++i)
-			for (size_t p = 0; p < _activeEffectDescs[i]->passes.size(); ++p) _effectsProfiler.OnEndPass(d3dDC);
+			for (size_t p = 0; p < _activeEffectDescs[i]->passes.size(); ++p) _effectsProfiler.OnEndPass(d3dDC, false);
 		effectsOutput = _vfxSourceTexture.get();
 	}
 	_effectsProfiler.OnEndEffects(d3dDC);
@@ -4587,11 +4595,6 @@ bool Renderer::_PublishBackendTexture(
 			_sharedTextureTimestamps[sharedTextureSlot].store(
 				_frameSource->CaptureTimestamp100ns(), std::memory_order_release);
 			_sharedFrameMetadata[sharedTextureSlot] = publicationMetadata;
-			_sharedScreenshotFrames[sharedTextureSlot] =
-				_backendScreenshotFrame && _backendScreenshotFrame->Identity().Matches(
-					{ publicationMetadata.frameId, publicationMetadata.captureSequence,
-						publicationMetadata.resourceGeneration }, generatedFrame)
-				? _backendScreenshotFrame : nullptr;
 			_sharedReflexIds[sharedTextureSlot] = { _reflex.CaptureFrameId(), reflexPresentId };
 			hr = ReleasePresentationTextures(mutexes, key);
 			if (SUCCEEDED(hr)) _sharedTextureMutexKeys[sharedTextureSlot].store(key, std::memory_order_release);
@@ -4736,6 +4739,8 @@ winrt::IAsyncOperation<bool> Renderer::_TakeScreenshotImpl(
 	uint32_t passIdx,
 	uint32_t outputIdx
 ) noexcept {
+	const auto timestamp = ScreenshotHelper::CaptureTimestamp();
+	std::wstring exportSide = L"output";
 	const bool displayed = effectIdx == std::numeric_limits<uint32_t>::max();
 	// Snapshot session data before the first suspension. No ScalingWindow
 	// state is read during encoding or notification on a background thread.
@@ -4782,6 +4787,7 @@ winrt::IAsyncOperation<bool> Renderer::_TakeScreenshotImpl(
 		exportHdr = exportColor.transfer == HdrTransferFunction::Linear || exportColor.transfer == HdrTransferFunction::PQ;
 		imgFormat = L"png";
 	} else if (passIdx == std::numeric_limits<uint32_t>::max()) {
+		exportSide = fmt::format(L"effect_{:02}_output", effectIdx + 1);
 		sourceTex = _effectDrawers[effectIdx].GetOutputTexture();
 		setOutputColor();
 		imgFormat = L"png";
@@ -4795,6 +4801,7 @@ winrt::IAsyncOperation<bool> Renderer::_TakeScreenshotImpl(
 		const uint32_t targetOutput =
 			outputIdx == std::numeric_limits<uint32_t>::max() ? outputs[0] : outputs[outputIdx];
 
+		exportSide = fmt::format(L"effect_{:02}_pass_{:02}_texture_{:02}", effectIdx + 1, passIdx + 1, targetOutput);
 		// OUTPUT has a canonical scene counterpart; intermediate DDS surfaces
 		// retain the backend's raw format and values instead.
 		sourceTex = targetOutput == 1 ? _effectDrawers[effectIdx].GetOutputTexture()
@@ -4929,12 +4936,12 @@ winrt::IAsyncOperation<bool> Renderer::_TakeScreenshotImpl(
 		fail(ScalingError::ScreenshotDirectoryFailed, "CreateDir", GetLastError());
 		co_return false;
 	}
-	const uint32_t screenshotNum = ScreenshotHelper::FindUnusedScreenshotNum(screenshotsDir);
-	if (!screenshotNum) {
+	const auto stem = ScreenshotHelper::FindUnusedScreenshotStem(screenshotsDir, timestamp);
+	if (stem.empty()) {
 		fail(ScalingError::ScreenshotDirectoryFailed, "Enumerate screenshot directory");
 		co_return false;
 	}
-	const std::wstring fileName = fmt::format(L"Magpie_{:03}.{}", screenshotNum, imgFormat);
+	const std::wstring fileName = fmt::format(L"{}_{}.{}", stem, exportSide, imgFormat);
 	const auto fullPath = screenshotsDir / fileName;
 	TextureSaveError saveError;
 	if (!TextureHelper::SaveTextureExclusive(fullPath.c_str(), desc.Width, desc.Height,

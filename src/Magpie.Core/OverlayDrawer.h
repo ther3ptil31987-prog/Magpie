@@ -4,11 +4,14 @@
 #include "ImGuiImpl.h"
 #include "ScalingOptions.h"
 #include "EffectParameterResetGesture.h"
+#include "ProfilerHistory.h"
+#include "PresentationFrameRate.h"
 
 namespace Magpie {
 
 struct EffectDesc;
 struct EffectParameterDesc;
+struct EffectsProfilerSnapshot;
 
 class OverlayDrawer {
 public:
@@ -21,7 +24,7 @@ public:
 
 	void Draw(
 		uint32_t fps,
-		const SmallVector<float>& effectTimings,
+		const EffectsProfilerSnapshot& profile,
 		POINT drawOffset,
 		float hdrWhiteScale
 	) noexcept;
@@ -148,7 +151,10 @@ private:
 	bool _DrawToolbar(uint32_t fps, int& itemId) noexcept;
 	void _DrawToolbarDockHints(const ToolbarGeometry& geometry) noexcept;
 
-	bool _DrawProfiler(const SmallVector<float>& effectTimings, uint32_t fps, int& itemId) noexcept;
+	bool _DrawProfiler(const EffectsProfilerSnapshot& profile, uint32_t fps, int& itemId) noexcept;
+	bool _BeginProfilerWindow() noexcept;
+	bool _DrawProfilerGraphs(const EffectsProfilerSnapshot& profile) noexcept;
+	void _DrawProfilerGraph(const ProfilerHistory::Plot& plot, int metric, bool available) noexcept;
 	bool _DrawEffectParameters(int& itemId) noexcept;
 	void _InitEffectParameterValues() noexcept;
 	void _SyncEffectParameterValues() noexcept;
@@ -173,6 +179,14 @@ private:
 
 	std::chrono::steady_clock::time_point _lastUpdateTime{};
 	std::chrono::steady_clock::time_point _lastProfilerDrawTime{};
+	uint64_t _profilerGeneration = 0;
+	std::array<float, 3> _profilerGraphMax{};
+	PresentationProfilerSnapshot _profilerOutputProfile{};
+	bool _profilerTimingKnown = false;
+	bool _profilerWindowLayoutInitialized = false;
+	bool _profilerWindowLayoutDirty = false;
+	ImVec2 _profilerViewport{};
+	OverlayWindowRect _profilerWindowRect{};
 	// (总计时间, 帧数)
 	SmallVector<std::pair<float, uint32_t>, 0> _effectTimingsStatistics;
 	SmallVector<float> _lastestAvgEffectTimings;
